@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/routing";
 import { actorFor } from "@/lib/admin/actor";
 import { ContentError, deletePageTranslation, PageInput, savePageTranslation } from "@/lib/admin/content";
 import type { ContentPageKey } from "@/lib/admin/content-pages";
+import { HOME_SECTION_FIELDS } from "@/lib/content/home";
 import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import { CONTENT_TAG } from "@/lib/content/source";
 import { formValues, issuesToErrors, type FormState } from "@/components/admin/form-state";
@@ -36,6 +37,7 @@ export async function savePageAction(
             title: v[`point${n}Title`] ?? "",
             text: v[`point${n}Text`] ?? "",
           })),
+          sections: Object.fromEntries(HOME_SECTION_FIELDS.map(([k]) => [k, v[`section_${k}`] ?? ""])),
         }
       : null;
   try {

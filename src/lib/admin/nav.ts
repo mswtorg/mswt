@@ -80,6 +80,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { key: "media", label: "Media", href: "/admin/content/media", icon: "media", anyOf: ["cms.write"] },
       { key: "menus", label: "Menus", href: "/admin/content/menus", icon: "menus", anyOf: ["cms.write"] },
       {
+        key: "sample",
+        label: "Sample content",
+        href: "/admin/content/sample",
+        icon: "sample",
+        anyOf: ["content.sample"],
+      },
+      {
         key: "messages",
         label: "Messages",
         href: "/admin/content/messages",

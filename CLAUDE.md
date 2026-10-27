@@ -35,7 +35,7 @@ src/lib/seo/              buildMetadata, site/host helpers, OG renderer, IndexNo
 src/components/seo/       <JsonLd> — the page's single structured-data block
 data/organization.json    public Trust facts → `npm run org:sync` (until the Step 8 admin)
 data/content/content.json first-load content and legal drafts (`npm run content:sync`); since Step 8c content is edited in Admin → Content
-data/sample/content.json  sample content for local/preview builds only (never in production)
+data/sample/content.json  sample content: local/CI fallback, and imported by Admin → Content → Sample content
 src/lib/content/          block format, content file schema, loaders (language + review rule)
 src/lib/settings.ts       cached DB settings (seo, organization) — revalidate tags after admin edits
 src/lib/receipts/         numbering, receipt rules, amount in words, PDF (pdfkit; TTF fonts in src/assets/receipt), signed links

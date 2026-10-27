@@ -20,6 +20,8 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "active", "closed"]),
         goalPaise: z.number().int().positive().nullable().default(null),
         raisedPaise: z.number().int().nonnegative().default(0),
@@ -42,6 +44,8 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         eventStatus: z
           .enum(["scheduled", "cancelled", "postponed", "rescheduled", "moved_online"])
@@ -77,6 +81,8 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         publishedAt: isoInstant,
         authorName: z.string().nullable().default(null),
@@ -97,6 +103,8 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         publishedAt: isoInstant.nullable().default(null),
         albumDate: z.iso.date().nullable().default(null),
@@ -122,6 +130,7 @@ export const ContentFileSchema = z.object({
   reports: z
     .array(
       z.object({
+        isSample: z.boolean().default(false),
         fy: z.string().regex(/^\d{4}-\d{2}$/),
         kind: z.enum(["annual_report", "audited_accounts", "other"]),
         status: z.enum(["draft", "published"]),
@@ -134,7 +143,19 @@ export const ContentFileSchema = z.object({
     .default([]),
   pages: z
     .partialRecord(
-      z.enum(["about", "transparency", "contact", "privacy", "terms", "refund_policy", "disclaimer_80g"]),
+      z.enum([
+        "about",
+        "transparency",
+        "contact",
+        "privacy",
+        "terms",
+        "refund_policy",
+        "disclaimer_80g",
+        "causes",
+        "gallery",
+        "events",
+        "news",
+      ]),
       per(
         z.object({
           title: z.string().min(1),

@@ -76,6 +76,7 @@ async function databaseContent(): Promise<ContentFile> {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((c) => ({
         slug: c.slug,
+        isSample: c.isSample,
         status: c.status,
         goalPaise: c.goalPaise,
         raisedPaise: c.raisedPaise,
@@ -92,6 +93,7 @@ async function databaseContent(): Promise<ContentFile> {
       })),
     events: events.map((e) => ({
       slug: e.slug,
+      isSample: e.isSample,
       status: e.status,
       eventStatus: e.eventStatus,
       attendance: e.attendance,
@@ -120,6 +122,7 @@ async function databaseContent(): Promise<ContentFile> {
       .filter((n) => n.publishedAt)
       .map((n) => ({
         slug: n.slug,
+        isSample: n.isSample,
         status: n.status,
         publishedAt: n.publishedAt!.toISOString(),
         authorName: n.authorName,
@@ -136,6 +139,7 @@ async function databaseContent(): Promise<ContentFile> {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((a) => ({
         slug: a.slug,
+        isSample: a.isSample,
         status: a.status,
         publishedAt: iso(a.publishedAt),
         albumDate: a.albumDate,
@@ -162,6 +166,7 @@ async function databaseContent(): Promise<ContentFile> {
       })),
     reports: reports.map((r) => ({
       fy: r.fy,
+      isSample: r.isSample,
       kind: r.kind,
       status: r.status,
       pdfKey: r.pdfR2Key,
@@ -214,14 +219,16 @@ export function mergeContent(
 export type SiteContent = ContentFile & { sampleParts: string[] };
 
 /**
- * All public content. Production reads only the database. Previews and local builds fall back to
- * data/content (drafts such as the legal pages) and then data/sample for anything the database
- * doesn't have yet, so pages can be reviewed before real content exists.
+ * All public content. Stage and production read only the database (everything is edited in the
+ * admin; "Load sample content" adds examples). Local and CI builds fall back to data/content (legal
+ * drafts) and then data/sample for anything the database doesn't have, so tests run on any database.
  */
 export const getSiteContent = unstable_cache(
   async (): Promise<SiteContent> => {
     const fromDb = await databaseContent();
-    if (isProduction()) return { ...fromDb, sampleParts: [] };
+    // Deployed sites (stage and production) show admin content only; local and CI builds fall back
+    // to the draft and sample files for anything the database doesn't have.
+    if (process.env.VERCEL_ENV) return { ...fromDb, sampleParts: [] };
     const drafts = await readContentFile("data/content/content.json");
     const sample = await readContentFile("data/sample/content.json");
     // sampleParts lists only what came from data/sample (drafts carry their own "pending review" banner).

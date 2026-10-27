@@ -4,6 +4,8 @@ import { config } from "dotenv";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { ensureDefaults } from "../src/lib/admin/defaults";
+import * as schema from "../src/lib/db/schema";
 
 config({ path: [".env.local", ".env"], quiet: true });
 
@@ -17,6 +19,10 @@ const sql = postgres(url, { max: 1, onnotice: () => {} });
 try {
   await migrate(drizzle(sql), { migrationsFolder: "drizzle" });
   console.log(`Migrations applied to ${new URL(url).host}`);
+  // Built-in page texts and menus into the database (fills gaps only; never overwrites edits).
+  const filled = await ensureDefaults(drizzle(sql, { schema }));
+  if (filled.pages || filled.menus)
+    console.log(`Defaults added: ${filled.pages} page texts, ${filled.menus} menus`);
 } finally {
   await sql.end();
 }

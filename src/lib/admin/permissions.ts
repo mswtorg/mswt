@@ -27,6 +27,7 @@ export const CAPABILITIES = {
   "cms.write": CONTENT, // pages, gallery, events, news, menus, media
   "messages.read": ALL,
   "messages.write": CONTENT,
+  "content.sample": SA, // load/remove sample content (Step 8c)
   "settings.organization": SA,
   "settings.seo": CONTENT,
   "settings.payment": SA,

@@ -87,6 +87,12 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M8c-8 Sliders on a phone and with a screen reader.** Swipe an event's slider on Android and iPhone; open the full-screen viewer and close it. With VoiceOver/NVDA, the buttons say "Next photo", "Photo 2 of 5" and the viewer announces the photo.
 - [ ] **M8c-9 Menus.** Rename a header link in Hindi and check `/hi`; add a link to a cause; reset the menu and check the built-in one is back.
 
+## Admin-managed menu pages and sample content
+
+- [ ] **M8c-10 Load sample content on stage.** Admin → Content → **Sample content** → Load sample content (takes up to a minute). Then visit Home, Causes, Events, News, Gallery, Transparency, About and Contact: every page shows the sample items and photos, and all of it is editable in the admin.
+- [ ] **M8c-11 Edit a list page.** Content → Pages → Causes (list) → change the heading in Hindi, mark reviewed, check `/hi/causes`.
+- [ ] **M8c-12 Production (when ready).** Loading sample content on production adds hidden drafts only; mark reviewed only what should go live, or use Remove sample content.
+
 ## Workflow setup (stage → main)
 
 - [ ] **MW-1 Production secrets.** In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.

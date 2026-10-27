@@ -195,9 +195,30 @@ test.describe("admin content 2", () => {
     await pick("Photos", [photos[0]!.name, photos[1]!.name]);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(/Saved/)).toBeVisible();
-    await page.goto("/en");
     const slider = page.getByRole("region", { name: "Photos" });
-    await expect(slider).toBeVisible();
+    await expect(async () => {
+      await page.goto("/en");
+      await expect(slider).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
     await expect(slider.getByRole("img").first()).toHaveAttribute("loading", "eager");
+  });
+});
+
+test.describe("list pages from the admin", () => {
+  test.skip(({ isMobile }) => !process.env.CI || isMobile, "writes to the database; CI only");
+
+  test("the Causes list heading is edited in Hindi and shows on /hi/causes", async ({ page }) => {
+    await signInFirstTime(page, await createUser("content_editor"));
+    await page.goto("/admin/content/pages/causes?lang=hi");
+    await expect(page.locator("#page-h1")).not.toHaveValue("");
+    const heading = `सेवा कार्य ${Date.now() % 10000}`;
+    await page.locator("#page-h1").fill(heading);
+    await page.getByLabel(/Reviewed by a person/).check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText(/Saved/).first()).toBeVisible();
+    await expect(async () => {
+      await page.goto("/hi/causes");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading, { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
   });
 });
