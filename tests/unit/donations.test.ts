@@ -252,9 +252,31 @@ describe("Cashfree events", () => {
     });
   });
   it("maps failures, drops and refunds; ignores the rest", () => {
-    expect(parseCashfreeWebhook(ev("PAYMENT_USER_DROPPED_WEBHOOK", { order: { order_id: "o" } })).kind).toBe(
-      "payment_failed",
-    );
+    expect(
+      parseCashfreeWebhook(ev("PAYMENT_USER_DROPPED_WEBHOOK", { order: { order_id: "o" } })),
+    ).toMatchObject({
+      kind: "payment_failed",
+      dropped: true,
+      reason: null,
+    });
+    expect(
+      parseCashfreeWebhook(
+        ev("PAYMENT_FAILED_WEBHOOK", {
+          order: { order_id: "o" },
+          payment: { cf_payment_id: 5, payment_status: "FAILED", payment_message: "Transaction declined" },
+          error_details: { error_description: "Card declined by the bank", error_reason: "bank_declined" },
+        }),
+      ),
+    ).toMatchObject({ kind: "payment_failed", dropped: false, reason: "Card declined by the bank" });
+    expect(
+      parseCashfreeWebhook(
+        ev("PAYMENT_FAILED_WEBHOOK", {
+          order: { order_id: "o" },
+          payment: { cf_payment_id: 6, payment_message: "Transaction declined" },
+          error_details: null,
+        }),
+      ),
+    ).toMatchObject({ reason: "Transaction declined" });
     expect(
       parseCashfreeWebhook(
         ev("REFUND_STATUS_WEBHOOK", { refund: { cf_refund_id: 9, order_id: "o", refund_status: "SUCCESS" } }),

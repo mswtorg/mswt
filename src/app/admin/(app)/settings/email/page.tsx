@@ -5,6 +5,9 @@ import { db } from "@/lib/db/client";
 import { emailSettings } from "@/lib/db/schema";
 import { saveEmail } from "../actions";
 import { SettingsPage } from "../SettingsPage";
+import { AdminForm } from "@/components/admin/AdminForm";
+import { Card, Section } from "@/components/admin/ui";
+import { sendSummaryNowAction } from "./actions";
 
 export const metadata: Metadata = { title: "Email" };
 
@@ -34,7 +37,8 @@ export default async function EmailSettingsPage() {
         },
         {
           title: "Admin alerts",
-          description: "Who is told about new donations and messages.",
+          description:
+            "Who gets the alert emails: new donations, failed payments, payment problems, contact messages and the daily summary (sent after the nightly check at 03:00 India time, only when something happened).",
           fields: [
             {
               name: "adminAlertRecipients",
@@ -47,6 +51,23 @@ export default async function EmailSettingsPage() {
           ],
         },
       ]}
+      after={
+        <Card>
+          <Section
+            id="summary-now"
+            title="Daily summary"
+            description="Sends yesterday's summary (India time) to the recipients above now, even if there is nothing to report. Use it to check the email; it doesn't run the nightly payment check."
+          >
+            <AdminForm
+              id="summary-now-form"
+              action={sendSummaryNowAction}
+              submitLabel="Send yesterday's summary now"
+              pendingLabel="Sending…"
+              fields={[]}
+            />
+          </Section>
+        </Card>
+      }
     />
   );
 }

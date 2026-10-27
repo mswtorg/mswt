@@ -4,6 +4,7 @@ import {
   contactAlert,
   dailySummaryEmail,
   donationAlert,
+  paymentFailedAlert,
   paymentProblemAlert,
   subjectPart,
   summaryIsEmpty,
@@ -43,6 +44,8 @@ const emptySummary: DailySummary = {
   fixedByCheck: 0,
   receiptsNotEmailed: 0,
   newMessages: 0,
+  failed: [],
+  abandoned: 0,
   problems: [],
   adminUrl: "https://mswelfaretrust.org/admin/donations",
 };
@@ -74,6 +77,27 @@ describe("admin alert subjects", () => {
     ).toBe("[MSWT] [Daily summary] 26 October 2026 – 4 donations, ₹7,500");
   });
 
+  it("name the reason a payment failed", () => {
+    const failed = {
+      amountPaise: 100000,
+      towards: "General fund",
+      reason: "Card declined by the bank",
+      dropped: false,
+      donorName: "Asha <b>Rao</b>",
+      donorEmail: "asha@example.com",
+      orderId: "MSWT-abc",
+      attemptedAt: "26 October 2026 at 4:10 pm",
+      adminUrl: "https://mswelfaretrust.org/admin/donations/1",
+    };
+    const e = paymentFailedAlert(failed);
+    expect(e.subject).toBe("[MSWT] [Payment failed] ₹1,000 – Card declined by the bank – MSWT-abc");
+    expect(e.html).toContain("Asha &lt;b&gt;Rao&lt;/b&gt;");
+    expect(paymentFailedAlert({ ...failed, dropped: true }).subject).toContain(
+      "Donor closed the payment page",
+    );
+    expect(paymentFailedAlert({ ...failed, reason: null }).subject).toContain("Declined (no reason given)");
+  });
+
   it("keep visitor text on one line", () => {
     const s = contactAlert(contact).subject;
     expect(s).not.toMatch(/[\r\n]/);
@@ -101,6 +125,26 @@ describe("email bodies", () => {
     const s = dailySummaryEmail({ ...emptySummary, problems: [{ reference: "MSWT-x", error: "<boom>" }] });
     expect(s.subject).toContain("1 problem");
     expect(s.html).toContain("&lt;boom&gt;");
+  });
+
+  it("list failed and abandoned payments in the daily summary", () => {
+    const failed = Array.from({ length: 12 }, (_, i) => ({
+      reference: `MSWT-${i}`,
+      amountPaise: 50000,
+      reason: i === 0 ? "Card declined <x>" : "Donor closed the payment page",
+    }));
+    expect(summaryIsEmpty({ ...emptySummary, abandoned: 2 })).toBe(false);
+    const s = dailySummaryEmail({ ...emptySummary, failed, abandoned: 2 });
+    expect(s.subject).toContain("12 failed");
+    expect(s.html).toContain("Card declined &lt;x&gt;");
+    expect(s.text).toContain("MSWT-9");
+    expect(s.text).not.toContain("MSWT-10");
+    expect(s.text).toContain("and 2 more");
+    expect(s.text).toMatch(/Abandoned \(never paid\)\D*2/);
+  });
+
+  it("say so when a summary sent on request has nothing in it", () => {
+    expect(dailySummaryEmail(emptySummary).text).toContain("Nothing to report for this day.");
   });
 
   it("start donor-facing subjects with the Trust's name", async () => {

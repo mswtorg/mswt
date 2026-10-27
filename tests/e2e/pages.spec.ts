@@ -83,7 +83,7 @@ test("main navigation links to the new pages", async ({ page, isMobile }) => {
   if (isMobile) await page.getByRole("button", { name: "Menu" }).click();
   const nav = page.getByRole("navigation", { name: "Main" });
   for (const name of ["About", "Causes", "Gallery", "Events", "News", "Transparency", "Contact"]) {
-    await expect(nav.getByRole("link", { name })).toBeVisible();
+    await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
   }
 });
 

@@ -1,15 +1,21 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { notifyContactMessage } from "@/lib/contact/notify";
 import { db } from "@/lib/db/client";
-import { auditLog, donations, emailSettings, messages, receipts } from "@/lib/db/schema";
+import { auditLog, donations, emailSettings, messages, paymentEvents, receipts } from "@/lib/db/schema";
+import { withTx } from "@/lib/db/tx";
 import { confirmOnlinePayment } from "@/lib/donations/confirm";
 import { createOnlineDonation } from "@/lib/donations/create";
 import { donateSchema } from "@/lib/donations/schema";
-import { buildDailySummary, previousIstDay } from "@/lib/donations/summary";
+import { buildDailySummary, previousIstDay, sendDailySummary } from "@/lib/donations/summary";
 import { handlePaymentWebhook } from "@/lib/donations/webhook";
 import { sentEmails } from "@/lib/email";
-import { getPaymentSettingsFresh, type PaymentSettings } from "@/lib/payment-settings";
+import {
+  getPaymentSettingsFresh,
+  PaymentSettingsInput,
+  updatePaymentSettings,
+  type PaymentSettings,
+} from "@/lib/payment-settings";
 import { FakeProvider } from "@/lib/payments/fake";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -111,6 +117,26 @@ describe("admin alerts", () => {
     await db.delete(messages).where(eq(messages.id, m!.id));
   });
 
+  it("emails every failed payment once, with the reason, and not for a paid donation", async () => {
+    const o = await donate();
+    const hook = FakeProvider.settle(o.publicOrderId, "failed");
+    await deliver(hook);
+    await deliver(hook); // Cashfree retry: same event
+    const sent = alertsAbout(
+      `[MSWT] [Payment failed] ₹1,500 – Card declined by the bank – ${o.publicOrderId}`,
+    );
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.text).toContain("Alert Donor");
+
+    // A late failure for an attempt on an order that was paid on the second try: no alert.
+    const paid = await donate();
+    await deliver(FakeProvider.settle(paid.publicOrderId, "paid"));
+    await deliver(FakeProvider.settle(paid.publicOrderId, "failed"));
+    expect(
+      alertsAbout(`[MSWT] [Payment failed]`).filter((m) => m.subject.endsWith(paid.publicOrderId)),
+    ).toHaveLength(0);
+  });
+
   it("a failing email provider never undoes the payment", async () => {
     const o = await donate();
     const push = vi.spyOn(sentEmails, "push").mockImplementation(() => {
@@ -154,5 +180,62 @@ describe("daily summary", () => {
     expect(s.totalPaise).toBe(150000);
     expect(s.byMode).toEqual([{ mode: "Online", count: 1, totalPaise: 150000 }]);
     expect(s.problems).toContainEqual({ reference: "MSWT-x", error: "gateway timeout" });
+  });
+
+  it("lists failed payments and abandoned donations of the day", async () => {
+    const day = new Date("2001-03-04T10:00:00+05:30");
+    const failed = await donate();
+    await deliver(FakeProvider.settle(failed.publicOrderId, "failed"));
+    const [d] = await db.select().from(donations).where(eq(donations.publicOrderId, failed.publicOrderId));
+    await db.update(paymentEvents).set({ receivedAt: day }).where(eq(paymentEvents.donationId, d!.id));
+    const gone = await donate();
+    await db
+      .update(donations)
+      .set({ status: "expired", updatedAt: day })
+      .where(eq(donations.publicOrderId, gone.publicOrderId));
+    const s = await buildDailySummary(new Date("2001-03-05T03:00:00+05:30"), { updated: 0, errors: [] });
+    expect(s.failed).toEqual([
+      { reference: failed.publicOrderId, amountPaise: 150000, reason: "Card declined by the bank" },
+    ]);
+    expect(s.abandoned).toBe(1);
+  });
+
+  it("sends an empty summary only when asked to (Send now)", async () => {
+    const quiet = new Date("2001-05-06T03:00:00+05:30");
+    const before = sentEmails.length;
+    expect(await sendDailySummary(quiet, { updated: 0, errors: [] })).toEqual({ sent: 0 });
+    expect(sentEmails.length).toBe(before);
+    expect(await sendDailySummary(quiet, { updated: 0, errors: [] }, { force: true })).toEqual({ sent: 1 });
+    const [mail] = alertsAbout("[MSWT] [Daily summary] 5 May 2001");
+    expect(mail!.text).toContain("Nothing to report for this day.");
+  });
+});
+
+describe("home donate box setting", () => {
+  it("is on by default and switching it is audited", async () => {
+    const current = (await getPaymentSettingsFresh())!;
+    expect(current.homeDonateBox).toBe(true);
+    const input = (homeDonateBox: boolean) =>
+      PaymentSettingsInput.parse({
+        presetAmountsPaise: current.presetAmountsPaise,
+        minAmountPaise: current.minAmountPaise,
+        maxAmountPaise: current.maxAmountPaise,
+        feeCoverEnabled: current.feeCoverEnabled,
+        feeCoverPercentBp: current.feeCoverPercentBp,
+        homeDonateBox,
+      });
+    try {
+      await withTx((tx) => updatePaymentSettings(tx, input(false), { userId: null }));
+      expect((await getPaymentSettingsFresh())!.homeDonateBox).toBe(false);
+      const [entry] = await db
+        .select()
+        .from(auditLog)
+        .where(eq(auditLog.action, "settings.payment.update"))
+        .orderBy(desc(auditLog.createdAt))
+        .limit(1);
+      expect(entry!.after).toMatchObject({ homeDonateBox: false });
+    } finally {
+      await withTx((tx) => updatePaymentSettings(tx, input(true), { userId: null }));
+    }
   });
 });

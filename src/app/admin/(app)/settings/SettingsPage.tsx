@@ -11,6 +11,7 @@ export function SettingsPage({
   action,
   sections,
   aside,
+  after,
 }: {
   title: string;
   intro: ReactNode;
@@ -18,12 +19,15 @@ export function SettingsPage({
   action: (prev: FormState, form: FormData) => Promise<FormState>;
   sections: FormSectionSpec[];
   aside?: ReactNode;
+  /** Shown below the form (separate actions such as "Send now"). */
+  after?: ReactNode;
 }) {
   return (
     <>
       <PageHeader title={title} description={intro} />
       {aside}
       <AdminForm id={id} action={action} sections={sections} submitLabel="Save changes" sticky />
+      {after}
     </>
   );
 }

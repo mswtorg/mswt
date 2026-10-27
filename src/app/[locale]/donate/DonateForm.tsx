@@ -101,13 +101,25 @@ export function DonateForm({
   const [coverFee, setCoverFee] = useState(values.coverFee === "on");
   const [gatewayError, setGatewayError] = useState(false);
 
-  // ?cause=slug from a cause page preselects it (read here so the page itself stays static).
+  // ?cause=slug from a cause page, and ?preset=/?custom= from the Home donate box, fill the form in
+  // (read here so the page itself stays static). The server still checks every value.
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("cause");
+    const query = new URLSearchParams(window.location.search);
+    const slug = query.get("cause");
     const select = document.getElementById("donate-cause");
     if (slug && select instanceof HTMLSelectElement && config.causes.some((c) => c.slug === slug))
       select.value = slug;
-  }, [config.causes]);
+    const custom = query.get("custom")?.trim();
+    const preset = Number(query.get("preset"));
+    // One read of the URL after hydration (the static page can't know it while rendering).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (custom && /^\d{1,9}(\.\d{1,2})?$/.test(custom)) setCustom(custom);
+    else if (config.presets.includes(preset)) {
+      setPreset(String(preset));
+      const radio = document.querySelector<HTMLInputElement>(`input[name="preset"][value="${preset}"]`);
+      if (radio) radio.checked = true;
+    }
+  }, [config.causes, config.presets]);
 
   useEffect(() => {
     if (state.status === "error") {

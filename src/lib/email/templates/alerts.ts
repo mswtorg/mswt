@@ -8,6 +8,7 @@ export const ALERT_PREFIX = {
   donation: "[MSWT] [Donation]",
   contact: "[MSWT] [Contact]",
   paymentProblem: "[MSWT] [Payment problem]",
+  paymentFailed: "[MSWT] [Payment failed]",
   dailySummary: "[MSWT] [Daily summary]",
 } as const;
 
@@ -140,6 +141,48 @@ export function paymentProblemAlert(x: PaymentProblem): Email {
   );
 }
 
+export type PaymentFailed = {
+  amountPaise: Paise;
+  towards: string;
+  /** Cashfree's or the bank's reason; null when none was given. */
+  reason: string | null;
+  /** The donor closed the payment page instead of paying. */
+  dropped: boolean;
+  donorName: string;
+  donorEmail: string;
+  orderId: string;
+  attemptedAt: string;
+  adminUrl: string;
+};
+
+/** A plain-language reason for the subject and body. */
+export function failureReason(x: Pick<PaymentFailed, "reason" | "dropped">): string {
+  if (x.dropped) return "Donor closed the payment page";
+  return x.reason?.trim() || "Declined (no reason given)";
+}
+
+export function paymentFailedAlert(x: PaymentFailed): Email {
+  const amount = formatRupees(x.amountPaise, "en");
+  const reason = failureReason(x);
+  return alert(
+    "paymentFailed",
+    `${amount} – ${subjectPart(reason, 50)} – ${x.orderId}`,
+    [
+      ["Amount", amount],
+      ["Towards", x.towards],
+      ["Reason", reason],
+      ["Donor", x.donorName],
+      ["Email", x.donorEmail],
+      ["Attempted", x.attemptedAt],
+      ["Order", x.orderId],
+    ],
+    {
+      lead: "A donor's payment didn't go through. Nothing was charged and no receipt was issued. The donor can try again from the same page; you may want to contact them.",
+      adminUrl: x.adminUrl,
+    },
+  );
+}
+
 export type DailySummary = {
   /** Day covered, e.g. "26 Oct 2026" (Asia/Kolkata). */
   day: string;
@@ -150,6 +193,10 @@ export type DailySummary = {
   fixedByCheck: number;
   receiptsNotEmailed: number;
   newMessages: number;
+  /** Failed payment attempts that day (each is also emailed as it happens). */
+  failed: { reference: string; amountPaise: Paise; reason: string }[];
+  /** Orders given up on that day (the donor never finished paying). */
+  abandoned: number;
   problems: { reference: string; error: string }[];
   adminUrl: string;
 };
@@ -157,9 +204,29 @@ export type DailySummary = {
 /** Nothing happened and nothing is wrong: no email that day. */
 export function summaryIsEmpty(s: DailySummary): boolean {
   return (
-    !s.count && !s.refunds && !s.fixedByCheck && !s.receiptsNotEmailed && !s.newMessages && !s.problems.length
+    !s.count &&
+    !s.refunds &&
+    !s.fixedByCheck &&
+    !s.receiptsNotEmailed &&
+    !s.newMessages &&
+    !s.failed.length &&
+    !s.abandoned &&
+    !s.problems.length
   );
 }
+
+/** A bulleted list section (problems, failed payments), or nothing when empty. */
+function listSection(title: string, items: string[]): { html: string; text: string } {
+  if (!items.length) return { html: "", text: "" };
+  return {
+    html: `<p style="margin:0 0 8px;font-weight:600">${esc(title)}</p><ul style="margin:0 0 20px;padding-left:20px">${items
+      .map((x) => `<li>${esc(x)}</li>`)
+      .join("")}</ul>`,
+    text: [title, ...items.map((x) => `- ${x}`)].join("\n"),
+  };
+}
+
+const MAX_LISTED = 10;
 
 export function dailySummaryEmail(s: DailySummary): Email {
   const total = formatRupees(s.totalPaise, "en");
@@ -169,30 +236,40 @@ export function dailySummaryEmail(s: DailySummary): Email {
       `  ${mode}`,
       `${count} (${formatRupees(totalPaise, "en")})`,
     ]),
+    ["Failed payments", String(s.failed.length)],
+    ["Abandoned (never paid)", String(s.abandoned)],
     ["Refunds", String(s.refunds)],
     ["Payments confirmed by the daily check", String(s.fixedByCheck)],
     ["Receipts not emailed yet", String(s.receiptsNotEmailed)],
     ["New contact messages", String(s.newMessages)],
   ];
-  const problems = s.problems.length
-    ? {
-        html: `<p style="margin:0 0 8px;font-weight:600">Problems (${s.problems.length})</p><ul style="margin:0 0 20px;padding-left:20px">${s.problems
-          .map((x) => `<li>${esc(x.reference)}: ${esc(x.error)}</li>`)
-          .join("")}</ul>`,
-        text: [
-          `Problems (${s.problems.length}):`,
-          ...s.problems.map((x) => `- ${x.reference}: ${x.error}`),
-        ].join("\n"),
-      }
-    : {};
+  const failedItems = s.failed
+    .slice(0, MAX_LISTED)
+    .map((f) => `${f.reference}: ${formatRupees(f.amountPaise, "en")} – ${f.reason}`);
+  if (s.failed.length > MAX_LISTED) failedItems.push(`and ${s.failed.length - MAX_LISTED} more in the admin`);
+  const sections = [
+    listSection(`Failed payments (${s.failed.length})`, failedItems),
+    listSection(
+      `Problems (${s.problems.length})`,
+      s.problems.map((x) => `${x.reference}: ${x.error}`),
+    ),
+  ];
+  const empty = summaryIsEmpty(s);
+  const html = [
+    empty ? `<p style="margin:0 0 16px">Nothing to report for this day.</p>` : "",
+    ...sections.map((x) => x.html),
+  ].join("");
+  const text = [empty ? "Nothing to report for this day." : "", ...sections.map((x) => x.text)]
+    .filter(Boolean)
+    .join("\n\n");
   const n = s.count === 1 ? "1 donation" : `${s.count} donations`;
-  return alert(
-    "dailySummary",
-    `${s.day} – ${n}, ${total}${s.problems.length ? ` – ${s.problems.length} problem${s.problems.length === 1 ? "" : "s"}` : ""}`,
-    rows,
-    {
-      ...problems,
-      adminUrl: s.adminUrl,
-    },
-  );
+  const extras = [
+    s.failed.length ? `${s.failed.length} failed` : "",
+    s.problems.length ? `${s.problems.length} problem${s.problems.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  return alert("dailySummary", `${s.day} – ${n}, ${total}${extras.map((x) => ` – ${x}`).join("")}`, rows, {
+    html,
+    text,
+    adminUrl: s.adminUrl,
+  });
 }

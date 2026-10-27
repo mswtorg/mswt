@@ -1,9 +1,14 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { donations, receipts } from "@/lib/db/schema";
+import { causeTranslations, donations, receipts } from "@/lib/db/schema";
 import { formatDate } from "@/lib/dates/format";
 import { sendAdminAlert } from "@/lib/email/alerts";
-import { donationAlert, paymentProblemAlert, type PaymentProblem } from "@/lib/email/templates/alerts";
+import {
+  donationAlert,
+  paymentFailedAlert,
+  paymentProblemAlert,
+  type PaymentProblem,
+} from "@/lib/email/templates/alerts";
 import { appOrigin } from "@/lib/seo/site";
 import { deliverReceipt, receiptData } from "./deliver";
 
@@ -87,4 +92,51 @@ export async function deliverAndAlert(receiptId: string): Promise<void> {
     await alertPaymentProblem("Receipt not emailed", r?.number ?? receiptId, message, r?.donationId);
   }
   await alertNewDonation(receiptId);
+}
+
+/**
+ * "[MSWT] [Payment failed] …" for each failed attempt Cashfree reports (owner decision: every
+ * failure). Not sent when the donation is already paid (a later attempt went through). Never throws.
+ */
+export async function alertPaymentFailed(
+  orderId: string,
+  failure: { reason: string | null; dropped: boolean },
+  at: Date = new Date(),
+): Promise<void> {
+  try {
+    const [d] = await db
+      .select({
+        id: donations.id,
+        status: donations.status,
+        totalPaise: donations.totalPaise,
+        name: donations.nameSnapshot,
+        email: donations.emailSnapshot,
+        cause: causeTranslations.title,
+      })
+      .from(donations)
+      .leftJoin(
+        causeTranslations,
+        and(eq(causeTranslations.causeId, donations.causeId), eq(causeTranslations.locale, "en")),
+      )
+      .where(eq(donations.publicOrderId, orderId))
+      .limit(1);
+    if (!d || d.status === "paid" || d.status === "refunded") return;
+    await sendAdminAlert(
+      "paymentFailed",
+      paymentFailedAlert({
+        amountPaise: d.totalPaise,
+        towards: d.cause ?? "General fund",
+        reason: failure.reason,
+        dropped: failure.dropped,
+        donorName: d.name,
+        donorEmail: d.email,
+        orderId,
+        attemptedAt: formatDate("en", at, true),
+        adminUrl: adminUrl(`/admin/donations/${d.id}`),
+      }),
+      { entityType: "donation", entityId: d.id },
+    );
+  } catch (error) {
+    console.error(`Payment-failed alert not sent (${orderId})`, error);
+  }
 }

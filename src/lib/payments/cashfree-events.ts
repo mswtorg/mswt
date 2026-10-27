@@ -19,8 +19,18 @@ const Payload = z.object({
     .object({
       order: z.object({ order_id: z.string() }).partial().optional(),
       payment: z
-        .object({ cf_payment_id: z.union([z.string(), z.number()]), payment_status: z.string() })
+        .object({
+          cf_payment_id: z.union([z.string(), z.number()]),
+          payment_status: z.string(),
+          payment_message: z.string().nullable(),
+        })
         .partial()
+        .optional(),
+      // PAYMENT_FAILED_WEBHOOK: why the bank or Cashfree declined it (shown in the admin alert).
+      error_details: z
+        .object({ error_description: z.string().nullable(), error_reason: z.string().nullable() })
+        .partial()
+        .nullable()
         .optional(),
       refund: Refund.optional(),
       // AUTO_REFUND_STATUS_WEBHOOK: Cashfree returned a payment on its own (paid twice, or paid
@@ -42,8 +52,11 @@ export function parseCashfreeWebhook(rawBody: string): WebhookEvent {
 
   if (p.type === "PAYMENT_SUCCESS_WEBHOOK" && orderId && paymentId)
     return { kind: "payment_success", orderId, paymentId, eventId };
-  if ((p.type === "PAYMENT_FAILED_WEBHOOK" || p.type === "PAYMENT_USER_DROPPED_WEBHOOK") && orderId)
-    return { kind: "payment_failed", orderId, paymentId, eventId };
+  if ((p.type === "PAYMENT_FAILED_WEBHOOK" || p.type === "PAYMENT_USER_DROPPED_WEBHOOK") && orderId) {
+    const dropped = p.type === "PAYMENT_USER_DROPPED_WEBHOOK";
+    const reason = p.data.error_details?.error_description || p.data.payment?.payment_message || null;
+    return { kind: "payment_failed", orderId, paymentId, eventId, reason, dropped };
+  }
   const auto = p.type === "AUTO_REFUND_STATUS_WEBHOOK";
   if (
     (p.type === "REFUND_STATUS_WEBHOOK" || auto) &&

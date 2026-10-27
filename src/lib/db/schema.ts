@@ -197,6 +197,8 @@ export const paymentSettings = pgTable(
     // Section 80G(5D): cash above ₹2,000 is not deductible.
     cash80gLimitPaise: paise("cash_80g_limit_paise").default(200000).notNull(),
     providerMode: providerMode("provider_mode").default("sandbox").notNull(),
+    // Admin → Settings → Payments: the quick donate box on Home.
+    homeDonateBox: boolean("home_donate_box").default(true).notNull(),
     updatedBy: updatedBy(),
     updatedAt: updatedAt(),
   },

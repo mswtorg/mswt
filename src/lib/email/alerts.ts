@@ -13,23 +13,26 @@ export async function alertRecipients(): Promise<string[]> {
 
 /**
  * Sends an admin alert to every alert recipient. Never throws: the donation or message it reports
- * is already saved, so a failed alert is logged and noted in the audit log instead.
+ * is already saved, so a failed alert is logged and noted in the audit log instead. Returns how many
+ * recipients it went to, and the error if sending failed.
  */
 export async function sendAdminAlert(
   kind: AlertKind,
   email: Email,
   opts: { entityType: string; entityId?: string | null; replyTo?: EmailMessage["replyTo"] },
-): Promise<void> {
-  let recipients: string[] = [];
+): Promise<{ sent: number; error?: string }> {
+  let sent = 0;
   try {
-    recipients = await alertRecipients();
-    for (const to of recipients)
+    for (const to of await alertRecipients()) {
       await getEmailProvider().send({
         ...email,
         to: { email: to },
         replyTo: opts.replyTo,
         tag: `alert-${kind}`,
       });
+      sent++;
+    }
+    return { sent };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Admin alert not sent (${kind})`, message);
@@ -45,5 +48,6 @@ export async function sendAdminAlert(
         },
       ),
     ).catch((e) => console.error("Audit entry for the failed alert not written", e));
+    return { sent, error: message };
   }
 }
