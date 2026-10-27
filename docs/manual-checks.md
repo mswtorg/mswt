@@ -11,6 +11,7 @@ Production runs the latest release (2026-10-27) and its page texts and menus can
 - [ ] **P-3 CORS rule on `mswt-prod-media`** for PDF uploads (same JSON as M8c-6).
 - [ ] **P-4 Email (Brevo).** `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS` (verified sender), `EMAIL_FROM_NAME=MS Welfare Trust`. Brevo → Security → Authorised IPs must stay off.
 - [ ] **P-5 Secrets.** New values, not stage's: `RECEIPT_LINK_SECRET` (`openssl rand -base64 32`) and `CRON_SECRET` (16+ characters).
+- [ ] **P-5b Admin alerts.** Admin → Settings → Email → admin alert recipients on production (the Trust's mailbox). Without it no alert or daily summary is sent.
 - [ ] **P-6 Contact form.** Cloudflare Turnstile → add a site for `mswelfaretrust.vercel.app` (and later `mswelfaretrust.org`); add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
 - [ ] **P-7 Redeploy production and check:** upload a photo (Content → Media), upload a PDF (Content → Documents), record an offline donation and download its receipt, send the contact form, and run the cron once from Vercel → Cron Jobs.
 - [ ] **P-8 Go-live only (later):** Cashfree **production** keys after KYC (`CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY`, `CASHFREE_ENV=production`) and the production webhook URL with the 4 events, then `NEXT_PUBLIC_DONATIONS_LIVE=true` (M7-18). Real content reviewed in the admin; legal pages approved (B11).
@@ -105,6 +106,17 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M8c-10 Load sample content on stage.** Admin → Content → **Sample content** → Load sample content (takes up to a minute). Then visit Home, Causes, Events, News, Gallery, Transparency, About and Contact: every page shows the sample items and photos, and all of it is editable in the admin.
 - [ ] **M8c-11 Edit a list page.** Content → Pages → Causes (list) → change the heading in Hindi, mark reviewed, check `/hi/causes`.
 - [ ] **M8c-12 Production (when ready).** Loading sample content on production adds hidden drafts only; mark reviewed only what should go live, or use Remove sample content.
+
+## Step 9: PWA and email
+
+- [ ] **M9-1 Install on Android.** Chrome on an Android phone → stage → menu → **Install app**. Open it from the home screen: it opens `/en` full screen with the logo icon (no white square around a shrunken logo). Turn on airplane mode: pages you visited open; another page shows "You're offline" in its language.
+- [ ] **M9-2 Add to Home Screen on iPhone.** Safari → stage → Share → Add to Home Screen: the name is "MS Welfare" with the logo icon; it opens full screen.
+- [ ] **M9-3 Chrome DevTools.** Application → Manifest shows no installability errors; Service workers shows `/serwist/sw.js` with scope `/`; Cache storage never lists a `/donate`, `/admin` or `/api` URL.
+- [ ] **M9-4 Alert recipients on stage.** Admin → Settings → Email → admin alert recipients = your Gmail. Make a test donation and send the contact form on stage: you get `[MSWT] [Donation] …`, `[MSWT] [Contact] …`, and the contact sender gets the acknowledgement in the page's language. Run the cron (Vercel → Cron Jobs → Run) the next day for `[MSWT] [Daily summary] …`.
+- [ ] **M9-5 Gmail filters.** In Gmail search `subject:"[MSWT] [Donation]"` → Create filter → apply a label (e.g. MSWT/Donations). Repeat for `[MSWT] [Contact]`, `[MSWT] [Payment problem]` (also "Star it" / "Never send to Spam") and `[MSWT] [Daily summary]`.
+- [ ] **M9-6 Domain email (when `mswelfaretrust.org` is on Cloudflare, D5/B14).** Brevo → Senders & IP → Domains → add `mswelfaretrust.org` and copy its records into Cloudflare DNS: the Brevo **DKIM** record(s), the Brevo code TXT, and **SPF** `v=spf1 include:spf.brevo.com ~all` (merge into one SPF record if one exists). Add **DMARC**: TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:<the Trust's mailbox>`; after two clean weeks change `p=none` to `p=quarantine`. Then set `EMAIL_FROM_ADDRESS` to an address on the domain (e.g. `receipts@mswelfaretrust.org`).
+- [ ] **M9-7 Email Routing.** Cloudflare → Email → Email Routing → enable for the domain, add the destination (the Trust's Gmail, verify it) and a rule `info@mswelfaretrust.org` → that Gmail. Send a test to `info@`.
+- [ ] **M9-8 mail-tester ≥ 9/10.** On mail-tester.com copy the test address; send it each email type: a receipt (offline donation with that email), a contact acknowledgement (contact form with that email), and an admin alert (temporarily add it as an alert recipient). Each should score 9/10 or more; fix whatever it flags (usually SPF/DKIM/DMARC).
 
 ## Workflow setup (stage → main)
 

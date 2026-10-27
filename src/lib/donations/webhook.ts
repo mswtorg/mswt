@@ -9,6 +9,7 @@ import {
   markUnpaid,
   UnknownOrderError,
 } from "./confirm";
+import { alertPaymentProblem } from "./alerts";
 
 export type WebhookOutcome = { status: number; body: { ok: boolean; duplicate?: boolean; error?: string } };
 
@@ -85,6 +86,12 @@ export async function handlePaymentWebhook(
     // Retrying cannot fix an unknown order or a tampered amount: record it, stop the retries.
     if (error instanceof UnknownOrderError || error instanceof AmountMismatchError) {
       console.error("Payment webhook not applied", message);
+      await alertPaymentProblem(
+        error instanceof AmountMismatchError ? "Amount mismatch" : "Unknown order",
+        event.orderId || event.eventId,
+        message,
+        donation?.id,
+      );
       if (eventRowId)
         await db
           .update(paymentEvents)

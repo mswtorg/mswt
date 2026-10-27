@@ -2,9 +2,11 @@
 
 import { and, count, eq, gt } from "drizzle-orm";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { routing, type Locale } from "@/i18n/routing";
 import { db } from "@/lib/db/client";
 import { messages } from "@/lib/db/schema";
+import { notifyContactMessage } from "@/lib/contact/notify";
 import { ContactSchema, type ContactErrorCode, type ContactField } from "@/lib/contact/schema";
 import { clientIp, hashIp, isRateLimited } from "@/lib/security/rate-limit";
 import { verifyTurnstile } from "@/lib/security/turnstile";
@@ -54,15 +56,20 @@ export async function sendContactMessage(_prev: ContactState, form: FormData): P
     if (isRateLimited(recent?.n ?? 0)) return { status: "error", errors: { form: "rate" }, values };
 
     const d = parsed.data;
-    await db.insert(messages).values({
-      name: d.name,
-      email: d.email,
-      phone: d.phone || null,
-      subject: d.subject,
-      body: d.message,
-      locale,
-      ipHash,
-    });
+    const [saved] = await db
+      .insert(messages)
+      .values({
+        name: d.name,
+        email: d.email,
+        phone: d.phone || null,
+        subject: d.subject,
+        body: d.message,
+        locale,
+        ipHash,
+      })
+      .returning({ id: messages.id });
+    // Emails go out after the response, so the visitor isn't kept waiting.
+    if (saved) after(() => notifyContactMessage(saved.id));
   } catch (error) {
     console.error("Contact form failed", error);
     return { status: "error", errors: { form: "server" }, values };

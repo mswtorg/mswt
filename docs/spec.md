@@ -68,7 +68,7 @@ Locales: `en` (default), `hi`, `mr`, `gu`. `{l}` = locale. Slugs are ASCII and *
 - **Rich text** is stored as typed blocks (heading, paragraph, list, callout) with `**bold**` and `[links](…)`. Links are limited to site paths, https, mailto and tel. No HTML is stored.
 - **Legal pages** (privacy, terms, refund, 80G) are English drafts marked unreviewed. They stay off production (404, not in navigation) until the Trust's CA approves them.
 - **Images** are placeholders until Cloudflare R2 uploads exist (Step 8); gallery `ImageObject` and article images arrive then.
-- **Contact form:** zod validation, Cloudflare Turnstile (test keys outside production), and a limit of 5 messages per IP per hour using a salted IP hash (the IP itself is never stored). Messages are saved to `messages`; the email notification comes in Step 9.
+- **Contact form:** zod validation, Cloudflare Turnstile (test keys outside production), and a limit of 5 messages per IP per hour using a salted IP hash (the IP itself is never stored). Messages are saved to `messages`; since Step 9 the admins get a `[MSWT] [Contact]` alert and the sender an acknowledgement in their language.
 - **Migrations on Vercel:** the build runs `npm run db:migrate` before `next build`, so previews (Neon branch per preview) and production get new tables automatically. Migrations must stay additive and reviewed.
 
 ## 2. Data model (Drizzle / Postgres)
@@ -130,7 +130,7 @@ Cashfree ──► POST /api/webhooks/cashfree
                     alert admins; failures retried by job, never roll back the payment
 Thank-you page polls GET /api/donations/{id}/status → shows receipt number / download.
 ```
-- **Daily reconciliation** (Vercel Cron, `Asia/Kolkata` 03:00): for donations `pending` > 30 min, call `getOrder`; apply the same confirmation path (idempotent) or mark `expired/failed`. Also retries un-emailed receipts. Summary row in `reconciliation_runs` and email to Super Admin if anything changed.
+- **Daily reconciliation** (Vercel Cron, `Asia/Kolkata` 03:00): for donations `pending` > 30 min, call `getOrder`; apply the same confirmation path (idempotent) or mark `expired/failed`. Also retries un-emailed receipts. Summary row in `reconciliation_runs`, then the `[MSWT] [Daily summary]` email to the admin alert recipients (Step 9) when anything happened or went wrong.
 - **Failure/refund:** refunds are processed in Cashfree dashboard; webhook `refund` → donation `refunded`, receipt voided (number kept, void reason recorded). **Automatic refunds** (`AUTO_REFUND_STATUS_WEBHOOK`: the donor paid twice, or paid after the order expired) are handled the same way, but only when the refunded payment is the donation's recorded payment: refunding a duplicate payment leaves the donation paid and its receipt valid. Either way the event is kept on the donation's timeline.
 
 #### As built in Step 7 (2026-10-23)
@@ -235,4 +235,26 @@ All roles: TOTP 2FA mandatory, session timeout 30 min idle, login rate-limited a
 - **Built-in texts and menus are copied into the database** by `npm run db:migrate` (every build): each page language and menu that has no row gets today's built-in text (reviewed) or link list. Existing rows are never touched, so admin edits survive every deploy. Legal drafts keep their unreviewed state.
 - **Stage and production read the database only** (`getSiteContent()` when `VERCEL_ENV` is set). Local and CI builds still fall back to `data/content` and `data/sample` so tests run on any database.
 - **Content → Sample content** (Super Admin): **Load sample content** imports the causes, events, news, album and documents from `data/sample` with 20 sample photos (Lorem Picsum, fixed seeds, alt text "Sample photo n" in 4 languages). Everything is created **unreviewed** and flagged `is_sample`, so production doesn't show it until a person reviews it; page header photos are only added outside production. Running it again skips existing items. **Remove sample content** deletes unreviewed sample items (and causes without donations) and the sample photos no longer used.
+
+### PWA and emails (as built in Step 9, 2026-10-27)
+- **Installable app:** `/manifest.webmanifest` (`start_url /en`, `scope /`, standalone, theme colour `primary.700`), icons 192/512 + maskable 512 and two screenshots from `node scripts/pwa-icons.mjs [--screenshots <url>]` (`public/icons/`), Apple touch icon, title and status bar meta.
+- **Service worker** (Serwist, `src/app/sw.ts`, served at `/serwist/sw.js` with `Service-Worker-Allowed: /`; registered by a small client component on public pages only, never in the admin):
+  - **Never cached** (`src/lib/pwa/routes.ts`): `/{l}/donate` and the thank-you page, `/admin/**`, `/api/**` (receipts, webhooks, cron), POST requests and server actions, Next.js RSC data, and every other site (Cashfree, Turnstile).
+  - **Public pages:** stale-while-revalidate (50 pages, 7 days); pages opened by client-side navigation are saved too.
+  - **Build files** (`/_next/static`), **photos and fonts:** cache-first (30 days).
+  - **Precached at install:** CSS, Poppins fonts, app icons, the mark, and `/{l}/offline` for all 4 languages.
+  - **Offline:** a page that isn't saved shows `/{l}/offline` (noindex) in the page's language, with links to the saved main pages.
+  - **Updates:** a new worker waits until every tab of the site is closed (no `skipWaiting`, no `clientsClaim`), so a donation in progress is never interrupted.
+- **Email layout** (`src/lib/email/templates/layout.ts`): logo header, green rule, footer; inline token colours; every email has a text version. Visitor text is escaped and shown as plain text (links are not made clickable).
+- **Admin alerts** (English) go to Settings → Email → admin alert recipients. Subjects always start with a fixed prefix for mailbox filters:
+
+| Email | Subject | When |
+|---|---|---|
+| New donation | `[MSWT] [Donation] ₹1,000 – School support – MSWT/2026-27/000012` | Once per donation, right after its receipt number is issued (webhook, daily check or offline entry); webhook retries don't repeat it |
+| Contact message | `[MSWT] [Contact] Volunteering – from Asha` | After a message is saved; replying answers the visitor |
+| Payment problem | `[MSWT] [Payment problem] Amount mismatch – MSWT-…` / `Unknown order – …` / `Receipt not emailed – MSWT/…` | Webhook amount/currency mismatch or unknown order; first receipt delivery failure |
+| Daily summary | `[MSWT] [Daily summary] 26 October 2026 – 4 donations, ₹7,500` | After the 03:00 IST check: yesterday's donations by mode, refunds, orders updated by the check, receipts not emailed, new messages, problems. Not sent when there is nothing to report |
+
+- **Donor-facing emails** start with the Trust's name in the reader's language (`MS Welfare Trust: …`): the receipt, and the contact acknowledgement (copy of the message, the Trust's email/phones/website; replies go to Settings → Email → Replies go to, else the Trust's email). The admin PAN code email is `MS Welfare Trust: your code to view donor PANs: 123456`.
+- **Alerts never block or undo anything:** they are sent after the commit; a failed alert is logged and recorded in the audit log as `email.alert_failed`. Alerts show the masked PAN at most and no postal address.
 

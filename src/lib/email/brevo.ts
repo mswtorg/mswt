@@ -19,6 +19,7 @@ export class BrevoProvider implements EmailProvider {
         subject: m.subject,
         htmlContent: m.html,
         textContent: m.text,
+        ...(m.replyTo ? { replyTo: m.replyTo } : {}),
         ...(m.tag ? { tags: [m.tag] } : {}),
         ...(m.attachments?.length
           ? {

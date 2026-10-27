@@ -5,7 +5,7 @@ import { withTx } from "@/lib/db/tx";
 import { PAN_RE, normalisePhone } from "./schema";
 import { markPaidAndIssueReceipt } from "./confirm";
 import { newPublicOrderId, upsertDonor } from "./create";
-import { deliverReceipt } from "./deliver";
+import { deliverAndAlert } from "./alerts";
 
 // Offline donation entry (cash, cheque, NEFT, UPI to the Trust's account) by an Accountant or
 // Super Admin. The admin form arrives in Step 8; it calls this service, which issues the receipt
@@ -79,6 +79,6 @@ export async function recordOfflineDonation(input: OfflineDonationInput, actor: 
     });
     return { donationId: row!.id, publicOrderId: row!.publicOrderId, ...issued };
   });
-  await deliverReceipt(result.receiptId).catch((error) => console.error("Receipt delivery failed", error));
+  await deliverAndAlert(result.receiptId);
   return result;
 }
