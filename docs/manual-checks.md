@@ -2,6 +2,19 @@
 
 Checks that automated tests can't cover or that are waiting on accounts or keys. Tick each one when done and note the date. Steps are listed in order.
 
+## Production setup (owner decision: do last, before go-live)
+
+Production runs the latest release (2026-10-27) and its page texts and menus can already be edited. These Vercel **Production** settings are still missing, so photo and PDF uploads, offline donation receipts, emails, the contact form and the nightly job don't work there yet. Add them in Vercel → Settings → Environment Variables → **Production**, then redeploy production once.
+
+- [ ] **P-1 Production R2 buckets.** In Cloudflare R2 create **`mswt-prod-receipts`** (private) and **`mswt-prod-media`** (public access on; copy its `https://pub-….r2.dev` URL). Don't reuse stage's buckets: stage's database is a copy of production, so receipt numbers would collide and stage deletes would remove production photos. Create an API token with Object Read & Write on both buckets.
+- [ ] **P-2 R2 variables.** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the production token), `R2_RECEIPTS_BUCKET=mswt-prod-receipts`, `R2_MEDIA_BUCKET=mswt-prod-media`, `R2_MEDIA_PUBLIC_URL` (the r2.dev URL, no trailing `/`).
+- [ ] **P-3 CORS rule on `mswt-prod-media`** for PDF uploads (same JSON as M8c-6).
+- [ ] **P-4 Email (Brevo).** `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS` (verified sender), `EMAIL_FROM_NAME=MS Welfare Trust`. Brevo → Security → Authorised IPs must stay off.
+- [ ] **P-5 Secrets.** New values, not stage's: `RECEIPT_LINK_SECRET` (`openssl rand -base64 32`) and `CRON_SECRET` (16+ characters).
+- [ ] **P-6 Contact form.** Cloudflare Turnstile → add a site for `mswelfaretrust.vercel.app` (and later `mswelfaretrust.org`); add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
+- [ ] **P-7 Redeploy production and check:** upload a photo (Content → Media), upload a PDF (Content → Documents), record an offline donation and download its receipt, send the contact form, and run the cron once from Vercel → Cron Jobs.
+- [ ] **P-8 Go-live only (later):** Cashfree **production** keys after KYC (`CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY`, `CASHFREE_ENV=production`) and the production webhook URL with the 4 events, then `NEXT_PUBLIC_DONATIONS_LIVE=true` (M7-18). Real content reviewed in the admin; legal pages approved (B11).
+
 ## Step 7: Donations
 
 ### Waiting on accounts (SMS verification)
@@ -95,7 +108,7 @@ Open the preview in a browser where you are signed in to Vercel.
 
 ## Workflow setup (stage → main)
 
-- [ ] **MW-1 Production secrets.** In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.
+- [x] **MW-1 Production secrets.** (Done 2026-10-22: 2FA works on production.) In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.
 - [ ] **MW-2 Default branch.** GitHub → mswtorg/mswt → Settings → General → Default branch → **stage**, so new PRs target stage.
 - [ ] **MW-3 Auto-delete merged branches.** Same page → turn on **Automatically delete head branches**. Neon then removes preview databases automatically.
 - [ ] **MW-4 Preview secrets for stage.** Vercel → Environment Variables → **Preview**, branch `stage`: `AUTH_SECRET`, `PII_ENCRYPTION_KEY` (any values; not the production ones), plus R2/Brevo/Cashfree test keys when you have them.
