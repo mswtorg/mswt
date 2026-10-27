@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { AwsClient } from "aws4fetch";
 import { serverEnv } from "@/env/server";
 import { isProduction } from "@/lib/secrets";
+import { r2Put } from "./r2-put";
 
 /**
  * Public storage for website photos (Step 8c): a public R2 bucket, or `.data/media` served by
@@ -44,12 +45,10 @@ class R2MediaStorage implements MediaStorage {
   }
 
   async put(key: string, body: Uint8Array, contentType: string) {
-    const res = await this.client.fetch(this.url(key), {
-      method: "PUT",
-      body: body as BodyInit,
-      headers: { "content-type": contentType, "cache-control": "public, max-age=31536000, immutable" },
+    await r2Put(this.client, this.url(key), body, {
+      "content-type": contentType,
+      "cache-control": "public, max-age=31536000, immutable",
     });
-    if (!res.ok) throw new Error(`R2 PUT ${key} failed (${res.status})`);
   }
 
   async remove(key: string) {

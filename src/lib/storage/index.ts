@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { AwsClient } from "aws4fetch";
 import { serverEnv } from "@/env/server";
 import { isProduction } from "@/lib/secrets";
+import { r2Put } from "./r2-put";
 
 /** Private file storage for receipt PDFs: Cloudflare R2, or a local folder outside production. */
 export interface ReceiptStorage {
@@ -28,12 +29,7 @@ class R2Storage implements ReceiptStorage {
   }
 
   async put(key: string, body: Uint8Array, contentType: string) {
-    const res = await this.client.fetch(this.url(key), {
-      method: "PUT",
-      body: body as BodyInit,
-      headers: { "content-type": contentType },
-    });
-    if (!res.ok) throw new Error(`R2 PUT ${key} failed (${res.status})`);
+    await r2Put(this.client, this.url(key), body, { "content-type": contentType });
   }
 
   async get(key: string) {
