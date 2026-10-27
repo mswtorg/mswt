@@ -184,7 +184,7 @@ describe("pages", () => {
       .select()
       .from(pageTranslations)
       .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "hi")));
-    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point] });
+    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point], sections: {} });
     await deletePageTranslation("home", "hi", actor());
   });
 });

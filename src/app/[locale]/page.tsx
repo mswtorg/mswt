@@ -47,6 +47,7 @@ export default async function HomePage({ params }: Props) {
     getNews(locale as Locale),
     getHomeContent(locale as Locale),
   ]);
+  const section = (k: keyof NonNullable<typeof home>["sections"]) => home?.sections[k] || t(k);
   // Text edited under Content → Pages → Home, or the built-in text for languages not written yet.
   const hero = {
     eyebrow: home ? home.eyebrow : t("eyebrow"),
@@ -75,7 +76,7 @@ export default async function HomePage({ params }: Props) {
       <section aria-labelledby="why-h" className="bg-bg-subtle py-12 lg:py-20">
         <div className="mx-auto max-w-(--size-container-max) px-4 lg:px-8">
           <h2 id="why-h" className="sr-only">
-            {t("whyTitle")}
+            {section("whyTitle")}
           </h2>
           <div className="grid gap-6 md:grid-cols-3">
             {hero.points.map((p, i) => (
@@ -100,9 +101,9 @@ export default async function HomePage({ params }: Props) {
           className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8 lg:py-20"
         >
           <HeadingRule id="causes-h" className="text-3xl">
-            {t("causesH")}
+            {section("causesH")}
           </HeadingRule>
-          <p className="mt-3 max-w-2xl text-fg-muted">{t("causesLead")}</p>
+          <p className="mt-3 max-w-2xl text-fg-muted">{section("causesLead")}</p>
           <ul className="m-0 mt-8 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3">
             {causes.slice(0, 3).map((c) => (
               <li key={c.slug} className="grid">
@@ -120,7 +121,7 @@ export default async function HomePage({ params }: Props) {
         <section aria-labelledby="events-h" className="bg-bg-subtle py-12 lg:py-20">
           <div className="mx-auto max-w-(--size-container-max) px-4 lg:px-8">
             <HeadingRule id="events-h" className="text-3xl">
-              {t("eventsH")}
+              {section("eventsH")}
             </HeadingRule>
             <ul className="m-0 mt-8 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3">
               {upcoming.map((e) => (
@@ -142,7 +143,7 @@ export default async function HomePage({ params }: Props) {
           className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8 lg:py-20"
         >
           <HeadingRule id="news-h" className="text-3xl">
-            {t("newsH")}
+            {section("newsH")}
           </HeadingRule>
           <ul className="m-0 mt-8 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3">
             {news.slice(0, 3).map((p) => (
@@ -168,9 +169,9 @@ export default async function HomePage({ params }: Props) {
         <div className="mx-auto flex max-w-(--size-container-max) flex-wrap items-center justify-between gap-6 px-4 lg:px-8">
           <div className="max-w-2xl">
             <h2 id="transparency-h" className="text-3xl text-fg-on-brand">
-              {t("bandH")}
+              {section("bandH")}
             </h2>
-            <p className="mt-3 text-fg-on-brand-muted">{t("bandP")}</p>
+            <p className="mt-3 text-fg-on-brand-muted">{section("bandP")}</p>
           </div>
           <a href={`/${locale}/transparency`} className="text-fg-on-brand underline underline-offset-4">
             {tn("transparency")}

@@ -136,3 +136,22 @@ describe("menus", () => {
       expect(MenuInput.safeParse(bad).success).toBe(false);
   });
 });
+
+describe("built-in page texts (ensure defaults)", () => {
+  it("covers every editable page in every language, with no empty headings", async () => {
+    const { builtInPages } = await import("@/lib/admin/defaults");
+    const { CONTENT_PAGES } = await import("@/lib/admin/content-pages");
+    const legal = new Set(["privacy", "terms", "refund_policy", "disclaimer_80g"]);
+    for (const locale of ["en", "hi", "mr", "gu"] as const) {
+      const m = (await import(`@/messages/${locale}.json`)).default;
+      const pages = builtInPages(m);
+      for (const p of CONTENT_PAGES.filter((x) => !legal.has(x.key))) {
+        const text = pages[p.key];
+        expect(text?.title, `${locale}/${p.key}`).toBeTruthy();
+        expect(text?.h1, `${locale}/${p.key}`).toBeTruthy();
+        expect(text?.reviewed).toBe(true);
+      }
+      expect(HomeExtras.safeParse(pages.home!.extras).success).toBe(true);
+    }
+  });
+});

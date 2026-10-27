@@ -114,7 +114,7 @@ export function causesFrom(c: SiteContent, locale: Locale): CauseView[] {
     if (!tr) return [];
     return [
       {
-        ...meta(x.translations, tr, sample),
+        ...meta(x.translations, tr, sample || x.isSample),
         slug: x.slug,
         status: x.status,
         goalPaise: x.goalPaise,
@@ -139,7 +139,7 @@ export function eventsFrom(c: SiteContent, locale: Locale): EventView[] {
       if (!tr) return [];
       return [
         {
-          ...meta(x.translations, tr, sample),
+          ...meta(x.translations, tr, sample || x.isSample),
           slug: x.slug,
           eventStatus: x.eventStatus,
           attendance: x.attendance,
@@ -167,7 +167,7 @@ export function newsFrom(c: SiteContent, locale: Locale): NewsView[] {
       if (!tr) return [];
       return [
         {
-          ...meta(x.translations, tr, sample),
+          ...meta(x.translations, tr, sample || x.isSample),
           slug: x.slug,
           publishedAt: new Date(x.publishedAt),
           authorName: x.authorName,
@@ -190,7 +190,7 @@ export function albumsFrom(c: SiteContent, locale: Locale): AlbumView[] {
     if (!tr) return [];
     return [
       {
-        ...meta(x.translations, tr, sample),
+        ...meta(x.translations, tr, sample || x.isSample),
         slug: x.slug,
         publishedAt: x.publishedAt ? new Date(x.publishedAt) : null,
         albumDate: x.albumDate,
@@ -230,7 +230,7 @@ export function reportsFrom(c: SiteContent, locale: Locale): ReportView[] {
               title: tr.title,
               pdfKey: x.pdfKey,
               pdfBytes: x.pdfBytes,
-              isSample: sample,
+              isSample: sample || x.isSample,
             },
           ]
         : [];

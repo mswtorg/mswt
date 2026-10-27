@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { getAlbums } from "@/lib/content/queries";
+import { getAlbums, getPage } from "@/lib/content/queries";
 import { breadcrumbList, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageHeader } from "@/components/content/PageHeader";
+import { PageHero } from "@/components/content/LibraryPhotos";
+import { ContentBody } from "@/components/content/ContentBody";
 import { SampleBanner } from "@/components/content/Banners";
 import { AlbumCard } from "@/components/content/Cards";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -15,8 +17,16 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const locale = (await params).locale as Locale;
-  const t = await getTranslations({ locale, namespace: "Gallery" });
-  return pageMetadata({ locale, path: "/gallery", title: t("title"), description: t("description") });
+  const [t, page] = await Promise.all([
+    getTranslations({ locale, namespace: "Gallery" }),
+    getPage("gallery", locale),
+  ]);
+  return pageMetadata({
+    locale,
+    path: "/gallery",
+    title: page?.seoTitle ?? page?.title ?? t("title"),
+    description: page?.seoDescription ?? page?.intro ?? t("description"),
+  });
 }
 
 export default async function GalleryPage({ params }: Props) {
@@ -27,9 +37,12 @@ export default async function GalleryPage({ params }: Props) {
     getTranslations("Common"),
     getAlbums(locale),
   ]);
+  // Text from Content → Pages → Gallery (list); the built-in text is only a safety net.
+  const listPage = await getPage("gallery", locale);
+  const heading = listPage?.h1 ?? t("title");
   const crumbs = [
     { name: tc("home"), path: "" },
-    { name: t("title"), path: "/gallery" },
+    { name: heading, path: "/gallery" },
   ];
   return (
     <div className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8">
@@ -39,19 +52,25 @@ export default async function GalleryPage({ params }: Props) {
             type: "CollectionPage",
             locale,
             path: "/gallery",
-            name: t("title"),
-            description: t("description"),
+            name: heading,
+            description: listPage?.intro ?? t("description"),
             hasBreadcrumb: true,
           }),
           breadcrumbList(locale, "/gallery", crumbs),
         ])}
       />
+      <PageHero pageKey="gallery" locale={locale} className="mb-8" />
       <PageHeader
-        crumbs={[{ label: tc("home"), href: `/${locale}` }, { label: t("title") }]}
+        crumbs={[{ label: tc("home"), href: `/${locale}` }, { label: heading }]}
         crumbLabel={tc("breadcrumb")}
-        title={t("title")}
-        lead={t("description")}
+        title={heading}
+        lead={listPage?.intro ?? t("description")}
       />
+      {listPage?.sections.length ? (
+        <div className="mb-10">
+          <ContentBody blocks={listPage.sections} locale={locale} />
+        </div>
+      ) : null}
       <SampleBanner show={albums.some((a) => a.isSample)} />
       {albums.length === 0 ? (
         <EmptyState>{t("empty")}</EmptyState>

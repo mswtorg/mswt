@@ -21,6 +21,7 @@ import {
   Mail,
   Palette,
   Search,
+  Sparkles,
   UserCircle,
   Users,
   UsersRound,
@@ -49,6 +50,7 @@ const ICONS: Record<string, LucideIcon> = {
   gallery: Images,
   documents: FileArchive,
   menus: MenuIcon,
+  sample: Sparkles,
   messages: Inbox,
 };
 

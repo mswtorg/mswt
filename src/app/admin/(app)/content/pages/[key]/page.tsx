@@ -8,7 +8,7 @@ import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
 import { LANGUAGES } from "@/lib/admin/languages";
 import { editorMedia } from "@/lib/admin/media";
-import { HomeExtras } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HomeExtras } from "@/lib/content/home";
 import { blocksToMarkup } from "@/lib/content/markup";
 import { AdminForm } from "@/components/admin/AdminForm";
 import type { FormSectionSpec } from "@/components/admin/form-state";
@@ -99,6 +99,24 @@ export default async function EditPagePage({ params, searchParams }: Props) {
       },
     ],
   };
+  // Home: headings further down the page (prefilled with the built-in text in this language).
+  const tHome = key === "home" ? await getTranslations({ locale, namespace: "Home" }) : null;
+  const homeSections: FormSectionSpec[] = tHome
+    ? [
+        {
+          title: "Sections",
+          description: "Headings and text for the causes, events, news and donate parts of the home page.",
+          fields: HOME_SECTION_FIELDS.map(([k, label]) => ({
+            name: `section_${k}`,
+            label,
+            lang: locale,
+            maxLength: k === "causesLead" || k === "bandP" ? 300 : 120,
+            ...(k === "causesLead" || k === "bandP" ? { type: "textarea" as const, rows: 2 } : {}),
+            defaultValue: (extras?.success ? extras.data.sections[k] : undefined) || tHome(k),
+          })),
+        },
+      ]
+    : [];
   const body: FormSectionSpec =
     key === "home"
       ? {
@@ -128,7 +146,9 @@ export default async function EditPagePage({ params, searchParams }: Props) {
           description:
             key === "contact" || key === "transparency"
               ? "Optional text shown above the form or the documents list."
-              : "The page text. Use the toolbar or the marks shown under the box.",
+              : ["causes", "events", "news", "gallery"].includes(key)
+                ? "Optional text shown above the list."
+                : "The page text. Use the toolbar or the marks shown under the box.",
           fields: [
             {
               name: "body",
@@ -207,6 +227,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
           },
           heading,
           body,
+          ...homeSections,
           {
             title: "Search engines",
             description: SEO_DESC,
