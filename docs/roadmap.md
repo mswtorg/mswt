@@ -87,6 +87,7 @@ One branch and one PR per step. A step is done only when its exit criteria pass 
 ## Step 9 — PWA + email
 **Deliverables:** Serwist SW (precache static, SWR public pages, NetworkOnly for donate/api/admin/receipts, offline page), manifest + icons + screenshots + Apple meta; `EmailProvider` interface + one adapter (choice from open questions) + templates (donor receipt, admin alert, contact acknowledgement, reconciliation summary) with logo header, 4 locales; SPF/DKIM/DMARC on Cloudflare DNS; Cloudflare Email Routing `info@` → Trust Gmail.
 **Exit:** `/pwa-check` PASS; installable in Chrome DevTools; offline fallback works; donate never served from cache (e2e); test emails pass mail-tester ≥ 9/10.
+**Built (2026-10-27):** Serwist service worker and offline pages in 4 languages, manifest, icons, screenshots and Apple meta; shared email layout; admin alerts with fixed `[MSWT] [Type]` subject prefixes (new donation, contact message, payment problems, daily summary); contact acknowledgement in the sender's language. The `EmailProvider` + Brevo adapter and the receipt email were already built in Step 7. DNS (SPF/DKIM/DMARC), Email Routing and the mail-tester score are owner steps in `docs/manual-checks.md` (M9-*).
 
 ## Step 10 — QA audit
 **Deliverables:** full run of `/done-check` and all audits across all routes × locales; manual screen-reader pass; cross-browser (Chrome, Safari iOS, Firefox, Samsung Internet); security review (headers, CSP report, rate limits, authz); load sanity on webhook; translation review sign-off; bug list fixed.

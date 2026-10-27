@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { panAccessCodes, users } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
 import { getEmailProvider } from "@/lib/email";
+import { emailLayout, p } from "@/lib/email/templates/layout";
 
 // Full donor PANs are shown only after a one-time code emailed to the admin's own address
 // (owner decision, Step 8b). A correct code opens a 15-minute window; every step is audited.
@@ -53,11 +54,18 @@ export async function requestPanCode(userId: string, actor: Actor, now = new Dat
       .values({ userId, codeHash: hashCode(userId, code), expiresAt: new Date(now.getTime() + CODE_TTL_MS) });
     await recordAudit(tx, actor, { action: "pan.otp_sent", entityType: "user", entityId: userId });
   });
+  const body =
+    "It shows full donor PANs for 15 minutes and expires in 10 minutes. If you didn't ask for it, tell a Super Admin.";
   await getEmailProvider().send({
     to: { email: user.email, name: user.name },
-    subject: `Your code to view donor PANs: ${code}`,
-    text: `Your MSWT admin code is ${code}.\n\nIt shows full donor PANs for 15 minutes and expires in 10 minutes. If you didn't ask for it, tell a Super Admin.`,
-    html: `<p>Your MSWT admin code is <strong style="font-size:20px;letter-spacing:4px">${code}</strong>.</p><p>It shows full donor PANs for 15 minutes and expires in 10 minutes. If you didn't ask for it, tell a Super Admin.</p>`,
+    // The code stays at the end of the subject (mail previews show it).
+    subject: `MS Welfare Trust: your code to view donor PANs: ${code}`,
+    text: `Your MSWT admin code is ${code}.\n\n${body}`,
+    html: emailLayout({
+      lang: "en",
+      heading: "MS Welfare Trust admin",
+      body: `<p style="margin:0 0 16px">Your MSWT admin code is <strong style="font-size:20px;letter-spacing:4px">${code}</strong>.</p>${p(body)}`,
+    }),
     tag: "pan-otp",
   });
 }

@@ -318,5 +318,23 @@
     "slide": "Photo {n} of {total}",
     "open": "View full screen",
     "close": "Close"
+  },
+  "Offline": {
+    "metaTitle": "You're offline",
+    "title": "You're offline",
+    "body": "This page isn't saved on your device, and there's no internet connection right now. Check your connection and try again.",
+    "retry": "Try again",
+    "saved": "Pages you can open offline",
+    "home": "Home"
+  },
+  "ContactEmail": {
+    "subject": "We've received your message",
+    "greeting": "Dear {name},",
+    "received": "Thank you for writing to us. We've received your message about \"{subject}\" and will reply to this email address.",
+    "copy": "Your message:",
+    "reply": "To add anything, reply to this email or write to {email}.",
+    "contact": "Contact us",
+    "signoff": "With gratitude,",
+    "team": "MS Welfare Trust"
   }
 }

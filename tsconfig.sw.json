@@ -1,0 +1,11 @@
+{
+  "//": "The service worker runs in a worker, not a page: checked on its own with the webworker types.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2024", "webworker"],
+    "types": [],
+    "incremental": false
+  },
+  "include": ["src/app/sw.ts"],
+  "exclude": []
+}

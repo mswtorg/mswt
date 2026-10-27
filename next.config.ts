@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withSerwist } from "@serwist/turbopack";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -94,4 +95,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// withSerwist: keeps esbuild (which builds the service worker) out of the server bundle.
+export default withSerwist(withNextIntl(nextConfig));

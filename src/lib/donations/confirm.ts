@@ -6,6 +6,7 @@ import { withTx, type Tx } from "@/lib/db/tx";
 import { getPaymentProvider, type PaymentProvider } from "@/lib/payments";
 import { decideReceiptKind } from "@/lib/receipts/kind";
 import { allocateReceiptNumber } from "@/lib/receipts/numbering";
+import { deliverAndAlert } from "./alerts";
 import { deliverReceipt } from "./deliver";
 
 export class AmountMismatchError extends Error {}
@@ -119,10 +120,13 @@ export async function confirmOnlinePayment(
       providerPaymentMethod: order.payment?.method ?? null,
     }),
   );
-  // After commit: PDF + email. Failures are retried by reconciliation; the payment stands.
-  await deliverReceipt(result.receiptId).catch((error) =>
-    console.error(`Receipt delivery failed (${orderId})`, error),
-  );
+  // After commit: PDF + email, then the admin alerts (once: a webhook retry or the daily check
+  // finds the donation already paid). Failures are retried by reconciliation; the payment stands.
+  if (result.alreadyPaid)
+    await deliverReceipt(result.receiptId).catch((error) =>
+      console.error(`Receipt delivery failed (${orderId})`, error),
+    );
+  else await deliverAndAlert(result.receiptId);
   return { outcome: "paid", receiptNumber: result.receiptNumber, alreadyPaid: result.alreadyPaid };
 }
 
