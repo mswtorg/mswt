@@ -21,6 +21,7 @@ export type FieldSpec = {
     | "email"
     | "password"
     | "date"
+    | "datetime-local"
     | "number"
     | "textarea"
     | "select"
@@ -28,7 +29,10 @@ export type FieldSpec = {
     | "url"
     | "tel"
     /** Content text with toolbar and preview (BlocksEditor); needs `editor`. */
-    | "blocks";
+    | "blocks"
+    /** One library photo (cover) or an ordered list (slider/album); needs `photos`. */
+    | "photo"
+    | "photos";
   hint?: string;
   required?: boolean;
   defaultValue?: string;
@@ -43,6 +47,8 @@ export type FieldSpec = {
   span?: "full";
   /** For type "blocks": photos for the preview and the "Insert image" picker. */
   editor?: { media: Record<string, ImageView>; library: LibraryItem[] };
+  /** For type "photo"/"photos": the library to choose from, and the most photos allowed. */
+  photos?: { library: LibraryItem[]; max?: number };
 };
 
 /** Everything a form posted, as strings (checkboxes "on"). */

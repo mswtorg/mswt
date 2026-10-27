@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { CauseInput, createCause, deleteCause, saveCauseTranslation, updateCause } from "@/lib/admin/causes";
 import { ContentError, deletePageTranslation, savePageTranslation } from "@/lib/admin/content";
 import { deleteMedia, MediaServiceError, mediaUsage, updateMediaText, uploadMedia } from "@/lib/admin/media";
-import { markRead, purgeOldMessages, updateMessage } from "@/lib/admin/messages";
+import { deleteMessage, markRead, updateMessage } from "@/lib/admin/messages";
 import { hashPassword } from "@/lib/auth/password";
 import { db } from "@/lib/db/client";
 import {
@@ -184,7 +184,7 @@ describe("pages", () => {
       .select()
       .from(pageTranslations)
       .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "hi")));
-    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point] });
+    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point], sections: {} });
     await deletePageTranslation("home", "hi", actor());
   });
 });
@@ -273,11 +273,12 @@ describe("messages", () => {
     );
   });
 
-  it("messages older than 12 months are deleted by the daily job", async () => {
-    const old = await message(new Date(Date.now() - 400 * 86_400_000));
-    const recent = await message();
-    expect(await purgeOldMessages()).toBeGreaterThanOrEqual(1);
+  it("messages are kept until an admin deletes one (audited, without the text)", async () => {
+    const old = await message(new Date(Date.now() - 800 * 86_400_000));
+    await deleteMessage(old, actor());
     expect(await db.select().from(messages).where(eq(messages.id, old))).toEqual([]);
-    expect(await db.select().from(messages).where(eq(messages.id, recent))).toHaveLength(1);
+    const [entry] = await db.select().from(auditLog).where(eq(auditLog.entityId, old));
+    expect(entry!.action).toBe("message.delete");
+    expect(JSON.stringify(entry!.before)).not.toContain("Can I help");
   });
 });

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Panel, Progress } from "@/components/ui/Card";
 import { CoverImage } from "@/components/content/CoverImage";
+import { LibraryPhotos } from "@/components/content/LibraryPhotos";
 import { ContentBody } from "@/components/content/ContentBody";
 
 export const revalidate = 3600;
@@ -96,6 +97,7 @@ export default async function CausePage({ params }: Props) {
             priority
           />
           <ContentBody blocks={cause.body} locale={locale as Locale} />
+          <LibraryPhotos ids={cause.photoIds} locale={locale as Locale} ratio="photo" />
         </article>
         <aside aria-labelledby="support-h" className="lg:sticky lg:top-6">
           <Panel className="grid gap-4">

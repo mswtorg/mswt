@@ -14,6 +14,9 @@ import { SampleBanner } from "@/components/content/Banners";
 import { Badge } from "@/components/ui/Alert";
 import { Panel } from "@/components/ui/Card";
 import { ContentBody } from "@/components/content/ContentBody";
+import { CoverImage } from "@/components/content/CoverImage";
+import { LibraryPhotos } from "@/components/content/LibraryPhotos";
+import { absoluteImageUrl } from "@/lib/content/media";
 import { TextLink } from "@/components/ui/TextLink";
 
 export const revalidate = 3600;
@@ -45,7 +48,11 @@ export default async function EventPage({ params }: Props) {
   setRequestLocale(locale);
   const e = await getEvent(locale, slug);
   if (!e) notFound();
-  const [t, tc] = await Promise.all([getTranslations("Events"), getTranslations("Common")]);
+  const [t, tc, image] = await Promise.all([
+    getTranslations("Events"),
+    getTranslations("Common"),
+    absoluteImageUrl(e.coverImageId, locale),
+  ]);
   const path = `/events/${slug}`;
   const crumbs = [
     { name: tc("home"), path: "" },
@@ -77,6 +84,7 @@ export default async function EventPage({ params }: Props) {
                 }
               : undefined,
             onlineUrl: e.onlineUrl ?? undefined,
+            image,
           }),
         ])}
       />
@@ -100,7 +108,13 @@ export default async function EventPage({ params }: Props) {
       </PageHeader>
       <SampleBanner show={e.isSample} />
       <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <ContentBody blocks={e.body} locale={locale as Locale} />
+        <div className="grid gap-8">
+          {e.coverImageId ? (
+            <CoverImage mediaId={e.coverImageId} locale={locale} fallback={e.title} ratio="wide" priority />
+          ) : null}
+          <ContentBody blocks={e.body} locale={locale as Locale} />
+          <LibraryPhotos ids={e.photoIds} locale={locale} ratio="photo" />
+        </div>
         <Panel>
           <dl className="m-0 grid gap-4">
             <div>

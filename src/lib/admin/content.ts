@@ -66,6 +66,11 @@ export async function assertAltText(ids: string[], locale: Locale, field = "revi
     );
 }
 
+export async function pageHeroIds(key: ContentPageKey): Promise<string[]> {
+  const [row] = await db.select({ ids: pages.heroMediaIds }).from(pages).where(eq(pages.key, key));
+  return row?.ids ?? [];
+}
+
 export async function pageTranslationsFor(key: ContentPageKey) {
   return db.select().from(pageTranslations).where(eq(pageTranslations.pageKey, key));
 }
@@ -77,12 +82,14 @@ export async function savePageTranslation(
   input: PageInput,
   extras: unknown,
   actor: Actor,
+  /** Header photo(s); the same in every language. Undefined leaves them unchanged. */
+  heroIds?: string[],
 ): Promise<void> {
   const sections = key === "home" ? [] : parseBody(input.body);
   const home = key === "home" ? HomeExtras.safeParse(extras) : null;
   if (home && !home.success)
     throw new ContentError("point1Title", "Fill in all three points (title and text).");
-  if (input.reviewed) await assertAltText(imageIds(sections), locale);
+  if (input.reviewed) await assertAltText([...imageIds(sections), ...(heroIds ?? [])], locale);
   await withTx(async (tx) => {
     const [before] = await tx
       .select()
@@ -103,8 +110,11 @@ export async function savePageTranslation(
     };
     await tx
       .insert(pages)
-      .values({ key })
-      .onConflictDoUpdate({ target: pages.key, set: { updatedAt: now } });
+      .values({ key, ...(heroIds ? { heroMediaIds: heroIds } : {}) })
+      .onConflictDoUpdate({
+        target: pages.key,
+        set: { updatedAt: now, ...(heroIds ? { heroMediaIds: heroIds } : {}) },
+      });
     await tx
       .insert(pageTranslations)
       .values({ pageKey: key, locale, ...values })
@@ -114,7 +124,14 @@ export async function savePageTranslation(
       entityType: "page",
       entityId: null,
       before: before ? { key, locale, title: before.title, reviewed: Boolean(before.reviewedAt) } : null,
-      after: { key, locale, title: input.title, reviewed: input.reviewed, blocks: sections.length },
+      after: {
+        key,
+        locale,
+        title: input.title,
+        reviewed: input.reviewed,
+        blocks: sections.length,
+        ...(heroIds ? { headerPhotos: heroIds.length } : {}),
+      },
     });
   });
   if (input.reviewed) await notifySearchEngines([publicPath(key, locale)]);

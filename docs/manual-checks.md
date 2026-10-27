@@ -29,6 +29,7 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M7-9 Closed tab (no redirect).** Pay successfully but close the tab before returning to the site. The webhook should still mark the donation paid, and the receipt email should still arrive.
 - [ ] **M7-10 Webhook signature.** In Cashfree's webhook logs, the deliveries to `/api/webhooks/cashfree` return **200**. A retried delivery also returns 200 and doesn't create a second receipt.
 - [ ] **M7-11 Refund.** Refund the M7-4 payment from the Cashfree dashboard. In the database, the donation becomes `refunded` and the receipt is voided with the same number.
+- [ ] **M7-11b Automatic refund.** The webhook has **auto refund** ticked. If Cashfree's sandbox can simulate it (a second payment on the same order), check that the donation stays paid when the extra payment is returned, and that the admin timeline shows the auto-refund event.
 - [ ] **M7-12 Daily reconciliation.** In Vercel → Project → Cron Jobs, `/api/cron/reconcile` is listed (03:00 IST). Run it once from there. It returns 200, and `reconciliation_runs` has a new row.
 
 ### Accessibility and devices
@@ -67,6 +68,30 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M8c-3 Write a page in Hindi, Marathi and Gujarati** with the phone's keyboard (Gboard / iOS). The preview and the public page show the text correctly.
 - [ ] **M8c-4 Screen reader** (VoiceOver/NVDA): the editor toolbar, the photo picker dialog (Esc closes it) and the language tabs are announced; error messages are read on save.
 - [ ] **M8c-5 Move the legal drafts in.** For each legal page, open it in English, check the draft text with the Trust (B11), save, and mark reviewed only when approved.
+
+## Step 8c-2: Events, news, gallery, documents, menus
+
+- [ ] **M8c-6 CORS rule for PDF uploads.** Cloudflare → R2 → the **public media bucket** (stage's, and later production's) → Settings → **CORS policy** → add:
+  ```json
+  [
+    {
+      "AllowedOrigins": ["https://mswt-git-stage-mswt.vercel.app", "https://mswelfaretrust.vercel.app", "https://mswelfaretrust.org"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["content-type"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+  ```
+  Without it, "Upload PDF" says the upload was refused.
+- [ ] **M8c-7 Upload a real annual report** (about 10 MB) on stage, publish it, and download it from `/en/transparency`.
+- [ ] **M8c-8 Sliders on a phone and with a screen reader.** Swipe an event's slider on Android and iPhone; open the full-screen viewer and close it. With VoiceOver/NVDA, the buttons say "Next photo", "Photo 2 of 5" and the viewer announces the photo.
+- [ ] **M8c-9 Menus.** Rename a header link in Hindi and check `/hi`; add a link to a cause; reset the menu and check the built-in one is back.
+
+## Admin-managed menu pages and sample content
+
+- [ ] **M8c-10 Load sample content on stage.** Admin → Content → **Sample content** → Load sample content (takes up to a minute). Then visit Home, Causes, Events, News, Gallery, Transparency, About and Contact: every page shows the sample items and photos, and all of it is editable in the admin.
+- [ ] **M8c-11 Edit a list page.** Content → Pages → Causes (list) → change the heading in Hindi, mark reviewed, check `/hi/causes`.
+- [ ] **M8c-12 Production (when ready).** Loading sample content on production adds hidden drafts only; mark reviewed only what should go live, or use Remove sample content.
 
 ## Workflow setup (stage → main)
 

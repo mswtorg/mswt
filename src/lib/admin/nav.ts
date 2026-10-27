@@ -3,7 +3,7 @@ import type { AdminNavGroup } from "@/components/layout/AdminShell";
 import { CONTENT_PAGES } from "./content-pages";
 
 // Sidebar, grouped. Each entry is shown only to roles with one of its capabilities; pages check again.
-// 8c-2 adds Events, News, Gallery, Documents and Menus to Content.
+// Content: Pages (one entry per fixed page), Causes, Events, News, Gallery, Documents, Media, Menus, Messages.
 type Item = {
   key: string;
   label: string;
@@ -61,7 +61,31 @@ const GROUPS: { label: string; items: Item[] }[] = [
         icon: "causes",
         anyOf: ["causes.read"],
       },
+      { key: "events", label: "Events", href: "/admin/content/events", icon: "events", anyOf: ["cms.write"] },
+      { key: "news", label: "News", href: "/admin/content/news", icon: "news", anyOf: ["cms.write"] },
+      {
+        key: "gallery",
+        label: "Gallery",
+        href: "/admin/content/gallery",
+        icon: "gallery",
+        anyOf: ["cms.write"],
+      },
+      {
+        key: "documents",
+        label: "Documents",
+        href: "/admin/content/documents",
+        icon: "documents",
+        anyOf: ["cms.write"],
+      },
       { key: "media", label: "Media", href: "/admin/content/media", icon: "media", anyOf: ["cms.write"] },
+      { key: "menus", label: "Menus", href: "/admin/content/menus", icon: "menus", anyOf: ["cms.write"] },
+      {
+        key: "sample",
+        label: "Sample content",
+        href: "/admin/content/sample",
+        icon: "sample",
+        anyOf: ["content.sample"],
+      },
       {
         key: "messages",
         label: "Messages",

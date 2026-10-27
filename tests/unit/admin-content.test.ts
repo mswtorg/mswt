@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { MenuInput } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
@@ -113,5 +114,44 @@ describe("home page fields", () => {
     expect(HomeExtras.safeParse({ eyebrow: "", points: [point, point, point] }).success).toBe(true);
     expect(HomeExtras.safeParse({ points: [point, point] }).success).toBe(false);
     expect(HomeExtras.safeParse({ points: [point, point, { title: "", text: "x" }] }).success).toBe(false);
+  });
+});
+
+describe("menus", () => {
+  it("accepts pages, items and https links with a label", () => {
+    const ok = MenuInput.safeParse([
+      { kind: "page", target: "about" },
+      { kind: "cause", target: "school-support", labels: { hi: "स्कूल" } },
+      { kind: "url", target: "https://example.org/report", labels: { en: "Report" }, hidden: true },
+    ]);
+    expect(ok.success).toBe(true);
+  });
+  it("refuses unknown pages, http links and unlabelled web links", () => {
+    for (const bad of [
+      [{ kind: "page", target: "nope" }],
+      [{ kind: "url", target: "http://example.org", labels: { en: "x" } }],
+      [{ kind: "url", target: "https://example.org" }],
+      [{ kind: "news", target: "Not A Slug" }],
+    ])
+      expect(MenuInput.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("built-in page texts (ensure defaults)", () => {
+  it("covers every editable page in every language, with no empty headings", async () => {
+    const { builtInPages } = await import("@/lib/admin/defaults");
+    const { CONTENT_PAGES } = await import("@/lib/admin/content-pages");
+    const legal = new Set(["privacy", "terms", "refund_policy", "disclaimer_80g"]);
+    for (const locale of ["en", "hi", "mr", "gu"] as const) {
+      const m = (await import(`@/messages/${locale}.json`)).default;
+      const pages = builtInPages(m);
+      for (const p of CONTENT_PAGES.filter((x) => !legal.has(x.key))) {
+        const text = pages[p.key];
+        expect(text?.title, `${locale}/${p.key}`).toBeTruthy();
+        expect(text?.h1, `${locale}/${p.key}`).toBeTruthy();
+        expect(text?.reviewed).toBe(true);
+      }
+      expect(HomeExtras.safeParse(pages.home!.extras).success).toBe(true);
+    }
   });
 });

@@ -25,6 +25,7 @@ const causeInput = (v: Record<string, string>) =>
     is80gEligible: v.is80gEligible === "on",
     sortOrder: v.sortOrder || "0",
     coverImageId: v.coverImageId ?? "",
+    photoIds: v.photoIds ?? "",
   });
 
 const contentFail = (error: unknown, values: Record<string, string>): FormState => {

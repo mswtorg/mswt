@@ -31,7 +31,8 @@ const cspReportOnly = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob:${mediaOrigin ? ` ${mediaOrigin}` : ""}`,
   "font-src 'self'",
-  "connect-src 'self' https://challenges.cloudflare.com https://*.cashfree.com",
+  // *.r2.cloudflarestorage.com: admins upload large PDFs straight to the media bucket (signed URL).
+  "connect-src 'self' https://challenges.cloudflare.com https://*.cashfree.com https://*.r2.cloudflarestorage.com",
   "frame-src https://challenges.cloudflare.com https://*.cashfree.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",

@@ -4,7 +4,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing, type Locale } from "@/i18n/routing";
 import { albumsFrom, getAlbum } from "@/lib/content/queries";
 import { getSiteContent } from "@/lib/content/source";
-import { breadcrumbList, pageGraph, webPage } from "@/lib/seo/jsonld";
+import { getMediaViews } from "@/lib/content/media";
+import { breadcrumbList, imageObject, pageGraph, webPage } from "@/lib/seo/jsonld";
+import { siteUrl } from "@/lib/seo/site";
+import { getPhotoStrings } from "@/components/content/ContentBody";
+import { PhotoGrid, type SlidePhoto } from "@/components/content/PhotoSlider";
 import { pageMetadata } from "@/lib/seo/page";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageHeader } from "@/components/content/PageHeader";
@@ -41,14 +45,25 @@ export default async function AlbumPage({ params }: Props) {
   setRequestLocale(locale);
   const album = await getAlbum(locale, slug);
   if (!album) notFound();
-  const [t, tc] = await Promise.all([getTranslations("Gallery"), getTranslations("Common")]);
+  const ids = album.items.flatMap((i) => (i.mediaId ? [i.mediaId] : []));
+  const [t, tc, views, photoStrings] = await Promise.all([
+    getTranslations("Gallery"),
+    getTranslations("Common"),
+    getMediaViews(ids, locale),
+    getPhotoStrings(locale),
+  ]);
+  // Library photos (database albums); sample albums have none and keep their placeholders.
+  const photos: SlidePhoto[] = album.items.flatMap((i) => {
+    const v = i.mediaId ? views[i.mediaId] : undefined;
+    return v?.src ? [{ ...v, alt: i.alt, caption: i.caption ?? v.caption }] : [];
+  });
+  const absolute = (src: string) => (src.startsWith("/") ? new URL(src, siteUrl()).toString() : src);
   const path = `/gallery/${slug}`;
   const crumbs = [
     { name: tc("home"), path: "" },
     { name: t("title"), path: "/gallery" },
     { name: album.title, path },
   ];
-  // ImageObject nodes are added once photos have real URLs (R2, Step 8); placeholders have none.
   return (
     <div className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8">
       <JsonLd
@@ -62,6 +77,14 @@ export default async function AlbumPage({ params }: Props) {
             hasBreadcrumb: true,
           }),
           breadcrumbList(locale, path, crumbs),
+          ...photos.map((p) =>
+            imageObject({
+              contentUrl: absolute(p.src!),
+              caption: p.caption ?? p.alt,
+              width: p.width,
+              height: p.height,
+            }),
+          ),
         ])}
       />
       <PageHeader
@@ -77,6 +100,8 @@ export default async function AlbumPage({ params }: Props) {
       <SampleBanner show={album.isSample} />
       {album.items.length === 0 ? (
         <EmptyState>{t("photoPending")}</EmptyState>
+      ) : photos.length ? (
+        <PhotoGrid photos={photos} t={photoStrings} />
       ) : (
         <ul className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {album.items.map((item, i) => (

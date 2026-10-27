@@ -5,7 +5,7 @@ import { getCauseForEdit } from "@/lib/admin/causes";
 import { inr } from "@/lib/admin/format";
 import { requireCapability } from "@/lib/admin/guard";
 import { LANGUAGES } from "@/lib/admin/languages";
-import { editorMedia, listMedia } from "@/lib/admin/media";
+import { editorMedia } from "@/lib/admin/media";
 import { can } from "@/lib/admin/permissions";
 import { blocksToMarkup } from "@/lib/content/markup";
 import { AdminForm } from "@/components/admin/AdminForm";
@@ -26,14 +26,17 @@ export default async function CausePage({ params, searchParams }: Props) {
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const q = await searchParams;
   const locale: Locale = pickLocale(q.lang);
-  const [data, editor, library] = await Promise.all([getCauseForEdit(id), editorMedia(locale), listMedia()]);
+  const [data, editor, { library: englishLibrary }] = await Promise.all([
+    getCauseForEdit(id),
+    editorMedia(locale),
+    editorMedia("en"),
+  ]);
   if (!data) notFound();
   const { cause, translations, donationCount } = data;
   const write = can(admin.role, "causes.write");
   const row = translations.find((t) => t.locale === locale);
   const lang = LANGUAGES[locale];
   const en = translations.find((t) => t.locale === "en");
-  const photos = library.map((m) => ({ value: m.id, label: m.image.alt ?? m.filename }));
 
   return (
     <>
@@ -59,7 +62,9 @@ export default async function CausePage({ params, searchParams }: Props) {
           id="cause"
           action={updateCauseAction.bind(null, id)}
           submitLabel="Save settings"
-          sections={[{ title: "Settings", fields: causeFields(cause, photos, cause.status !== "draft") }]}
+          sections={[
+            { title: "Settings", fields: causeFields(cause, englishLibrary, cause.status !== "draft") },
+          ]}
         />
       ) : (
         <Card>

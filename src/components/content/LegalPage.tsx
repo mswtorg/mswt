@@ -8,6 +8,7 @@ import { pageMetadata } from "@/lib/seo/page";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { DraftBanner } from "@/components/content/Banners";
 import { PageHeader } from "@/components/content/PageHeader";
+import { PageHero } from "./LibraryPhotos";
 import { ContentBody } from "@/components/content/ContentBody";
 
 type LegalKey = "privacy" | "terms" | "refund_policy" | "disclaimer_80g";
@@ -54,6 +55,7 @@ export async function LegalPage({
           breadcrumbList(locale, path, crumbs),
         ])}
       />
+      <PageHero pageKey={pageKey} locale={locale} className="mb-8" />
       <PageHeader
         crumbs={[{ label: tc("home"), href: `/${locale}` }, { label: page.title }]}
         crumbLabel={tc("breadcrumb")}

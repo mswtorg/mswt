@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { parseInline, type Blocks } from "@/lib/content/blocks";
 import type { ImageView } from "@/lib/media/view";
 import { ResponsiveImage } from "@/components/content/ResponsiveImage";
+import { PhotoSlider, type PhotoStrings, type SlidePhoto } from "@/components/content/PhotoSlider";
 import { Alert } from "./Alert";
 
 function InlineText({ text }: { text: string }) {
@@ -35,10 +36,13 @@ export function RichText({
   blocks,
   media = {},
   markMissing = false,
+  photoStrings,
 }: {
   blocks: Blocks;
   media?: Record<string, ImageView>;
   markMissing?: boolean;
+  /** Slider labels in the page's language (English when omitted, e.g. the admin preview). */
+  photoStrings?: PhotoStrings;
 }) {
   return (
     <div className="grid max-w-prose gap-4">
@@ -80,6 +84,25 @@ export function RichText({
                 </p>
               </Alert>
             );
+          case "slider": {
+            const photos = b.mediaIds.map((id) => media[id]).filter((m): m is SlidePhoto => Boolean(m?.alt));
+            const missing = b.mediaIds.length - photos.length;
+            return (
+              <figure key={i} className="m-0 grid gap-2">
+                {missing && markMissing ? (
+                  <Alert tone="warning">
+                    <p>{missing} photo(s) hidden: alt text missing in this language, or not found.</p>
+                  </Alert>
+                ) : null}
+                <PhotoSlider photos={photos} t={photoStrings} />
+                {b.caption ? (
+                  <figcaption className="text-sm text-fg-muted">
+                    <InlineText text={b.caption} />
+                  </figcaption>
+                ) : null}
+              </figure>
+            );
+          }
           case "image": {
             const image = media[b.mediaId];
             if (!image?.alt) {

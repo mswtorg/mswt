@@ -143,7 +143,8 @@
       "other": "Document"
     },
     "fileSoon": "PDF coming soon",
-    "empty": "No reports are published yet."
+    "empty": "No reports are published yet.",
+    "download": "Download PDF ({size} MB)"
   },
   "About": {
     "title": "About us",
@@ -309,5 +310,13 @@
     "link": "You can also download it here (the link works for 30 days):",
     "signoff": "With gratitude,",
     "team": "MS Welfare Trust"
+  },
+  "Photos": {
+    "label": "Photos",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "slide": "Photo {n} of {total}",
+    "open": "View full screen",
+    "close": "Close"
   }
 }

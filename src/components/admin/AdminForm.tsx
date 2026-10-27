@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
 import { BlocksEditor } from "./BlocksEditor";
+import { PhotoListField } from "./PhotoListField";
 import { compactControl } from "./ui";
 import type { FieldSpec, FormSectionSpec, FormState } from "./form-state";
 
@@ -17,7 +18,7 @@ const secondaryButton =
 
 function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; error?: string; value: string }) {
   const id = fieldId(formId, f.name);
-  const full = f.span === "full" || f.type === "textarea" || f.type === "blocks";
+  const full = f.span === "full" || f.type === "textarea" || f.type === "blocks" || f.type === "photos";
   if (f.type === "checkbox")
     return (
       <div className={cn("grid gap-1", full && "sm:col-span-2")}>
@@ -51,7 +52,18 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
         {f.label}
         {f.required ? <span className="ml-1 text-xs font-normal text-fg-muted">(required)</span> : null}
       </label>
-      {f.type === "blocks" ? (
+      {f.type === "photo" || f.type === "photos" ? (
+        <PhotoListField
+          label={f.label}
+          id={id}
+          name={f.name}
+          defaultValue={value}
+          library={f.photos?.library ?? []}
+          single={f.type === "photo"}
+          max={f.photos?.max}
+          describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
+        />
+      ) : f.type === "blocks" ? (
         <BlocksEditor
           id={id}
           name={f.name}

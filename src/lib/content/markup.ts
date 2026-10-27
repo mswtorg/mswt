@@ -8,12 +8,15 @@ import { safeHref, type Block, type Blocks } from "./blocks";
  *   - item / 1. item      (consecutive lines make one list)
  *   > Note                >! Warning note
  *   ![Caption](media:ID)  (a photo from the media library, alone on its line)
+ *   !slider[Caption](media:ID,ID,…)  (2–20 photos shown as a slider)
  *
  * Inline: **bold** and [label](https://… | /path | mailto: | tel:). Stored as typed blocks, never HTML.
  */
 export type MarkupError = { line: number; message: string };
 
 const IMAGE = /^!\[([^\]]*)\]\(media:([0-9a-f-]{36})\)$/i;
+const SLIDER = /^!slider\[([^\]]*)\]\(media:([^)]*)\)$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Links only: "![…](media:…)" is an image line, checked separately.
 const LINK = /(?<!!)\[([^\]]+)\]\(([^)\s]*)\)/g;
 const ORDERED = /^\d+\.\s+/;
@@ -47,7 +50,25 @@ export function markupToBlocks(text: string): { blocks: Blocks; errors: MarkupEr
       const n = i + 1;
       const line = raw.trim();
       if (!line) return flush();
-      checkLinks(line, n);
+      // Photo lines ("![…](media:…)", "!slider[…](media:…)") are checked below, not as links.
+      if (!line.startsWith("!")) checkLinks(line, n);
+
+      if (line.toLowerCase().startsWith("!slider[")) {
+        flush();
+        const m = SLIDER.exec(line);
+        const ids = m
+          ? m[2]!
+              .split(",")
+              .map((x) => x.trim().toLowerCase())
+              .filter(Boolean)
+          : [];
+        if (!m || ids.some((id) => !UUID.test(id)))
+          errors.push({ line: n, message: `Line ${n}: insert sliders with the “Insert slider” button` });
+        else if (ids.length < 2 || ids.length > 20)
+          errors.push({ line: n, message: `Line ${n}: a slider needs 2 to 20 photos` });
+        else blocks.push({ type: "slider", mediaIds: ids, ...(m[1] ? { caption: m[1] } : {}) });
+        return;
+      }
 
       const heading = /^(#+)\s*(.*)$/.exec(line);
       if (heading) {
@@ -119,6 +140,8 @@ export function blocksToMarkup(blocks: Blocks): string {
           return `${b.tone === "warning" ? ">!" : ">"} ${b.text}`;
         case "image":
           return `![${b.caption ?? ""}](media:${b.mediaId})`;
+        case "slider":
+          return `!slider[${b.caption ?? ""}](media:${b.mediaIds.join(",")})`;
       }
     })
     .join("\n\n");
@@ -126,5 +149,9 @@ export function blocksToMarkup(blocks: Blocks): string {
 
 /** Media ids used by image blocks (for alt-text checks and "used in"). */
 export function imageIds(blocks: Blocks): string[] {
-  return [...new Set(blocks.flatMap((b) => (b.type === "image" ? [b.mediaId] : [])))];
+  return [
+    ...new Set(
+      blocks.flatMap((b) => (b.type === "image" ? [b.mediaId] : b.type === "slider" ? b.mediaIds : [])),
+    ),
+  ];
 }

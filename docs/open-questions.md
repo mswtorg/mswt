@@ -28,7 +28,7 @@ Answer inline (or tick and add the value). IDs are referenced from `spec.md` and
 - [ ] **B13** Receipt wording (80G statement, acknowledgement notes, "no goods or services" line in `src/lib/receipts/pdf.ts`) and showing the donor's PAN **masked** on receipts: confirm with the CA.
 - [ ] **B14** Brevo sender: which address sends receipts (e.g. `receipts@mswelfaretrust.org`), with SPF/DKIM DNS records added for the domain.
 - [ ] **B15** Receipt corrections after the financial year ends: the admin only reissues within the same FY (a new number in that FY's series). Corrections after 31 March, once Form 10BD may be filed, need the CA's process. Also confirm with the CA that donor details may be corrected by void + reissue.
-- [ ] **B16** Contact messages are deleted after **12 months** (DPDP minimisation; daily job). Confirm the period with the Trust and state it in the privacy policy draft.
+- [x] **B16** Contact messages: **kept until an admin deletes them** (owner, 2026-10-23); no automatic deletion. The privacy policy draft should say so (B11).
 - [ ] **B10** Refund policy terms (window, process) and who approves refunds.
   *2026-10-22: draft refund policy written (data/content/content.json); window and timings marked [to be confirmed].*
 - [ ] **B11** Legal texts (Privacy, Terms, Refund, 80G disclaimer): will the Trust's CA/lawyer provide or review drafts we write? DPDP Act 2023 grievance officer name and email.

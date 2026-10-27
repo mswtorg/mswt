@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import { purgeOldMessages } from "@/lib/admin/messages";
 import { reconcile } from "@/lib/donations/reconcile";
 import { cronSecret } from "@/lib/donations/cron";
 
@@ -22,7 +21,5 @@ export async function GET(request: Request) {
   if (given.length !== expected.length || !timingSafeEqual(given, expected))
     return Response.json({ error: "Unauthorised" }, { status: 401, headers: NO_STORE });
   const result = await reconcile();
-  // Daily housekeeping on the same schedule: contact messages older than 12 months.
-  const messagesPurged = await purgeOldMessages();
-  return Response.json({ ...result, messagesPurged }, { headers: NO_STORE });
+  return Response.json(result, { headers: NO_STORE });
 }

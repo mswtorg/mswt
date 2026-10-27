@@ -100,7 +100,15 @@ test.describe("admin content", () => {
     await page.locator("#cause-slug").fill(slug);
     await page.locator("#cause-status").selectOption("active");
     await page.locator("#cause-goal").fill("25000");
-    await page.locator("#cause-coverImageId").selectOption(photoId);
+    await page
+      .getByRole("group", { name: "Cover photo" })
+      .getByRole("button", { name: "Choose photo" })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: new RegExp(`${slug}\\.webp`) })
+      .click();
+    await expect(page.locator("#cause-coverImageId")).toHaveValue(photoId);
     await page.getByRole("button", { name: "Create cause" }).click();
     await expect(page.getByText(/Cause created as active/)).toBeVisible();
 

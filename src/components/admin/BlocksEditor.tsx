@@ -5,9 +5,10 @@ import { cn } from "@/lib/cn";
 import { markupToBlocks } from "@/lib/content/markup";
 import type { ImageView } from "@/lib/media/view";
 import { RichText } from "@/components/ui/RichText";
+import { PhotoPicker, type LibraryItem, type PhotoPickerHandle } from "./PhotoPicker";
 import { compactControl } from "./ui";
 
-export type LibraryItem = { id: string; label: string; thumb: string | null; alt: string | null };
+export type { LibraryItem } from "./PhotoPicker";
 
 const tool =
   "inline-flex min-h-9 items-center rounded-md border border-border-input bg-bg-canvas px-2.5 text-sm font-medium text-fg-default hover:bg-bg-subtle";
@@ -44,7 +45,8 @@ export function BlocksEditor({
   library: LibraryItem[];
 }) {
   const ta = useRef<HTMLTextAreaElement>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
+  const imagePicker = useRef<PhotoPickerHandle>(null);
+  const sliderPicker = useRef<PhotoPickerHandle>(null);
   const [text, setText] = useState(defaultValue);
   const deferred = useDeferredValue(text);
   const { blocks, errors } = markupToBlocks(deferred);
@@ -119,8 +121,11 @@ export function BlocksEditor({
             <button type="button" className={tool} onClick={() => prefixLines(() => ">! ")}>
               Warning
             </button>
-            <button type="button" className={tool} onClick={() => dialog.current?.showModal()}>
+            <button type="button" className={tool} onClick={() => imagePicker.current?.open()}>
               Insert image
+            </button>
+            <button type="button" className={tool} onClick={() => sliderPicker.current?.open()}>
+              Insert slider
             </button>
           </div>
           <textarea
@@ -142,9 +147,9 @@ export function BlocksEditor({
             )}
           />
           <p id={helpId} className="m-0 text-xs text-fg-muted">
-            Leave a blank line between paragraphs. <code>## Heading</code>, <code>- list item</code>,{" "}
-            <code>**bold**</code>, <code>[link](https://…)</code>, <code>&gt; note</code>,{" "}
-            <code>&gt;! warning</code>.
+            Leave a blank line between paragraphs. Photos and sliders go on their own line.{" "}
+            <code>## Heading</code>, <code>- list item</code>, <code>**bold**</code>,{" "}
+            <code>[link](https://…)</code>, <code>&gt; note</code>, <code>&gt;! warning</code>.
           </p>
           <div aria-live="polite" className="empty:hidden">
             {errors.length ? (
@@ -170,48 +175,23 @@ export function BlocksEditor({
             <p className="m-0 text-sm text-fg-muted">Nothing written yet.</p>
           )}
         </section>
-        <dialog
-          ref={dialog}
-          aria-labelledby={`${id}-pick`}
-          className="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-lg border border-border-decorative bg-bg-canvas p-5 text-fg-default shadow-md backdrop:bg-bg-inverse/60"
-        >
-          <h3 id={`${id}-pick`} className="mb-3 text-lg">
-            Insert a photo
-          </h3>
-          {library.length ? (
-            <ul className="m-0 grid max-h-[60vh] list-none grid-cols-2 gap-3 overflow-y-auto p-0 sm:grid-cols-3">
-              {library.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    className="grid w-full gap-1 rounded-md border border-border-input p-2 text-left text-xs hover:bg-bg-subtle"
-                    onClick={() => {
-                      dialog.current?.close();
-                      insertBlock(`![](media:${m.id})`);
-                    }}
-                  >
-                    {m.thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.thumb} alt="" className="aspect-[4/3] w-full rounded-sm object-cover" />
-                    ) : (
-                      <span className="aspect-[4/3] w-full rounded-sm bg-bg-muted" />
-                    )}
-                    <span className="font-medium text-fg-strong">{m.label}</span>
-                    <span className="text-fg-muted">{m.alt ?? "No alt text in this language"}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-fg-muted">No photos yet. Upload them under Content → Media first.</p>
-          )}
-          {/* Inside the page's form: a plain button, not a nested method="dialog" form. */}
-          <div className="mt-4 flex justify-end">
-            <button type="button" className={tool} onClick={() => dialog.current?.close()}>
-              Cancel
-            </button>
-          </div>
-        </dialog>
+        <PhotoPicker
+          ref={imagePicker}
+          id={`${id}-image`}
+          library={library}
+          mode="single"
+          title="Insert a photo"
+          onPick={([photo]) => insertBlock(`![](media:${photo})`)}
+        />
+        <PhotoPicker
+          ref={sliderPicker}
+          id={`${id}-slider`}
+          library={library}
+          mode="multi"
+          min={2}
+          title="Insert a slider"
+          onPick={(ids) => insertBlock(`!slider[](media:${ids.join(",")})`)}
+        />
       </div>
     </div>
   );

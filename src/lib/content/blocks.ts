@@ -19,6 +19,12 @@ export const BlockSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("callout"), tone: z.enum(["info", "warning"]), text: z.string().min(1) }),
   /** A photo from the media library; its alt text comes from the media item, per language. */
   z.object({ type: z.literal("image"), mediaId: z.uuid(), caption: z.string().min(1).optional() }),
+  /** Several library photos shown as a swipeable slider (Step 8c-2). */
+  z.object({
+    type: z.literal("slider"),
+    mediaIds: z.array(z.uuid()).min(2).max(20),
+    caption: z.string().min(1).optional(),
+  }),
 ]);
 export const BlocksSchema = z.array(BlockSchema);
 

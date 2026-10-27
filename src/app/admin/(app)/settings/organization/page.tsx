@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { eq } from "drizzle-orm";
 import { requireCapability } from "@/lib/admin/guard";
+import { editorMedia } from "@/lib/admin/media";
 import { db } from "@/lib/db/client";
 import { organizationSettings } from "@/lib/db/schema";
 import type { FieldSpec, FormSectionSpec } from "@/components/admin/form-state";
@@ -11,7 +12,10 @@ export const metadata: Metadata = { title: "Organization" };
 
 export default async function OrganizationSettingsPage() {
   await requireCapability("settings.organization");
-  const [o] = await db.select().from(organizationSettings).where(eq(organizationSettings.id, 1));
+  const [[o], { library }] = await Promise.all([
+    db.select().from(organizationSettings).where(eq(organizationSettings.id, 1)),
+    editorMedia("en"),
+  ]);
   const v = (x: string | null | undefined) => x ?? "";
   const localised = (field: "description" | "contactHours", label: string, textarea = false): FieldSpec[] =>
     LOCALE_FIELDS.map((l) => ({
@@ -126,6 +130,22 @@ export default async function OrganizationSettingsPage() {
         },
       ],
     },
+    ...((o?.trustees ?? []).length
+      ? [
+          {
+            title: "Trustee photos",
+            description: "Shown on the About page. Save new trustees above first, then choose their photos.",
+            fields: (o?.trustees ?? []).map((t, i): FieldSpec => ({
+              name: `trusteePhoto.${i}`,
+              label: `${t.name} (${t.role})`,
+              type: "photo",
+              defaultValue: t.photoMediaId ?? "",
+              photos: { library },
+              span: "full",
+            })),
+          },
+        ]
+      : []),
     {
       title: "Reach",
       description: "Where the Trust works and its official profiles.",

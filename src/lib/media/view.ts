@@ -10,6 +10,8 @@ export type ImageView = {
   src: string | null;
   srcset: string | null;
   alt: string | null;
+  /** Caption in the same language, if any. */
+  caption: string | null;
 };
 
 type Row = {
@@ -21,7 +23,12 @@ type Row = {
   blur: string | null;
 };
 
-export function imageView(row: Row, publicBase: string | null, alt: string | null): ImageView {
+export function imageView(
+  row: Row,
+  publicBase: string | null,
+  alt: string | null,
+  caption: string | null = null,
+): ImageView {
   const files = row.r2Key && publicBase && row.variants.length ? row.variants : [];
   const url = (w: number) => `${publicBase}/${variantKey(row.r2Key!, w)}`;
   return {
@@ -32,5 +39,6 @@ export function imageView(row: Row, publicBase: string | null, alt: string | nul
     src: files.length ? url(files.at(-1)!) : null,
     srcset: files.length ? files.map((w) => `${url(w)} ${w}w`).join(", ") : null,
     alt,
+    caption,
   };
 }

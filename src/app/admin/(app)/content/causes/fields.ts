@@ -1,5 +1,6 @@
 import { CAUSE_STATUSES } from "@/lib/admin/causes";
 import type { FieldSpec } from "@/components/admin/form-state";
+import type { LibraryItem } from "@/components/admin/PhotoPicker";
 
 type CauseDefaults = {
   slug?: string;
@@ -8,6 +9,7 @@ type CauseDefaults = {
   is80gEligible?: boolean;
   sortOrder?: number;
   coverImageId?: string | null;
+  photoIds?: string[];
 };
 
 const STATUS_LABELS: Record<(typeof CAUSE_STATUSES)[number], string> = {
@@ -17,11 +19,7 @@ const STATUS_LABELS: Record<(typeof CAUSE_STATUSES)[number], string> = {
 };
 
 /** The cause settings form (new and edit). */
-export function causeFields(
-  c: CauseDefaults,
-  photos: { value: string; label: string }[],
-  published: boolean,
-): FieldSpec[] {
+export function causeFields(c: CauseDefaults, library: LibraryItem[], published: boolean): FieldSpec[] {
   return [
     {
       name: "slug",
@@ -57,10 +55,19 @@ export function causeFields(
     {
       name: "coverImageId",
       label: "Cover photo",
-      type: "select",
+      type: "photo",
       defaultValue: c.coverImageId ?? "",
-      options: [{ value: "", label: "No photo (placeholder)" }, ...photos],
+      photos: { library },
       span: "full",
+      hint: "Shown on the causes list and at the top of the cause page.",
+    },
+    {
+      name: "photoIds",
+      label: "Photo slider",
+      type: "photos",
+      defaultValue: (c.photoIds ?? []).join(","),
+      photos: { library, max: 20 },
+      hint: "Optional. Shown as a slider below the story.",
     },
     {
       name: "is80gEligible",

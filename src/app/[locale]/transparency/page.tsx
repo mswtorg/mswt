@@ -4,8 +4,10 @@ import type { Locale } from "@/i18n/routing";
 import { getPage, getReports } from "@/lib/content/queries";
 import { breadcrumbList, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
+import { getMediaStorage } from "@/lib/storage/media";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { ContentBody } from "@/components/content/ContentBody";
+import { PageHero } from "@/components/content/LibraryPhotos";
 import { PageHeader } from "@/components/content/PageHeader";
 import { SampleBanner } from "@/components/content/Banners";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -42,6 +44,7 @@ export default async function TransparencyPage({ params }: Props) {
     { name: tc("home"), path: "" },
     { name: t("title"), path: "/transparency" },
   ];
+  const mediaBase = getMediaStorage()?.publicBase ?? null;
   const byYear = Object.entries(Object.groupBy(reports, (r) => r.fy)).sort(([a], [b]) => b.localeCompare(a));
   return (
     <div className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8">
@@ -58,6 +61,7 @@ export default async function TransparencyPage({ params }: Props) {
           breadcrumbList(locale, "/transparency", crumbs),
         ])}
       />
+      <PageHero pageKey="transparency" locale={locale} className="mb-8" />
       <PageHeader
         crumbs={[{ label: tc("home"), href: `/${locale}` }, { label: t("title") }]}
         crumbLabel={tc("breadcrumb")}
@@ -89,7 +93,17 @@ export default async function TransparencyPage({ params }: Props) {
                       <span className="block font-semibold text-fg-strong">{r.title}</span>
                       <span className="text-sm text-fg-muted">{t(`kind.${r.kind}`)}</span>
                     </span>
-                    <span className="text-sm text-fg-muted">{t("fileSoon")}</span>
+                    {r.pdfKey && mediaBase ? (
+                      <a
+                        href={`${mediaBase}/${r.pdfKey}`}
+                        className="font-semibold text-link-default underline underline-offset-4"
+                      >
+                        {t("download", { size: r.pdfBytes ? (r.pdfBytes / 1024 / 1024).toFixed(1) : "–" })}
+                        <span className="sr-only">: {r.title}</span>
+                      </a>
+                    ) : (
+                      <span className="text-sm text-fg-muted">{t("fileSoon")}</span>
+                    )}
                   </li>
                 ))}
               </ul>

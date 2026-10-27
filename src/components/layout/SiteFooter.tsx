@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { FOOTER_NAV, LEGAL_NAV, pageHref, readyPages, type PageKey } from "@/config/nav";
+import { FOOTER_NAV, LEGAL_NAV, pageHref, type PageKey } from "@/config/nav";
+import { resolveMenu } from "@/lib/admin/menus";
 import { Logo } from "@/components/ui/Logo";
 
 const linkClass =
@@ -14,10 +15,16 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
   ]);
   const label = (k: PageKey) =>
     k === "privacy" || k === "terms" || k === "refund" || k === "disclaimer80g" ? t(k) : tn(k as "about");
-  const groups = (["explore", "trust"] as const)
-    .map((g) => ({ g, items: readyPages(FOOTER_NAV[g]) }))
-    .filter((x) => x.items.length > 0);
-  const legal = readyPages(LEGAL_NAV);
+  // Admin → Content → Menus, or the built-in menus until one is saved.
+  const groups = (
+    await Promise.all(
+      (["explore", "trust"] as const).map(async (g) => ({
+        g,
+        items: await resolveMenu(`footer_${g}`, locale, FOOTER_NAV[g], label),
+      })),
+    )
+  ).filter((x) => x.items.length > 0);
+  const legal = await resolveMenu("footer_legal", locale, LEGAL_NAV, label);
 
   return (
     <footer className="on-dark mt-24 border-t-2 border-border-rule bg-bg-inverse py-12 text-fg-inverse-muted">
@@ -33,10 +40,10 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
           <nav key={g} aria-label={t(g)}>
             <h2 className="mb-3 text-base text-fg-inverse">{t(g)}</h2>
             <ul className="m-0 grid list-none gap-1 p-0">
-              {items.map((k) => (
-                <li key={k}>
-                  <a href={pageHref(locale, k)} className={linkClass}>
-                    {label(k)}
+              {items.map((item) => (
+                <li key={item.key}>
+                  <a href={item.href} className={linkClass}>
+                    {item.label}
                   </a>
                 </li>
               ))}
@@ -60,10 +67,10 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
         </p>
         {legal.length > 0 ? (
           <ul className="m-0 flex list-none flex-wrap gap-x-4 p-0">
-            {legal.map((k) => (
-              <li key={k}>
-                <a href={pageHref(locale, k)} className={linkClass}>
-                  {label(k)}
+            {legal.map((item) => (
+              <li key={item.key}>
+                <a href={item.href} className={linkClass}>
+                  {item.label}
                 </a>
               </li>
             ))}

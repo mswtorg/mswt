@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { pageTranslationsFor } from "@/lib/admin/content";
+import { pageHeroIds, pageTranslationsFor } from "@/lib/admin/content";
 import { contentPage, type ContentPageKey } from "@/lib/admin/content-pages";
 import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
 import { LANGUAGES } from "@/lib/admin/languages";
 import { editorMedia } from "@/lib/admin/media";
-import { HomeExtras } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HomeExtras } from "@/lib/content/home";
 import { blocksToMarkup } from "@/lib/content/markup";
 import { AdminForm } from "@/components/admin/AdminForm";
 import type { FormSectionSpec } from "@/components/admin/form-state";
@@ -37,7 +37,12 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const key = page.key as ContentPageKey;
   const q = await searchParams;
   const locale = pickLocale(q.lang);
-  const [rows, editor] = await Promise.all([pageTranslationsFor(key), editorMedia(locale)]);
+  const [rows, editor, heroIds, { library: englishLibrary }] = await Promise.all([
+    pageTranslationsFor(key),
+    editorMedia(locale),
+    pageHeroIds(key),
+    editorMedia("en"),
+  ]);
   const row = rows.find((r) => r.locale === locale);
   const draft = row ? null : pageDraft(key, locale);
   // Home: the built-in text (src/messages) is the starting point in each language.
@@ -94,6 +99,24 @@ export default async function EditPagePage({ params, searchParams }: Props) {
       },
     ],
   };
+  // Home: headings further down the page (prefilled with the built-in text in this language).
+  const tHome = key === "home" ? await getTranslations({ locale, namespace: "Home" }) : null;
+  const homeSections: FormSectionSpec[] = tHome
+    ? [
+        {
+          title: "Sections",
+          description: "Headings and text for the causes, events, news and donate parts of the home page.",
+          fields: HOME_SECTION_FIELDS.map(([k, label]) => ({
+            name: `section_${k}`,
+            label,
+            lang: locale,
+            maxLength: k === "causesLead" || k === "bandP" ? 300 : 120,
+            ...(k === "causesLead" || k === "bandP" ? { type: "textarea" as const, rows: 2 } : {}),
+            defaultValue: (extras?.success ? extras.data.sections[k] : undefined) || tHome(k),
+          })),
+        },
+      ]
+    : [];
   const body: FormSectionSpec =
     key === "home"
       ? {
@@ -123,7 +146,9 @@ export default async function EditPagePage({ params, searchParams }: Props) {
           description:
             key === "contact" || key === "transparency"
               ? "Optional text shown above the form or the documents list."
-              : "The page text. Use the toolbar or the marks shown under the box.",
+              : ["causes", "events", "news", "gallery"].includes(key)
+                ? "Optional text shown above the list."
+                : "The page text. Use the toolbar or the marks shown under the box.",
           fields: [
             {
               name: "body",
@@ -184,8 +209,25 @@ export default async function EditPagePage({ params, searchParams }: Props) {
         submitLabel="Save"
         sticky
         sections={[
+          {
+            title: "Header photos",
+            description:
+              key === "home"
+                ? "Shown above the headline: one photo, or several as a slider. The same in every language."
+                : "Optional: one photo, or several as a slider, above the heading. The same in every language.",
+            fields: [
+              {
+                name: "heroMediaIds",
+                label: "Photos",
+                type: "photos",
+                defaultValue: heroIds.join(","),
+                photos: { library: englishLibrary, max: 8 },
+              },
+            ],
+          },
           heading,
           body,
+          ...homeSections,
           {
             title: "Search engines",
             description: SEO_DESC,

@@ -20,12 +20,15 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "active", "closed"]),
         goalPaise: z.number().int().positive().nullable().default(null),
         raisedPaise: z.number().int().nonnegative().default(0),
         sortOrder: z.number().int().default(0),
         is80gEligible: z.boolean().default(true),
         coverImageId: z.uuid().nullable().default(null),
+        photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
             title: z.string().min(1),
@@ -41,6 +44,8 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         eventStatus: z
           .enum(["scheduled", "cancelled", "postponed", "rescheduled", "moved_online"])
@@ -59,6 +64,8 @@ export const ContentFileSchema = z.object({
           .nullable()
           .default(null),
         onlineUrl: z.url().nullable().default(null),
+        coverImageId: z.uuid().nullable().default(null),
+        photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
             title: z.string().min(1),
@@ -74,9 +81,13 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         publishedAt: isoInstant,
         authorName: z.string().nullable().default(null),
+        coverImageId: z.uuid().nullable().default(null),
+        photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
             headline: z.string().min(1),
@@ -92,14 +103,20 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         slug,
+        /** Created by "Load sample content" (shows the sample banner). */
+        isSample: z.boolean().default(false),
         status: z.enum(["draft", "published"]),
         publishedAt: isoInstant.nullable().default(null),
+        albumDate: z.iso.date().nullable().default(null),
+        coverImageId: z.uuid().nullable().default(null),
         translations: per(
           z.object({ title: z.string().min(1), description: z.string().optional(), ...reviewed }),
         ),
         items: z
           .array(
             z.object({
+              /** Library photo (database content); sample items have none and show a placeholder. */
+              mediaId: z.uuid().optional(),
               width: z.number().int().positive(),
               height: z.number().int().positive(),
               alt: per(z.string().min(1)),
@@ -113,16 +130,32 @@ export const ContentFileSchema = z.object({
   reports: z
     .array(
       z.object({
+        isSample: z.boolean().default(false),
         fy: z.string().regex(/^\d{4}-\d{2}$/),
         kind: z.enum(["annual_report", "audited_accounts", "other"]),
         status: z.enum(["draft", "published"]),
+        /** The PDF in the public media bucket, once uploaded. */
+        pdfKey: z.string().nullable().default(null),
+        pdfBytes: z.number().int().nullable().default(null),
         translations: per(z.object({ title: z.string().min(1), ...reviewed })),
       }),
     )
     .default([]),
   pages: z
     .partialRecord(
-      z.enum(["about", "transparency", "contact", "privacy", "terms", "refund_policy", "disclaimer_80g"]),
+      z.enum([
+        "about",
+        "transparency",
+        "contact",
+        "privacy",
+        "terms",
+        "refund_policy",
+        "disclaimer_80g",
+        "causes",
+        "gallery",
+        "events",
+        "news",
+      ]),
       per(
         z.object({
           title: z.string().min(1),

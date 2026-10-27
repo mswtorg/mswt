@@ -9,6 +9,7 @@ import { getOrganizationSettings } from "@/lib/settings";
 import { PAGES } from "@/config/nav";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { ContentBody } from "@/components/content/ContentBody";
+import { PageHero } from "@/components/content/LibraryPhotos";
 import { PageHeader } from "@/components/content/PageHeader";
 import { Panel } from "@/components/ui/Card";
 import { TextLink } from "@/components/ui/TextLink";
@@ -94,6 +95,7 @@ export default async function ContactPage({ params }: Props) {
           breadcrumbList(locale, "/contact", crumbs),
         ])}
       />
+      <PageHero pageKey="contact" locale={locale} className="mb-8" />
       <PageHeader
         crumbs={[{ label: tc("home"), href: `/${locale}` }, { label: t("title") }]}
         crumbLabel={tc("breadcrumb")}

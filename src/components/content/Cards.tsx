@@ -69,6 +69,15 @@ export function NewsCard({
 }) {
   return (
     <Card>
+      {post.coverImageId ? (
+        <CoverImage
+          mediaId={post.coverImageId}
+          locale={locale}
+          fallback={post.headline}
+          sizes="(min-width: 1024px) 400px, (min-width: 768px) 50vw, 100vw"
+          className="rounded-none border-0"
+        />
+      ) : null}
       <CardBody>
         <p className="text-sm text-fg-muted">
           <time dateTime={isoIst(post.publishedAt)}>{publishedLabel}</time>
@@ -105,6 +114,15 @@ export async function EventCard({
   const H = `h${headingLevel}` as "h2" | "h3";
   return (
     <Card>
+      {event.coverImageId ? (
+        <CoverImage
+          mediaId={event.coverImageId}
+          locale={locale}
+          fallback={event.title}
+          sizes="(min-width: 1024px) 400px, (min-width: 768px) 50vw, 100vw"
+          className="rounded-none border-0"
+        />
+      ) : null}
       <CardBody>
         <p className="text-sm text-fg-muted">
           <time dateTime={isoIst(event.startsAt)}>{formatDate(locale, event.startsAt, true)}</time>
@@ -138,7 +156,20 @@ export async function AlbumCard({
   const H = `h${headingLevel}` as "h2" | "h3";
   return (
     <Card>
-      <ImagePlaceholder description={album.items[0]?.alt ?? album.title} className="rounded-none border-0" />
+      {album.coverImageId || album.items[0]?.mediaId ? (
+        <CoverImage
+          mediaId={album.coverImageId ?? album.items[0]!.mediaId!}
+          locale={locale}
+          fallback={album.items[0]?.alt ?? album.title}
+          sizes="(min-width: 1024px) 400px, (min-width: 768px) 50vw, 100vw"
+          className="rounded-none border-0"
+        />
+      ) : (
+        <ImagePlaceholder
+          description={album.items[0]?.alt ?? album.title}
+          className="rounded-none border-0"
+        />
+      )}
       <CardBody>
         <H className="text-xl">
           <a href={`/${locale}/gallery/${album.slug}`} className={titleLink}>

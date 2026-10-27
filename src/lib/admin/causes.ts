@@ -8,6 +8,7 @@ import { causes, causeTranslations, donations, media } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
 import { rupeesToPaise } from "@/lib/money";
 import { assertAltText, ContentError, notifySearchEngines, parseBody } from "./content";
+import { parsePhotoIds } from "./photo-ids";
 
 export const CAUSE_STATUSES = ["draft", "active", "closed"] as const;
 
@@ -34,6 +35,10 @@ export const CauseInput = z.object({
   is80gEligible: z.boolean(),
   sortOrder: z.coerce.number().int().min(0).max(9999),
   coverImageId: z.union([z.literal(""), z.uuid()]).transform((v) => v || null),
+  photoIds: z
+    .string()
+    .default("")
+    .transform((v) => parsePhotoIds(v)),
 });
 export type CauseInput = z.infer<typeof CauseInput>;
 
@@ -113,6 +118,7 @@ export async function createCause(input: CauseInput, actor: Actor): Promise<stri
           is80gEligible: input.is80gEligible,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          photoIds: input.photoIds,
         })
         .returning({ id: causes.id });
       await recordAudit(tx, actor, {
@@ -144,6 +150,7 @@ export async function updateCause(id: string, input: CauseInput, actor: Actor) {
           is80gEligible: input.is80gEligible,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          photoIds: input.photoIds,
           updatedAt: new Date(),
         })
         .where(eq(causes.id, id));
@@ -174,7 +181,10 @@ export async function saveCauseTranslation(id: string, locale: Locale, input: Ca
   const [cause] = await db.select().from(causes).where(eq(causes.id, id));
   if (!cause) throw new ContentError("form", "That cause no longer exists");
   if (input.reviewed)
-    await assertAltText([...imageIds(body), ...(cause.coverImageId ? [cause.coverImageId] : [])], locale);
+    await assertAltText(
+      [...imageIds(body), ...(cause.coverImageId ? [cause.coverImageId] : []), ...cause.photoIds],
+      locale,
+    );
   await withTx(async (tx) => {
     const now = new Date();
     const values = {

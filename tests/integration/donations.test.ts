@@ -148,6 +148,32 @@ describe("online donations against Postgres", () => {
     expect(after!.number).toBe(before!.number);
     expect(after!.voidedAt).toBeTruthy();
   });
+
+  it("an automatic refund of the recorded payment voids the receipt", async () => {
+    const o = await donate();
+    await deliver(FakeProvider.settle(o.publicOrderId, "paid"));
+    const d = await donationRow(o.publicOrderId);
+    expect(
+      await markRefunded(o.publicOrderId, "rf_auto", { paymentId: d.providerPaymentId, auto: true }),
+    ).toBe("refunded");
+    const [r] = await db.select().from(receipts).where(eq(receipts.donationId, d.id));
+    expect(r!.voidReason).toMatch(/^Automatically refunded by Cashfree/);
+  });
+
+  it("refunding a second (duplicate) payment keeps the donation paid and its receipt", async () => {
+    const o = await donate();
+    await deliver(FakeProvider.settle(o.publicOrderId, "paid"));
+    const d = await donationRow(o.publicOrderId);
+    expect(await markRefunded(o.publicOrderId, "rf_dup", { paymentId: "another-payment", auto: true })).toBe(
+      "other_payment",
+    );
+    expect((await donationRow(o.publicOrderId)).status).toBe("paid");
+    const [r] = await db.select().from(receipts).where(eq(receipts.donationId, d.id));
+    expect(r!.voidedAt).toBeNull();
+    // A refund for an order that was never paid changes nothing.
+    const unpaid = await donate();
+    expect(await markRefunded(unpaid.publicOrderId, "rf_x", { auto: true })).toBe("not_paid");
+  });
 });
 
 describe("offline donations", () => {

@@ -9,11 +9,14 @@ import {
   causeTranslations,
   events,
   eventTranslations,
+  galleryAlbums,
   galleryItems,
   media,
   mediaTranslations,
   newsPosts,
   newsTranslations,
+  organizationSettings,
+  pages,
   pageTranslations,
 } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
@@ -119,39 +122,61 @@ export async function updateMediaText(id: string, input: MediaTextInput, actor: 
   });
 }
 
+/** Text blocks (any language) that show the photo, alone or in a slider. */
 const usesImage = (col: unknown, id: string) =>
-  sql`${col} @> ${JSON.stringify([{ type: "image", mediaId: id }])}::jsonb`;
+  sql`(${col} @> ${JSON.stringify([{ type: "image", mediaId: id }])}::jsonb or ${col} @> ${JSON.stringify([{ type: "slider", mediaIds: [id] }])}::jsonb)`;
+const inList = (col: unknown, id: string) => sql`${id}::uuid = any(${col})`;
 
-/** Where a photo is used (covers, gallery, image blocks in any language). */
+/** Where a photo is used: covers, sliders, page headers, albums, trustees and text in any language. */
 export async function mediaUsage(id: string): Promise<{ label: string; href: string }[]> {
-  const [causeRows, pageRows, eventRows, newsRows, gallery] = await Promise.all([
+  const [causeRows, pageRows, eventRows, newsRows, albums, trustees] = await Promise.all([
     db
       .selectDistinct({ id: causes.id, slug: causes.slug })
       .from(causes)
       .leftJoin(causeTranslations, eq(causeTranslations.causeId, causes.id))
-      .where(or(eq(causes.coverImageId, id), usesImage(causeTranslations.body, id))),
+      .where(
+        or(eq(causes.coverImageId, id), inList(causes.photoIds, id), usesImage(causeTranslations.body, id)),
+      ),
     db
-      .selectDistinct({ key: pageTranslations.pageKey })
-      .from(pageTranslations)
-      .where(usesImage(pageTranslations.sections, id)),
+      .selectDistinct({ key: pages.key })
+      .from(pages)
+      .leftJoin(pageTranslations, eq(pageTranslations.pageKey, pages.key))
+      .where(or(inList(pages.heroMediaIds, id), usesImage(pageTranslations.sections, id))),
     db
       .selectDistinct({ id: events.id, slug: events.slug })
       .from(events)
       .leftJoin(eventTranslations, eq(eventTranslations.eventId, events.id))
-      .where(or(eq(events.coverImageId, id), usesImage(eventTranslations.body, id))),
+      .where(
+        or(eq(events.coverImageId, id), inList(events.photoIds, id), usesImage(eventTranslations.body, id)),
+      ),
     db
       .selectDistinct({ id: newsPosts.id, slug: newsPosts.slug })
       .from(newsPosts)
       .leftJoin(newsTranslations, eq(newsTranslations.postId, newsPosts.id))
-      .where(or(eq(newsPosts.coverImageId, id), usesImage(newsTranslations.body, id))),
-    db.select({ albumId: galleryItems.albumId }).from(galleryItems).where(eq(galleryItems.mediaId, id)),
+      .where(
+        or(
+          eq(newsPosts.coverImageId, id),
+          inList(newsPosts.photoIds, id),
+          usesImage(newsTranslations.body, id),
+        ),
+      ),
+    db
+      .selectDistinct({ id: galleryAlbums.id, slug: galleryAlbums.slug })
+      .from(galleryAlbums)
+      .leftJoin(galleryItems, eq(galleryItems.albumId, galleryAlbums.id))
+      .where(or(eq(galleryAlbums.coverImageId, id), eq(galleryItems.mediaId, id))),
+    db
+      .select({ id: organizationSettings.id })
+      .from(organizationSettings)
+      .where(sql`${organizationSettings.trustees} @> ${JSON.stringify([{ photoMediaId: id }])}::jsonb`),
   ]);
   return [
     ...pageRows.map((p) => ({ label: `Page: ${p.key}`, href: `/admin/content/pages/${p.key}` })),
     ...causeRows.map((c) => ({ label: `Cause: ${c.slug}`, href: `/admin/content/causes/${c.id}` })),
-    ...eventRows.map((e) => ({ label: `Event: ${e.slug}`, href: `/admin/content` })),
-    ...newsRows.map((n) => ({ label: `News: ${n.slug}`, href: `/admin/content` })),
-    ...(gallery.length ? [{ label: `Gallery (${gallery.length})`, href: `/admin/content` }] : []),
+    ...eventRows.map((e) => ({ label: `Event: ${e.slug}`, href: `/admin/content/events/${e.id}` })),
+    ...newsRows.map((n) => ({ label: `News: ${n.slug}`, href: `/admin/content/news/${n.id}` })),
+    ...albums.map((a) => ({ label: `Gallery: ${a.slug}`, href: `/admin/content/gallery/${a.id}` })),
+    ...(trustees.length ? [{ label: "Trustees", href: "/admin/settings/organization" }] : []),
   ];
 }
 
@@ -249,9 +274,10 @@ export async function editorMedia(locale: Locale): Promise<{
         )
     : [];
   const base = getMediaStorage()?.publicBase ?? null;
-  const views = rows.map((r) =>
-    imageView(r, base, tr.find((t) => t.mediaId === r.id && t.locale === locale)?.altText ?? null),
-  );
+  const views = rows.map((r) => {
+    const t = tr.find((x) => x.mediaId === r.id && x.locale === locale);
+    return imageView(r, base, t?.altText ?? null, t?.caption ?? null);
+  });
   return {
     media: Object.fromEntries(views.map((v) => [v.id, v])),
     library: rows.map((r, i) => ({

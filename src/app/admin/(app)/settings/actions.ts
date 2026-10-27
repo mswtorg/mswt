@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import type { ZodType } from "zod";
 import { requireCapability } from "@/lib/admin/guard";
+import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import type { Capability } from "@/lib/admin/permissions";
 import { AppearanceInput, EmailInput, OrganizationInput, SeoInput } from "@/lib/admin/settings/schemas";
 import { updateAppearance, updateEmail, updateOrganization, updateSeo } from "@/lib/admin/settings/service";
@@ -88,16 +89,24 @@ export async function saveOrganization(_prev: FormState, form: FormData) {
     "settings.organization",
     form,
     async (v) => {
-      // Trustees are edited as "Name | Role" lines; photos and bios set elsewhere are kept.
+      // Trustees are edited as "Name | Role" lines; bios are kept. Photos come from the
+      // "Trustee photos" fields (trusteePhoto.<index in the saved list>), matched by name.
       const [current] = await db
         .select({ trustees: organizationSettings.trustees })
         .from(organizationSettings)
         .where(eq(organizationSettings.id, 1));
+      const photoByName = new Map(
+        (current?.trustees ?? []).map((t, j) => [
+          t.name,
+          `trusteePhoto.${j}` in v ? parsePhotoIds(v[`trusteePhoto.${j}`], 1)[0] : t.photoMediaId,
+        ]),
+      );
       const trustees = lines(v.trustees).map((line, i) => {
         const [name = "", role = ""] = line.split("|").map((s) => s.trim());
         if (!name || !role) throw new Error(`Trustee line ${i + 1}: write it as "Name | Role"`);
-        const before = current?.trustees.find((t) => t.name === name);
-        return { ...before, name, role, sort: i + 1 };
+        const { photoMediaId: _, ...before } = current?.trustees.find((t) => t.name === name) ?? {};
+        const photoMediaId = photoByName.get(name);
+        return { ...before, name, role, sort: i + 1, ...(photoMediaId ? { photoMediaId } : {}) };
       });
       return {
         legalName: v.legalName,

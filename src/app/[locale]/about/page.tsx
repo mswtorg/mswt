@@ -8,11 +8,14 @@ import { breadcrumbList, ngo, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
 import { getOrganizationSettings } from "@/lib/settings";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { PageHero } from "@/components/content/LibraryPhotos";
 import { PageHeader } from "@/components/content/PageHeader";
 import { SampleBanner } from "@/components/content/Banners";
 import { ContentBody } from "@/components/content/ContentBody";
 import { HeadingRule } from "@/components/ui/Typography";
 import { ImagePlaceholder } from "@/components/ui/ImagePlaceholder";
+import { ResponsiveImage } from "@/components/content/ResponsiveImage";
+import { getMediaViews } from "@/lib/content/media";
 import { TextLink } from "@/components/ui/TextLink";
 
 export const revalidate = 3600;
@@ -88,6 +91,7 @@ export default async function AboutPage({ params }: Props) {
           breadcrumbList(locale, "/about", crumbs),
         ])}
       />
+      <PageHero pageKey="about" locale={locale} className="mb-8" />
       <PageHeader
         crumbs={crumbs.map((c, i) => ({
           label: c.name,
@@ -108,7 +112,7 @@ export default async function AboutPage({ params }: Props) {
           <ul className="mt-8 grid list-none gap-8 p-0 sm:grid-cols-2 lg:grid-cols-4">
             {trustees.map((p) => (
               <li key={p.name} className="grid justify-items-center gap-2 text-center">
-                <ImagePlaceholder description={p.name} round className="w-32" />
+                <TrusteePhoto mediaId={p.photoMediaId ?? null} name={p.name} locale={locale} />
                 <h3 className="text-lg">{p.name}</h3>
                 <p className="text-sm text-fg-muted">{p.role}</p>
               </li>
@@ -136,5 +140,27 @@ export default async function AboutPage({ params }: Props) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+/** A trustee's library photo (round), or the placeholder when none is set or it lacks alt text here. */
+async function TrusteePhoto({
+  mediaId,
+  name,
+  locale,
+}: {
+  mediaId: string | null;
+  name: string;
+  locale: Locale;
+}) {
+  const image = mediaId ? (await getMediaViews([mediaId], locale))[mediaId] : undefined;
+  if (!image?.alt || !image.src) return <ImagePlaceholder description={name} round className="w-32" />;
+  return (
+    <ResponsiveImage
+      image={image}
+      alt={image.alt}
+      sizes="128px"
+      className="aspect-square w-32 rounded-full"
+    />
   );
 }

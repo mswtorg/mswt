@@ -12,6 +12,9 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { PageHeader } from "@/components/content/PageHeader";
 import { SampleBanner } from "@/components/content/Banners";
 import { ContentBody } from "@/components/content/ContentBody";
+import { CoverImage } from "@/components/content/CoverImage";
+import { LibraryPhotos } from "@/components/content/LibraryPhotos";
+import { absoluteImageUrl } from "@/lib/content/media";
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ locale: string; slug: string }> };
@@ -43,7 +46,11 @@ export default async function NewsArticlePage({ params }: Props) {
   setRequestLocale(locale);
   const post = await getNewsPost(locale, slug);
   if (!post) notFound();
-  const [t, tc] = await Promise.all([getTranslations("News"), getTranslations("Common")]);
+  const [t, tc, image] = await Promise.all([
+    getTranslations("News"),
+    getTranslations("Common"),
+    absoluteImageUrl(post.coverImageId, locale as Locale),
+  ]);
   const path = `/news/${slug}`;
   const crumbs = [
     { name: tc("home"), path: "" },
@@ -56,11 +63,11 @@ export default async function NewsArticlePage({ params }: Props) {
         graph={pageGraph([
           webPage({ locale, path, name: post.headline, description: post.excerpt, hasBreadcrumb: true }),
           breadcrumbList(locale, path, crumbs),
-          // News images are added with real photos (Step 8); Google needs an image for article rich results.
+          // Google needs an image for article rich results: the cover photo, once set.
           newsArticle({
             headline: post.headline,
             url: absoluteUrl(locale, path),
-            images: [],
+            images: image ? [image] : [],
             published: post.publishedAt,
             authorName: post.authorName ?? undefined,
             locale,
@@ -85,8 +92,18 @@ export default async function NewsArticlePage({ params }: Props) {
         </p>
       </PageHeader>
       <SampleBanner show={post.isSample} />
-      <article>
+      <article className="grid gap-8">
+        {post.coverImageId ? (
+          <CoverImage
+            mediaId={post.coverImageId}
+            locale={locale}
+            fallback={post.headline}
+            ratio="wide"
+            priority
+          />
+        ) : null}
         <ContentBody blocks={post.body} locale={locale as Locale} />
+        <LibraryPhotos ids={post.photoIds} locale={locale} ratio="photo" />
       </article>
     </div>
   );

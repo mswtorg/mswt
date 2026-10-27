@@ -259,7 +259,29 @@ describe("Cashfree events", () => {
       parseCashfreeWebhook(
         ev("REFUND_STATUS_WEBHOOK", { refund: { cf_refund_id: 9, order_id: "o", refund_status: "SUCCESS" } }),
       ),
-    ).toMatchObject({ kind: "refund_success", refundId: "9" });
+    ).toMatchObject({ kind: "refund_success", refundId: "9", auto: false, paymentId: null });
+    expect(
+      parseCashfreeWebhook(
+        ev("AUTO_REFUND_STATUS_WEBHOOK", {
+          auto_refund: { cf_refund_id: 11, cf_payment_id: 77, order_id: "o", refund_status: "SUCCESS" },
+        }),
+      ),
+    ).toMatchObject({
+      kind: "refund_success",
+      orderId: "o",
+      refundId: "11",
+      paymentId: "77",
+      auto: true,
+      eventId: "AUTO_REFUND_STATUS_WEBHOOK:11",
+    });
+    // Not yet successful (e.g. PENDING): nothing to apply.
+    expect(
+      parseCashfreeWebhook(
+        ev("AUTO_REFUND_STATUS_WEBHOOK", {
+          auto_refund: { cf_refund_id: 12, order_id: "o", refund_status: "PENDING" },
+        }),
+      ).kind,
+    ).toBe("ignored");
     expect(parseCashfreeWebhook(ev("SETTLEMENT_WEBHOOK", {})).kind).toBe("ignored");
   });
 });

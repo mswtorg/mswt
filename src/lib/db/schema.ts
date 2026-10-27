@@ -259,6 +259,11 @@ export const pageKey = pgEnum("page_key", [
   "terms",
   "refund_policy",
   "disclaimer_80g",
+  // List pages (Step 8c, content everywhere): heading, intro and header photos above the list.
+  "causes",
+  "gallery",
+  "events",
+  "news",
 ]);
 export const eventStatus = pgEnum("event_status", [
   "scheduled",
@@ -299,6 +304,7 @@ export const media = pgTable("media", {
   /** Tiny base64 WebP shown while the image loads. */
   blur: text("blur"),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
+  isSample: boolean("is_sample").default(false).notNull(),
   createdAt: createdAt(),
 });
 
@@ -325,7 +331,14 @@ export const causes = pgTable(
     raisedPaise: paise("raised_paise").default(0).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
+    photoIds: uuid("photo_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`)
+      .notNull(),
     is80gEligible: boolean("is_80g_eligible").default(true).notNull(),
+    /** Created by "Load sample content" (Content → Sample content); removable as a group. */
+    isSample: boolean("is_sample").default(false).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -354,6 +367,11 @@ export const causeTranslations = pgTable(
 /** Fixed pages (about, legal…) keyed by page_key; their content is blocks per language. */
 export const pages = pgTable("pages", {
   key: pageKey("key").primaryKey(),
+  /** Header photo(s) above the page (one photo, or a slider); the same in every language. */
+  heroMediaIds: uuid("hero_media_ids")
+    .array()
+    .default(sql`'{}'::uuid[]`)
+    .notNull(),
   updatedAt: updatedAt(),
 });
 
@@ -383,6 +401,10 @@ export const galleryAlbums = pgTable(
     coverImageId: uuid("cover_image_id").references(() => media.id),
     sortOrder: integer("sort_order").default(0).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** When the photos were taken (shown on the album); optional. */
+    albumDate: date("album_date"),
+    /** Created by "Load sample content" (Content → Sample content); removable as a group. */
+    isSample: boolean("is_sample").default(false).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -433,7 +455,14 @@ export const events = pgTable(
     venueRegion: text("venue_region"),
     venuePostalCode: text("venue_postal_code"),
     onlineUrl: text("online_url"),
+    /** Created by "Load sample content" (Content → Sample content); removable as a group. */
+    isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
+    photoIds: uuid("photo_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`)
+      .notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -467,7 +496,14 @@ export const newsPosts = pgTable(
     status: publishStatus("status").default("draft").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     authorName: text("author_name"),
+    /** Created by "Load sample content" (Content → Sample content); removable as a group. */
+    isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
+    photoIds: uuid("photo_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`)
+      .notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -502,6 +538,10 @@ export const reports = pgTable(
     kind: reportKind("kind").notNull(),
     status: publishStatus("status").default("draft").notNull(),
     pdfR2Key: text("pdf_r2_key"),
+    pdfBytes: integer("pdf_bytes"),
+    pdfFilename: text("pdf_filename"),
+    /** Created by "Load sample content" (Content → Sample content); removable as a group. */
+    isSample: boolean("is_sample").default(false).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -518,6 +558,35 @@ export const reportTranslations = pgTable(
     ...translationCols(),
   },
   (t) => [primaryKey({ columns: [t.reportId, t.locale] })],
+);
+
+// ── Menus (Step 8c-2) ──────────────────────────────────────────────────────────────────────────
+// Header and footer links edited in the admin. While a location has no rows the site uses the
+// built-in menus (src/config/nav.ts). Links to pages that aren't live, or to drafts, never show.
+export const menuLocation = pgEnum("menu_location", [
+  "header",
+  "footer_explore",
+  "footer_trust",
+  "footer_legal",
+]);
+export const menuItemKind = pgEnum("menu_item_kind", ["page", "cause", "news", "event", "url"]);
+
+export const menuItems = pgTable(
+  "menu_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    location: menuLocation("location").notNull(),
+    sort: integer("sort").default(0).notNull(),
+    kind: menuItemKind("kind").notNull(),
+    /** Page key (src/config/nav.ts), cause/news/event slug, or an https URL. */
+    target: text("target").notNull(),
+    hidden: boolean("hidden").default(false).notNull(),
+    /** Optional label per language; the built-in name (or the item's title) is used otherwise. */
+    labels: jsonb("labels").$type<Partial<Record<"en" | "hi" | "mr" | "gu", string>>>().default({}).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("menu_items_location_idx").on(t.location, t.sort)],
 );
 
 export const messageStatus = pgEnum("message_status", ["new", "read", "replied", "spam"]);

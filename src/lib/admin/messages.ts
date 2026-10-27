@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, inArray, isNull, lt, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { recordAudit, type Actor } from "@/lib/audit";
 import { db } from "@/lib/db/client";
@@ -6,8 +6,6 @@ import { messages, users } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
 
 export const MESSAGE_PAGE_SIZE = 50;
-/** Contact messages are kept 12 months, then deleted by the daily cron (DPDP minimisation). */
-export const MESSAGE_RETENTION_DAYS = 365;
 export const MESSAGE_STATUSES = ["new", "read", "replied", "spam"] as const;
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
 export const MESSAGE_LABEL: Record<MessageStatus, string> = {
@@ -140,24 +138,22 @@ export async function updateMessage(id: string, input: z.infer<typeof MessageUpd
   });
 }
 
-/** Deletes messages older than the retention period. Run by the daily cron; audited as one entry. */
-export async function purgeOldMessages(now = new Date()): Promise<number> {
-  const cutoff = new Date(now.getTime() - MESSAGE_RETENTION_DAYS * 86_400_000);
-  return withTx(async (tx) => {
+/**
+ * Deletes one message for good (owner decision B16: messages are kept until an admin deletes
+ * them). The audit entry keeps who deleted what and when, not the message text.
+ */
+export async function deleteMessage(id: string, actor: Actor) {
+  await withTx(async (tx) => {
     const gone = await tx
       .delete(messages)
-      .where(lt(messages.createdAt, cutoff))
-      .returning({ id: messages.id });
+      .where(eq(messages.id, id))
+      .returning({ subject: messages.subject, createdAt: messages.createdAt });
     if (gone.length)
-      await recordAudit(
-        tx,
-        { userId: null },
-        {
-          action: "message.purge",
-          entityType: "message",
-          after: { deleted: gone.length, olderThan: cutoff.toISOString() },
-        },
-      );
-    return gone.length;
+      await recordAudit(tx, actor, {
+        action: "message.delete",
+        entityType: "message",
+        entityId: id,
+        before: { subject: gone[0]!.subject, receivedAt: gone[0]!.createdAt.toISOString() },
+      });
   });
 }

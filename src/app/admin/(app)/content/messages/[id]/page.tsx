@@ -16,7 +16,7 @@ import { AdminForm } from "@/components/admin/AdminForm";
 import { Card, Details, PageHeader, Section } from "@/components/admin/ui";
 import { Badge } from "@/components/ui/Alert";
 import { ButtonLink } from "@/components/ui/Button";
-import { updateMessageAction } from "../actions";
+import { deleteMessageAction, updateMessageAction } from "../actions";
 
 export const metadata: Metadata = { title: "Message" };
 type Props = { params: Promise<{ id: string }> };
@@ -106,6 +106,24 @@ export default async function MessagePage({ params }: Props) {
             },
           ]}
         />
+      ) : null}
+      {write ? (
+        <Card>
+          <Section
+            id="delete"
+            title="Delete"
+            description="Removes the message for good. The audit log keeps who deleted it and when, not the text."
+          >
+            <AdminForm
+              id="delete-message"
+              action={deleteMessageAction.bind(null, id)}
+              submitLabel="Delete message"
+              variant="danger"
+              confirm="Delete this message? This can't be undone."
+              fields={[]}
+            />
+          </Section>
+        </Card>
       ) : null}
     </>
   );

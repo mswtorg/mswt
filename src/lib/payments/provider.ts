@@ -28,7 +28,16 @@ export type FetchedOrder = {
 export type WebhookEvent =
   | { kind: "payment_success"; orderId: string; paymentId: string; eventId: string }
   | { kind: "payment_failed"; orderId: string; paymentId: string | null; eventId: string }
-  | { kind: "refund_success"; orderId: string; refundId: string; eventId: string }
+  | {
+      kind: "refund_success";
+      orderId: string;
+      refundId: string;
+      /** The payment that was refunded (Cashfree sends it); null if the gateway didn't say. */
+      paymentId: string | null;
+      /** Refunded by the gateway itself (e.g. a duplicate or late payment), not from the dashboard. */
+      auto: boolean;
+      eventId: string;
+    }
   | { kind: "ignored"; eventId: string; type: string; orderId: string | null };
 
 export interface PaymentProvider {

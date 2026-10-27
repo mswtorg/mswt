@@ -21,7 +21,7 @@ import {
   Th,
   Tr,
 } from "@/components/admin/ui";
-import { Badge } from "@/components/ui/Alert";
+import { Alert, Badge } from "@/components/ui/Alert";
 import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Messages" };
@@ -40,8 +40,13 @@ export default async function MessagesPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Messages"
-        description="Sent through the contact form. Kept for 12 months, then deleted automatically."
+        description="Sent through the contact form. Kept until an admin deletes them."
       />
+      {q.deleted ? (
+        <Alert tone="success" live="polite">
+          <p>Message deleted.</p>
+        </Alert>
+      ) : null}
       <FilterBar resetHref="/admin/content/messages">
         <FilterField id="m-status" label="Status">
           <select id="m-status" name="status" defaultValue={f.status ?? ""} className={compactControl}>

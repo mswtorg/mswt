@@ -30,7 +30,13 @@ export async function markPaidAndIssueReceipt(
   const [d] = await tx.select().from(donations).where(eq(donations.id, donationId)).for("update");
   if (!d) throw new UnknownOrderError(`Donation ${donationId} not found`);
   if (d.status === "paid" || d.status === "refunded") {
-    const [r] = await tx.select().from(receipts).where(eq(receipts.donationId, d.id));
+    // The live receipt (a corrected donation also has voided ones); a refunded one keeps its last.
+    const [r] = await tx
+      .select()
+      .from(receipts)
+      .where(eq(receipts.donationId, d.id))
+      .orderBy(sql`${receipts.voidedAt} is not null`, sql`${receipts.issuedAt} desc`)
+      .limit(1);
     if (!r) throw new Error(`Paid donation ${d.id} has no receipt`);
     return { receiptId: r.id, receiptNumber: r.number, alreadyPaid: true };
   }
@@ -128,11 +134,23 @@ export async function markUnpaid(orderId: string, status: "failed" | "expired"):
     .where(and(eq(donations.publicOrderId, orderId), inArray(donations.status, ["created", "pending"])));
 }
 
-/** Refund processed in the Cashfree dashboard: donation refunded, receipt voided (number kept). */
-export async function markRefunded(orderId: string, refundId: string): Promise<void> {
-  await withTx(async (tx) => {
+export type RefundOutcome = "refunded" | "not_paid" | "other_payment";
+
+/**
+ * A refund succeeded (from the Cashfree dashboard, or an automatic one): donation refunded, cause
+ * total reduced, receipt voided (number kept). Only when the refunded payment is the one recorded
+ * for the donation: a donor who paid twice gets the extra payment back and keeps the receipt.
+ */
+export async function markRefunded(
+  orderId: string,
+  refundId: string,
+  refund: { paymentId?: string | null; auto?: boolean } = {},
+): Promise<RefundOutcome> {
+  return withTx(async (tx) => {
     const [d] = await tx.select().from(donations).where(eq(donations.publicOrderId, orderId)).for("update");
-    if (!d || d.status !== "paid") return;
+    if (!d || d.status !== "paid") return "not_paid";
+    if (refund.paymentId && d.providerPaymentId && refund.paymentId !== d.providerPaymentId)
+      return "other_payment";
     await tx
       .update(donations)
       .set({ status: "refunded", updatedAt: new Date() })
@@ -144,7 +162,13 @@ export async function markRefunded(orderId: string, refundId: string): Promise<v
         .where(eq(causes.id, d.causeId));
     await tx
       .update(receipts)
-      .set({ voidedAt: new Date(), voidReason: `Refunded (Cashfree refund ${refundId})` })
+      .set({
+        voidedAt: new Date(),
+        voidReason: refund.auto
+          ? `Automatically refunded by Cashfree (refund ${refundId})`
+          : `Refunded (Cashfree refund ${refundId})`,
+      })
       .where(and(eq(receipts.donationId, d.id), sql`${receipts.voidedAt} is null`));
+    return "refunded";
   });
 }

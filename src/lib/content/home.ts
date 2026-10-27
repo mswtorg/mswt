@@ -4,7 +4,7 @@ import { z } from "zod";
 import { routing, type Locale } from "@/i18n/routing";
 import { db } from "@/lib/db/client";
 import { pageTranslations } from "@/lib/db/schema";
-import { CONTENT_TAG, isProduction } from "./source";
+import { CONTENT_SAFETY_REVALIDATE, CONTENT_TAG, isProduction } from "./source";
 
 /** Home-only fields stored in page_translations.extras (Content → Pages → Home). */
 export const HomeExtras = z.object({
@@ -12,8 +12,30 @@ export const HomeExtras = z.object({
   points: z
     .array(z.object({ title: z.string().trim().min(1).max(80), text: z.string().trim().min(1).max(300) }))
     .length(3),
+  /** Section headings further down the home page (empty: the built-in text). */
+  sections: z
+    .object({
+      whyTitle: z.string().trim().max(120),
+      causesH: z.string().trim().max(120),
+      causesLead: z.string().trim().max(300),
+      eventsH: z.string().trim().max(120),
+      newsH: z.string().trim().max(120),
+      bandH: z.string().trim().max(120),
+      bandP: z.string().trim().max(300),
+    })
+    .partial()
+    .default({}),
 });
 export type HomeExtras = z.infer<typeof HomeExtras>;
+export const HOME_SECTION_FIELDS = [
+  ["whyTitle", "“Why give” heading (for screen readers)"],
+  ["causesH", "Causes heading"],
+  ["causesLead", "Causes introduction"],
+  ["eventsH", "Events heading"],
+  ["newsH", "News heading"],
+  ["bandH", "Donate band heading"],
+  ["bandP", "Donate band text"],
+] as const;
 
 export type HomeContent = {
   title: string;
@@ -21,6 +43,7 @@ export type HomeContent = {
   intro: string | null;
   eyebrow: string;
   points: HomeExtras["points"];
+  sections: HomeExtras["sections"];
   seoTitle: string | null;
   seoDescription: string | null;
 };
@@ -46,10 +69,11 @@ export const getHomeContent = unstable_cache(
       intro: row.intro,
       eyebrow: extras.data.eyebrow,
       points: extras.data.points,
+      sections: extras.data.sections,
       seoTitle: row.seoTitle,
       seoDescription: row.seoDescription,
     };
   },
   ["home-content"],
-  { tags: [CONTENT_TAG] },
+  { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
 );
