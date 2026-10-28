@@ -22,9 +22,7 @@
           "deviceScaleFactor": 1.75,
           "disabled": false
         },
-        "skipAudits": [
-          "is-crawlable"
-        ]
+        "skipAudits": ["is-crawlable"]
       }
     },
     "assert": {
