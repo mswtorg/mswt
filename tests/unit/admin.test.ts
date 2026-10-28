@@ -255,6 +255,11 @@ describe("settings validation", () => {
     expect(OrganizationInput.safeParse({ ...org, pincode: "012345" }).success).toBe(false);
     expect(OrganizationInput.safeParse({ ...org, reg80gValidTo: "2025-01-01" }).success).toBe(false);
   });
+  it("accepts only https profile links (they become footer links)", () => {
+    expect(OrganizationInput.safeParse({ ...org, sameAs: ["https://facebook.com/mswt"] }).success).toBe(true);
+    for (const bad of ["http://facebook.com/mswt", "javascript:alert(1)", "ftp://example.org"])
+      expect(OrganizationInput.safeParse({ ...org, sameAs: [bad] }).success).toBe(false);
+  });
   it("requires %s in title templates and a known site font", () => {
     const seo = {
       titleTemplate: { en: "MS Welfare Trust" },

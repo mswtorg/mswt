@@ -2,17 +2,23 @@ import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { FOOTER_NAV, LEGAL_NAV, pageHref, type PageKey } from "@/config/nav";
 import { resolveMenu } from "@/lib/admin/menus";
+import { getOrganizationSettings } from "@/lib/settings";
+import { socialLinks } from "@/lib/social";
 import { Logo } from "@/components/ui/Logo";
+import { SocialLinks } from "@/components/ui/SocialLinks";
 
 const linkClass =
   "inline-flex min-h-(--size-target-min) items-center text-link-inverse underline underline-offset-4";
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
-  const [t, tn, tl] = await Promise.all([
+  const [t, tn, tl, org] = await Promise.all([
     getTranslations("Footer"),
     getTranslations("Nav"),
     getTranslations("Layout"),
+    getOrganizationSettings(),
   ]);
+  // Settings → Organization → Official profiles (also the NGO's sameAs in JSON-LD).
+  const social = socialLinks(org?.sameAs ?? []);
   const label = (k: PageKey) =>
     k === "privacy" || k === "terms" || k === "refund" || k === "disclaimer80g" ? t(k) : tn(k as "about");
   // Admin → Content → Menus, or the built-in menus until one is saved.
@@ -35,6 +41,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
           </a>
           <p className="max-w-prose">{t("about")}</p>
           <p className="text-sm">{t("noFcra")}</p>
+          {social.length > 0 ? <SocialLinks label={t("followUs")} links={social} /> : null}
         </div>
         {groups.map(({ g, items }) => (
           <nav key={g} aria-label={t(g)}>

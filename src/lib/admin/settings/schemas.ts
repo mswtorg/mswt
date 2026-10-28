@@ -58,7 +58,7 @@ export const OrganizationInput = z
         }),
       )
       .max(30),
-    sameAs: z.array(z.url()).max(10),
+    sameAs: z.array(z.url({ protocol: /^https$/, error: "Profiles must start with https://" })).max(10),
     signatoryName: optText(120).optional().default(null),
     signatoryTitle: optText(120).optional().default(null),
   })
