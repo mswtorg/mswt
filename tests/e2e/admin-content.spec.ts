@@ -167,6 +167,11 @@ test.describe("admin content", () => {
     await page.getByLabel(/Reviewed by a person/).check();
     await page.getByRole("button", { name: "Save text" }).click();
     await expect(page.getByText(/Saved\. It shows in this language/)).toBeVisible();
+    // After saving, the editor keeps what was saved (the form's automatic reset must not undo it).
+    await expect(body.getByRole("button", { name: "Remove photo" })).toBeVisible();
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId})`,
+    );
     await expectAccessible(page);
 
     // Hindi can't be marked reviewed while the photo has no Hindi alt text.
