@@ -253,10 +253,13 @@ test.describe("admin content", () => {
 
     await page.goto(`/admin/content/causes/${cause!.id}`);
     const body = page.getByRole("textbox", { name: "Text" });
-    await body.click();
-    await page.keyboard.press("ControlOrMeta+End");
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("Pasted below.");
+    // Once the editor is ready (the saved photo shows as a card): the caret at the end of the
+    // heading (the same on every OS), then paste there.
+    await expect(body.getByRole("button", { name: "Remove photo" })).toHaveCount(1);
+    await body.getByRole("heading", { name: "What we do" }).click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" and see");
+    await expect(body.getByRole("heading", { name: "What we do and see" })).toBeVisible();
     await send(body, "paste");
     await expect(describe).toBeVisible();
     // Alt text is required, as for any library photo.
@@ -267,8 +270,11 @@ test.describe("admin content", () => {
     await describe.getByRole("button", { name: "Upload and insert" }).click();
     await expect(describe).toBeHidden();
     const markup = page.locator("#cause-text-body");
-    await expect(markup).toHaveValue(/Pasted below\.\n\n!\[\]\(media:[0-9a-f-]{36}\)$/);
-    const textPhoto = (await markup.inputValue()).match(/media:([0-9a-f-]{36})\)$/)![1]!;
+    // The photo sits where it was pasted: after the heading, before the rest of the text.
+    await expect(markup).toHaveValue(
+      /^## What we do and see\n\n!\[\]\(media:[0-9a-f-]{36}\)\n\nMonthly camps\.\n\n!\[\]\(media:[0-9a-f-]{36}\)\{small left\}$/,
+    );
+    const textPhoto = (await markup.inputValue()).match(/and see\n\n!\[\]\(media:([0-9a-f-]{36})\)/)![1]!;
     pastedIds.push(textPhoto);
     await expect(body.getByRole("button", { name: "Remove photo" })).toHaveCount(2);
     await page.getByLabel(/Reviewed by a person/).check();
