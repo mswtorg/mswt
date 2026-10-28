@@ -26,6 +26,7 @@ const causeInput = (v: Record<string, string>) =>
     icon: v.icon ?? "",
     sortOrder: v.sortOrder || "0",
     coverImageId: v.coverImageId ?? "",
+    coverSize: v.coverSize || "standard",
     photoIds: v.photoIds ?? "",
   });
 

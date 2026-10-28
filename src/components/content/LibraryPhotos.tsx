@@ -8,7 +8,14 @@ import { db } from "@/lib/db/client";
 import { pages } from "@/lib/db/schema";
 import { cn } from "@/lib/cn";
 import { getPhotoStrings } from "./ContentBody";
-import { ratioClass, type PhotoRatio } from "./photo-ratio";
+import {
+  coverRatio,
+  COVER_SIZES,
+  isBanner,
+  ratioClass,
+  type CoverSize,
+  type PhotoRatio,
+} from "./photo-ratio";
 import { PhotoSlider, type SlidePhoto } from "./PhotoSlider";
 import { ResponsiveImage } from "./ResponsiveImage";
 
@@ -58,20 +65,23 @@ export async function LibraryPhotos({
       ratio={ratio}
       priority={priority}
       sizes={sizes}
-      overlayDots={ratio === "banner"}
+      overlayDots={isBanner(ratio)}
       className={className}
     />
   );
 }
 
-/** A fixed page's header photos (Content → Pages); the same in every language. */
-export const getPageHeroIds = unstable_cache(
-  async (key: ContentPageKey): Promise<string[]> => {
+/** A fixed page's header photos and their size (Content → Pages); the same in every language. */
+export const getPageHero = unstable_cache(
+  async (key: ContentPageKey): Promise<{ ids: string[]; size: CoverSize }> => {
     const [row] = await db
-      .select({ ids: pages.heroMediaIds })
+      .select({ ids: pages.heroMediaIds, size: pages.heroSize })
       .from(pages)
       .where(and(eq(pages.key, key)));
-    return row?.ids ?? [];
+    const size = (COVER_SIZES as readonly string[]).includes(row?.size ?? "")
+      ? (row!.size as CoverSize)
+      : "standard";
+    return { ids: row?.ids ?? [], size };
   },
   ["page-hero"],
   { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
@@ -92,14 +102,14 @@ export async function PageHero({
   variant?: "contained" | "full";
   className?: string;
 }) {
-  const ids = await getPageHeroIds(pageKey);
+  const { ids, size } = await getPageHero(pageKey);
   const full = variant === "full";
   return (
     <LibraryPhotos
       ids={ids}
       locale={locale}
       priority
-      ratio={full ? "banner" : "wide"}
+      ratio={coverRatio(size, full)}
       sizes={full ? "100vw" : "(min-width: 1280px) 1200px, 100vw"}
       className={className}
     />

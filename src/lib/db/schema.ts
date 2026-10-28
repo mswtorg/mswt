@@ -335,6 +335,8 @@ export const causes = pgTable(
     raisedPaise: paise("raised_paise").default(0).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()
@@ -385,6 +387,8 @@ export const pages = pgTable("pages", {
     .array()
     .default(sql`'{}'::text[]`)
     .notNull(),
+  /** Header photo height: short, standard or tall (src/components/content/photo-ratio.ts). */
+  heroSize: text("hero_size").default("standard").notNull(),
   /** Home only: sections switched off in the admin (kept in the order, not shown). */
   hiddenSections: text("hidden_sections")
     .array()
@@ -476,6 +480,8 @@ export const events = pgTable(
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()
@@ -517,6 +523,8 @@ export const newsPosts = pgTable(
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()

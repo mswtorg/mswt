@@ -46,7 +46,13 @@ const Photo = Node.create({
   atom: true,
   draggable: true,
   addAttributes() {
-    return { mediaId: { default: "" }, caption: { default: "" } };
+    // size/align: "" is the default (full width); see PHOTO_SIZES / PHOTO_ALIGNS.
+    return {
+      mediaId: { default: "" },
+      caption: { default: "" },
+      size: { default: "" },
+      align: { default: "" },
+    };
   },
   parseHTML() {
     return [{ tag: "figure[data-photo]" }];
@@ -66,7 +72,7 @@ const Slider = Node.create({
   atom: true,
   draggable: true,
   addAttributes() {
-    return { mediaIds: { default: [] }, caption: { default: "" } };
+    return { mediaIds: { default: [] }, caption: { default: "" }, size: { default: "" } };
   },
   parseHTML() {
     return [{ tag: "figure[data-slider]" }];

@@ -110,7 +110,13 @@ export default async function EventPage({ params }: Props) {
       <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid gap-8">
           {e.coverImageId ? (
-            <CoverImage mediaId={e.coverImageId} locale={locale} fallback={e.title} ratio="wide" priority />
+            <CoverImage
+              mediaId={e.coverImageId}
+              locale={locale}
+              fallback={e.title}
+              ratio={e.coverSize === "standard" ? "wide" : e.coverSize}
+              priority
+            />
           ) : null}
           <ContentBody blocks={e.body} locale={locale as Locale} />
           <LibraryPhotos ids={e.photoIds} locale={locale} ratio="photo" />

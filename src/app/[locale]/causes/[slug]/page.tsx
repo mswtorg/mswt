@@ -93,7 +93,7 @@ export default async function CausePage({ params }: Props) {
             mediaId={cause.coverImageId}
             locale={locale as Locale}
             fallback={cause.title}
-            ratio="wide"
+            ratio={cause.coverSize === "standard" ? "wide" : cause.coverSize}
             priority
           />
           <ContentBody blocks={cause.body} locale={locale as Locale} />

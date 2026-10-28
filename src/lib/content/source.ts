@@ -84,6 +84,7 @@ export async function databaseContent(): Promise<ContentFile> {
         is80gEligible: c.is80gEligible,
         icon: c.icon,
         coverImageId: c.coverImageId,
+        coverSize: c.coverSize as "short" | "standard" | "tall",
         photoIds: c.photoIds,
         translations: map(by(causeTr, "causeId", c.id), (r) => ({
           title: r.title,
@@ -112,6 +113,7 @@ export async function databaseContent(): Promise<ContentFile> {
         : null,
       onlineUrl: e.onlineUrl,
       coverImageId: e.coverImageId,
+      coverSize: e.coverSize as "short" | "standard" | "tall",
       photoIds: e.photoIds,
       translations: map(by(eventTr, "eventId", e.id), (r) => ({
         title: r.title,
@@ -129,6 +131,7 @@ export async function databaseContent(): Promise<ContentFile> {
         publishedAt: n.publishedAt!.toISOString(),
         authorName: n.authorName,
         coverImageId: n.coverImageId,
+        coverSize: n.coverSize as "short" | "standard" | "tall",
         photoIds: n.photoIds,
         translations: map(by(newsTr, "postId", n.id), (r) => ({
           headline: r.headline,

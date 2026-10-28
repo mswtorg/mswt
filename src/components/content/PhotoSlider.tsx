@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { ImageView } from "@/lib/media/view";
-import { ratioClass, type PhotoRatio } from "./photo-ratio";
+import { isBanner, ratioClass, type PhotoRatio } from "./photo-ratio";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 /** UI text for sliders and the viewer (from the "Photos" messages, or English in the admin). */
@@ -198,7 +198,7 @@ export function PhotoSlider({
           aria-label={t.label}
           className={cn(
             "m-0 flex list-none snap-x snap-mandatory overflow-x-auto scroll-smooth p-0 [scrollbar-width:none] motion-reduce:scroll-auto",
-            ratio !== "banner" && "rounded-lg",
+            !isBanner(ratio) && "rounded-lg",
           )}
         >
           {photos.map((p, i) => (

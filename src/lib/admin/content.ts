@@ -1,3 +1,4 @@
+import type { CoverSize } from "@/components/content/photo-ratio";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Locale } from "@/i18n/routing";
@@ -66,9 +67,13 @@ export async function assertAltText(ids: string[], locale: Locale, field = "revi
     );
 }
 
-export async function pageHeroIds(key: ContentPageKey): Promise<string[]> {
-  const [row] = await db.select({ ids: pages.heroMediaIds }).from(pages).where(eq(pages.key, key));
-  return row?.ids ?? [];
+/** A page's header photos and their size (uncached, for the admin form). */
+export async function pageHero(key: ContentPageKey): Promise<{ ids: string[]; size: string }> {
+  const [row] = await db
+    .select({ ids: pages.heroMediaIds, size: pages.heroSize })
+    .from(pages)
+    .where(eq(pages.key, key));
+  return { ids: row?.ids ?? [], size: row?.size ?? "standard" };
 }
 
 /** Home's saved section order and switched-off sections (uncached, for the admin form). */
@@ -93,6 +98,8 @@ export async function savePageTranslation(
   actor: Actor,
   /** Header photo(s); the same in every language. Undefined leaves them unchanged. */
   heroIds?: string[],
+  /** Header photo height; the same in every language. Undefined leaves it unchanged. */
+  heroSize?: CoverSize,
   /** Home only: the order of its sections and those switched off; the same in every language. */
   layout?: { order: HomeSectionKey[]; hidden: HomeSectionKey[] },
 ): Promise<void> {
@@ -127,6 +134,7 @@ export async function savePageTranslation(
     await tx.insert(pages);
     const pageSet = {
       ...(heroIds ? { heroMediaIds: heroIds } : {}),
+      ...(heroSize ? { heroSize } : {}),
       ...(key === "home" && layout ? { sectionOrder: layout.order, hiddenSections: layout.hidden } : {}),
     };
     const [pageBefore] = await tx
@@ -166,6 +174,7 @@ export async function savePageTranslation(
         reviewed: input.reviewed,
         blocks: sections.length,
         ...(heroIds ? { headerPhotos: heroIds.length } : {}),
+        ...(heroSize ? { headerPhotoSize: heroSize } : {}),
         ...(pageSet.sectionOrder
           ? { sectionOrder: pageSet.sectionOrder, hiddenSections: pageSet.hiddenSections }
           : {}),

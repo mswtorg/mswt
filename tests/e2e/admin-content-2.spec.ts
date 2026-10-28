@@ -427,8 +427,11 @@ test.describe("admin content 2", () => {
   test("a page with one header photo shows it as an image", async () => {
     await page.goto("/admin/content/pages/about?lang=en");
     await pick("Photos", [photos[0]!.name]);
+    // A short banner instead of the standard 16:9.
+    await page.getByLabel("Header photo size").selectOption({ label: "Short banner" });
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(/Saved/)).toBeVisible();
+    await expect(page.getByLabel("Header photo size")).toHaveValue("short");
     await expect(async () => {
       const res = await page.goto("/en/about");
       expect(res?.status()).toBe(200);
@@ -437,6 +440,8 @@ test.describe("admin content 2", () => {
       });
     }).toPass({ timeout: 15_000 });
     await expect(page.getByRole("region", { name: "Photos" })).toHaveCount(0);
+    const box = (await page.locator("main figure img").first().boundingBox())!;
+    expect(box.width / box.height).toBeCloseTo(3, 1);
   });
 });
 

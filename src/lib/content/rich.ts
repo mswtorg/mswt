@@ -1,5 +1,16 @@
 import type { JSONContent } from "@tiptap/core";
-import { parseInline, safeHref, type Block, type Blocks } from "./blocks";
+import {
+  parseInline,
+  PHOTO_ALIGNS,
+  PHOTO_SIZES,
+  safeHref,
+  SLIDER_SIZES,
+  type Block,
+  type Blocks,
+  type PhotoAlign,
+  type PhotoSize,
+  type SliderSize,
+} from "./blocks";
 
 /**
  * Content blocks ↔ the visual editor's document (Tiptap JSON). The editor only offers what blocks
@@ -70,12 +81,29 @@ export function blocksToDoc(blocks: Blocks): JSONContent {
       case "callout":
         return { type: "callout", attrs: { tone: b.tone }, content: inlineToNodes(b.text) };
       case "image":
-        return { type: "photo", attrs: { mediaId: b.mediaId, caption: b.caption ?? "" } };
+        return {
+          type: "photo",
+          attrs: { mediaId: b.mediaId, caption: b.caption ?? "", size: b.size ?? "", align: b.align ?? "" },
+        };
       case "slider":
-        return { type: "slider", attrs: { mediaIds: b.mediaIds, caption: b.caption ?? "" } };
+        return {
+          type: "slider",
+          attrs: { mediaIds: b.mediaIds, caption: b.caption ?? "", size: b.size ?? "" },
+        };
     }
   });
   return { type: "doc", content: content.length ? content : [{ type: "paragraph" }] };
+}
+
+/** A photo node's layout: a position (none: full width) and, with one, a size (default medium). */
+function photoAttrs(n: JSONContent): { size?: PhotoSize; align?: PhotoAlign } {
+  const align = String(n.attrs?.align ?? "");
+  if (!(PHOTO_ALIGNS as readonly string[]).includes(align)) return {};
+  const size = String(n.attrs?.size ?? "");
+  return {
+    align: align as PhotoAlign,
+    ...((PHOTO_SIZES as readonly string[]).includes(size) ? { size: size as PhotoSize } : {}),
+  };
 }
 
 /** Text of a node that should hold inline content but may hold paragraphs (pasted lists, notes). */
@@ -129,14 +157,23 @@ export function docToBlocks(doc: JSONContent): Blocks {
         case "photo": {
           const mediaId = String(n.attrs?.mediaId ?? "");
           const caption = String(n.attrs?.caption ?? "").trim();
-          if (mediaId) blocks.push({ type: "image", mediaId, ...(caption ? { caption } : {}) } as Block);
+          if (mediaId)
+            blocks.push({
+              type: "image",
+              mediaId,
+              ...(caption ? { caption } : {}),
+              ...photoAttrs(n),
+            } as Block);
           break;
         }
         case "slider": {
           const mediaIds = (n.attrs?.mediaIds ?? []) as string[];
           const caption = String(n.attrs?.caption ?? "").trim();
+          const size = (SLIDER_SIZES as readonly string[]).includes(String(n.attrs?.size))
+            ? { size: n.attrs!.size as SliderSize }
+            : {};
           if (mediaIds.length >= 2)
-            blocks.push({ type: "slider", mediaIds, ...(caption ? { caption } : {}) });
+            blocks.push({ type: "slider", mediaIds, ...(caption ? { caption } : {}), ...size });
           else if (mediaIds.length === 1)
             blocks.push({ type: "image", mediaId: mediaIds[0]!, ...(caption ? { caption } : {}) });
           break;

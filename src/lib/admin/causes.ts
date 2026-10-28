@@ -1,3 +1,4 @@
+import { COVER_SIZES } from "@/components/content/photo-ratio";
 import { and, asc, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { CARD_ICON_KEYS, type CardIconKey } from "@/lib/content/card-icons";
@@ -41,6 +42,8 @@ export const CauseInput = z.object({
     .transform((v) => v || null),
   sortOrder: z.coerce.number().int().min(0).max(9999),
   coverImageId: z.union([z.literal(""), z.uuid()]).transform((v) => v || null),
+  /** Cover photo height on the item's own page. */
+  coverSize: z.enum(COVER_SIZES).default("standard"),
   photoIds: z
     .string()
     .default("")
@@ -132,6 +135,7 @@ export async function createCause(input: CauseInput, actor: Actor): Promise<stri
           icon: input.icon,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          coverSize: input.coverSize,
           photoIds: input.photoIds,
         })
         .returning({ id: causes.id });
@@ -165,6 +169,7 @@ export async function updateCause(id: string, input: CauseInput, actor: Actor) {
           icon: input.icon,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          coverSize: input.coverSize,
           photoIds: input.photoIds,
           updatedAt: new Date(),
         })
@@ -181,6 +186,7 @@ export async function updateCause(id: string, input: CauseInput, actor: Actor) {
           icon: before.icon,
           sortOrder: before.sortOrder,
           coverImageId: before.coverImageId,
+          coverSize: before.coverSize,
         },
         after: input,
       });

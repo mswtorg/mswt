@@ -1,3 +1,4 @@
+import { COVER_SIZE_OPTIONS } from "@/components/content/photo-ratio";
 import { CAUSE_STATUSES } from "@/lib/admin/causes";
 import { CARD_ICONS } from "@/lib/content/card-icons";
 import type { FieldSpec } from "@/components/admin/form-state";
@@ -11,6 +12,7 @@ type CauseDefaults = {
   icon?: string | null;
   sortOrder?: number;
   coverImageId?: string | null;
+  coverSize?: string;
   photoIds?: string[];
 };
 
@@ -70,6 +72,14 @@ export function causeFields(c: CauseDefaults, library: LibraryItem[], published:
       photos: { library },
       span: "full",
       hint: "Shown on the causes list and at the top of the cause page.",
+    },
+    {
+      name: "coverSize",
+      label: "Cover photo size",
+      type: "select",
+      defaultValue: c.coverSize ?? "standard",
+      options: COVER_SIZE_OPTIONS,
+      hint: "How tall the cover is at the top of its own page. Cards on list pages keep one shape.",
     },
     {
       name: "photoIds",

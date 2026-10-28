@@ -30,6 +30,8 @@ export const ContentFileSchema = z.object({
         /** Card icon (src/lib/content/card-icons.ts); unknown names show no icon. */
         icon: z.string().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
@@ -69,6 +71,8 @@ export const ContentFileSchema = z.object({
           .default(null),
         onlineUrl: z.url().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
@@ -91,6 +95,8 @@ export const ContentFileSchema = z.object({
         publishedAt: isoInstant,
         authorName: z.string().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({

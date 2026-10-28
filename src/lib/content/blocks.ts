@@ -4,6 +4,16 @@ import { z } from "zod";
  * Rich text is stored as typed blocks (never raw HTML), so content can't inject markup and the
  * admin editor (Step 8) can validate it. Inline text supports **bold** and [label](https://… or /path).
  */
+/** Photo width in text: ⅓, ½ or ⅔ (a full-width photo has none). */
+export const PHOTO_SIZES = ["small", "medium", "large"] as const;
+export type PhotoSize = (typeof PHOTO_SIZES)[number];
+/** Photo position in text: centred, or floated left/right with the text beside it (none: full width). */
+export const PHOTO_ALIGNS = ["center", "left", "right"] as const;
+export type PhotoAlign = (typeof PHOTO_ALIGNS)[number];
+/** Slider width (none: full width). */
+export const SLIDER_SIZES = ["medium", "large"] as const;
+export type SliderSize = (typeof SLIDER_SIZES)[number];
+
 export const BlockSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("heading"),
@@ -18,12 +28,20 @@ export const BlockSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("callout"), tone: z.enum(["info", "warning"]), text: z.string().min(1) }),
   /** A photo from the media library; its alt text comes from the media item, per language. */
-  z.object({ type: z.literal("image"), mediaId: z.uuid(), caption: z.string().min(1).optional() }),
+  z.object({
+    type: z.literal("image"),
+    mediaId: z.uuid(),
+    caption: z.string().min(1).optional(),
+    /** With no `align` the photo is full width and `size` is ignored. */
+    size: z.enum(PHOTO_SIZES).optional(),
+    align: z.enum(PHOTO_ALIGNS).optional(),
+  }),
   /** Several library photos shown as a swipeable slider (Step 8c-2). */
   z.object({
     type: z.literal("slider"),
     mediaIds: z.array(z.uuid()).min(2).max(20),
     caption: z.string().min(1).optional(),
+    size: z.enum(SLIDER_SIZES).optional(),
   }),
 ]);
 export const BlocksSchema = z.array(BlockSchema);

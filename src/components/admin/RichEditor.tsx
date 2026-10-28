@@ -115,13 +115,15 @@ export function RichEditor({
   useEffect(() => {
     const form = field.current?.form;
     if (!form) return;
-    const onReset = () => {
-      const saved = field.current?.defaultValue ?? "";
-      const latest = markupToBlocks(saved);
-      editor?.commands.setContent(blocksToDoc(latest.blocks), { emitUpdate: false });
-      setText(saved);
-      setMode(latest.errors.length ? "text" : "visual");
-    };
+    // The "reset" event fires before the browser resets the fields: rebuild the editor after it.
+    const onReset = () =>
+      setTimeout(() => {
+        const saved = field.current?.defaultValue ?? "";
+        const latest = markupToBlocks(saved);
+        editor?.commands.setContent(blocksToDoc(latest.blocks), { emitUpdate: false });
+        setText(saved);
+        setMode(latest.errors.length ? "text" : "visual");
+      });
     form.addEventListener("reset", onReset);
     return () => form.removeEventListener("reset", onReset);
   }, [editor]);
