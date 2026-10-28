@@ -149,6 +149,20 @@ describe("page nodes reference the organisation by @id", () => {
     expect(json(w)).not.toContain("SearchAction");
   });
 
+  it("WebSite lists the Trust's other names once, without its own name", () => {
+    const w = o(
+      website("en", "MS Welfare Trust", [
+        "MS Welfare Trust",
+        "Munira Shoaib Welfare Trust",
+        "MSWT",
+        "MSWT",
+        " ",
+      ]),
+    );
+    expect(w.alternateName).toEqual(["Munira Shoaib Welfare Trust", "MSWT"]);
+    expect(o(website("en", "S")).alternateName).toBeUndefined();
+  });
+
   it("WebPage types carry language, site, publisher and optional breadcrumb", () => {
     const p = o(
       webPage({

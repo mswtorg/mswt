@@ -123,7 +123,9 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **MH-1 Failed payment alert.** On stage pay with a Cashfree test card that fails (or close the payment page): `[MSWT] [Payment failed] ₹… – <reason> – MSWT-…` arrives once. Add a Gmail filter for `[MSWT] [Payment failed]`.
 - [ ] **MH-2 Send summary now.** Stage → Admin → Settings → Email → **Send yesterday's summary now**: the recipients get `[MSWT] [Daily summary] …` (or "Nothing to report"), and the audit log shows `email.summary_sent`.
 - [ ] **MH-3 Home on a phone and a laptop.** Header photos edge to edge (16:9 on the phone, wide on the laptop), the headline uses the full width, the donate box sits beside it (laptop) or under it (phone). Pick an amount and cause → the donate page opens with them filled in. Switch the box off in Settings → Payments → it disappears from Home.
-- [ ] **MH-4 Header.** It stays at the top while scrolling with a light shadow. Causes dropdown with the mouse, with the keyboard (Tab to the arrow, Enter, Tab through, Esc) and with VoiceOver/TalkBack (announced as "Causes list, collapsed/expanded").
+- [ ] **MH-4 Header.** It stays at the top while scrolling with a light shadow. Causes dropdown with the mouse, with the keyboard (Tab to the arrow, Enter, Tab through, Esc) and with VoiceOver/TalkBack (announced as "Causes: more links, collapsed/expanded").
+- [ ] **MH-5 Header dropdowns from the admin.** Stage → Admin → Content → Menus → Header: give About **Pick by hand** sub-links and News **Automatic: latest news**, save. On a laptop both open from the arrow or on hover; on a phone (Menu) the sub-links stay folded until the arrow is tapped, and tapping the link itself opens its page. Check Hindi too (untranslated sub-links don't show). Put the menu back afterwards.
+- [ ] **MH-6 Site name in Google (after go-live).** Search Console → URL inspection → `https://mswelfaretrust.org/en` → Test live URL: the WebSite item shows name "MS Welfare Trust" and the other names. Google picks the site name and sitelinks itself over the following weeks; neither can be forced.
 
 ## Workflow setup (stage → main)
 

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Blocks } from "@/lib/content/blocks";
 import {
+  type AnyPgColumn,
   bigint,
   bigserial,
   boolean,
@@ -572,12 +573,16 @@ export const menuLocation = pgEnum("menu_location", [
   "footer_legal",
 ]);
 export const menuItemKind = pgEnum("menu_item_kind", ["page", "cause", "news", "event", "url"]);
+/** Header dropdowns filled automatically: all causes, latest news, upcoming events. */
+export const menuAuto = pgEnum("menu_auto", ["causes", "news", "events"]);
 
 export const menuItems = pgTable(
   "menu_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     location: menuLocation("location").notNull(),
+    /** A header sub-link (one level only); its order is `sort` among its siblings. */
+    parentId: uuid("parent_id").references((): AnyPgColumn => menuItems.id, { onDelete: "cascade" }),
     sort: integer("sort").default(0).notNull(),
     kind: menuItemKind("kind").notNull(),
     /** Page key (src/config/nav.ts), cause/news/event slug, or an https URL. */
@@ -585,10 +590,15 @@ export const menuItems = pgTable(
     hidden: boolean("hidden").default(false).notNull(),
     /** Optional label per language; the built-in name (or the item's title) is used otherwise. */
     labels: jsonb("labels").$type<Partial<Record<"en" | "hi" | "mr" | "gu", string>>>().default({}).notNull(),
+    /** Header link whose dropdown lists causes, news or events by itself (no hand-picked sub-links). */
+    auto: menuAuto("auto"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("menu_items_location_idx").on(t.location, t.sort)],
+  (t) => [
+    index("menu_items_location_idx").on(t.location, t.sort),
+    index("menu_items_parent_idx").on(t.parentId),
+  ],
 );
 
 export const messageStatus = pgEnum("message_status", ["new", "read", "replied", "spam"]);

@@ -118,13 +118,19 @@ export function ngo(org: OrganizationSettings, locale: Locale): NGO {
   });
 }
 
-export function website(locale: Locale, name: string): WebSite {
+/**
+ * The WebSite node (Home only). Google reads `name` and `alternateName` here for the site name it
+ * shows in results, so `alternateName` lists the Trust's other names (legal, short) from Settings.
+ */
+export function website(locale: Locale, name: string, otherNames: readonly string[] = []): WebSite {
+  const alternateName = [...new Set(otherNames.map((n) => n.trim()))].filter((n) => n && n !== name);
   // No SearchAction: Google retired the sitelinks search box (LD-12).
   return {
     "@type": "WebSite",
     "@id": ids.website(),
     url: siteUrl().origin,
     name,
+    ...(alternateName.length ? { alternateName } : {}),
     inLanguage: locale,
     publisher: ref(ids.organization()),
   };

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MenuInput } from "@/lib/admin/menus";
+import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
@@ -134,6 +134,34 @@ describe("menus", () => {
       [{ kind: "news", target: "Not A Slug" }],
     ])
       expect(MenuInput.safeParse(bad).success).toBe(false);
+  });
+  it("header links take hand-picked or automatic sub-links (one level, at most 12)", () => {
+    const header = menuInputFor("header");
+    const sub = { kind: "page", target: "contact" };
+    const ok = header.safeParse([
+      { kind: "page", target: "about", children: [sub, { kind: "cause", target: "school-support" }] },
+      { kind: "page", target: "causes", auto: "causes" },
+      { kind: "page", target: "news" },
+    ]);
+    expect(ok.success).toBe(true);
+    expect(ok.data![2]).toMatchObject({ auto: null, children: [] });
+    for (const bad of [
+      [{ kind: "page", target: "about", auto: "events", children: [sub] }],
+      [{ kind: "page", target: "about", children: [{ ...sub, children: [sub] }] }],
+      [{ kind: "page", target: "about", children: [{ ...sub, auto: "news" }] }],
+      [{ kind: "page", target: "about", children: Array(13).fill(sub) }],
+      [{ kind: "page", target: "about", auto: "gallery" }],
+    ])
+      expect(header.safeParse(bad).success).toBe(false);
+  });
+  it("footer menus stay flat", () => {
+    const footer = menuInputFor("footer_trust");
+    expect(footer.safeParse([{ kind: "page", target: "about" }]).success).toBe(true);
+    expect(footer.safeParse([{ kind: "page", target: "about", auto: "news" }]).success).toBe(false);
+    expect(
+      footer.safeParse([{ kind: "page", target: "about", children: [{ kind: "page", target: "contact" }] }])
+        .success,
+    ).toBe(false);
   });
 });
 
