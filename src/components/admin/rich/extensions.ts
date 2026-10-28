@@ -85,8 +85,14 @@ const Slider = Node.create({
   },
 });
 
-// Typing in a card's caption field or pressing its buttons must not move the editor's cursor.
-const isField = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLButtonElement;
+// Typing in a card's caption field, opening its Position/Size lists or pressing its buttons is the
+// card's own business: the editor must not take the click (it would select the card, take the
+// focus back and close the list at once).
+const isField = (t: EventTarget | null) =>
+  t instanceof HTMLInputElement ||
+  t instanceof HTMLSelectElement ||
+  t instanceof HTMLOptionElement ||
+  t instanceof HTMLButtonElement;
 
 /** Everything the visual editor offers: exactly what content blocks can store. */
 export const richExtensions = [

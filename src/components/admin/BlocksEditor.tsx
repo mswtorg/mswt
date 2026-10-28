@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { markupToBlocks } from "@/lib/content/markup";
 import type { ImageView } from "@/lib/media/view";
 import { RichText } from "@/components/ui/RichText";
+import { imagesFrom } from "@/lib/media/shrink";
 import { PhotoPicker, type LibraryItem, type PhotoPickerHandle } from "./PhotoPicker";
 import { compactControl } from "./ui";
 
@@ -35,6 +36,7 @@ export function BlocksEditor({
   media,
   library,
   onTextChange,
+  onPastePhotos,
 }: {
   id: string;
   name: string;
@@ -46,6 +48,8 @@ export function BlocksEditor({
   library: LibraryItem[];
   /** Called with the text on every change (RichEditor's Text view). */
   onTextChange?: (text: string) => void;
+  /** Photos pasted or dropped in: uploaded by the caller, then `place` puts each at the cursor. */
+  onPastePhotos?: (files: File[], place: (item: LibraryItem) => void) => void;
 }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const imagePicker = useRef<PhotoPickerHandle>(null);
@@ -143,6 +147,18 @@ export function BlocksEditor({
               onTextChange?.(e.target.value);
             }}
             onKeyDown={onKeyDown}
+            onPaste={(e) => {
+              const files = onPastePhotos ? imagesFrom(e.clipboardData) : [];
+              if (!files.length) return;
+              e.preventDefault();
+              onPastePhotos!(files, (item) => insertBlock(`![](media:${item.id})`));
+            }}
+            onDrop={(e) => {
+              const files = onPastePhotos ? imagesFrom(e.dataTransfer) : [];
+              if (!files.length) return;
+              e.preventDefault();
+              onPastePhotos!(files, (item) => insertBlock(`![](media:${item.id})`));
+            }}
             aria-invalid={error ? true : undefined}
             aria-describedby={[describedBy, helpId].filter(Boolean).join(" ")}
             spellCheck
@@ -153,8 +169,8 @@ export function BlocksEditor({
             )}
           />
           <p id={helpId} className="m-0 text-xs text-fg-muted">
-            Leave a blank line between paragraphs. Photos and sliders go on their own line.{" "}
-            <code>## Heading</code>, <code>- list item</code>, <code>**bold**</code>,{" "}
+            Leave a blank line between paragraphs. Photos and sliders go on their own line (paste or drop a
+            photo to add one). <code>## Heading</code>, <code>- list item</code>, <code>**bold**</code>,{" "}
             <code>[link](https://…)</code>, <code>&gt; note</code>, <code>&gt;! warning</code>.
           </p>
           <div aria-live="polite" className="empty:hidden">

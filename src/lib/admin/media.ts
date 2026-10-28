@@ -292,6 +292,23 @@ export async function editorMedia(locale: Locale): Promise<{
   };
 }
 
+/** One library photo as the photo pickers list it (English alt text), e.g. right after a paste. */
+export async function libraryItem(id: string): Promise<LibraryItem | null> {
+  const [row] = await db.select().from(media).where(eq(media.id, id));
+  if (!row) return null;
+  const [t] = await db
+    .select()
+    .from(mediaTranslations)
+    .where(and(eq(mediaTranslations.mediaId, id), eq(mediaTranslations.locale, "en")));
+  const view = imageView(row, getMediaStorage()?.publicBase ?? null, t?.altText ?? null, t?.caption ?? null);
+  return {
+    id: row.id,
+    label: row.filename,
+    thumb: view.srcset ? view.srcset.split(" ")[0]! : null,
+    alt: view.alt,
+  };
+}
+
 /** Image blocks and covers in `locale` that have no alt text in that language (review is refused). */
 export async function missingAlt(ids: string[], locale: Locale): Promise<string[]> {
   if (!ids.length) return [];

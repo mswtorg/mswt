@@ -16,6 +16,7 @@ import { formatCount, parseCount } from "@/components/content/CountUp";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
+import { imagesFrom, pastedName } from "@/lib/media/shrink";
 
 const ID = "d6a00170-1303-480e-b894-efd1e93e4af2";
 
@@ -342,5 +343,40 @@ describe("admin sorting and hidden sections", () => {
       "events",
       "testimonials",
     ]);
+  });
+});
+
+describe("pasted photos", () => {
+  const png = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png" });
+  const clip = (files: File[], data: Record<string, string> = {}) => ({
+    files: files as unknown as FileList,
+    getData: (type: string) => data[type] ?? "",
+  });
+
+  it("takes the photos from a paste or drop of images", () => {
+    expect(imagesFrom(clip([png]))).toEqual([png]);
+    // "Copy image" in a browser: HTML that is only the <img>.
+    expect(
+      imagesFrom(clip([png], { "text/html": '<meta charset="utf-8"><img src="https://x/y.png">' })),
+    ).toEqual([png]);
+  });
+
+  it("leaves text pastes alone, even when a picture of the text comes with them (Word)", () => {
+    expect(imagesFrom(clip([png], { "text/plain": "Our annual camp" }))).toEqual([]);
+    expect(imagesFrom(clip([png], { "text/html": "<p>Our <b>annual</b> camp</p>" }))).toEqual([]);
+    expect(imagesFrom(clip([], { "text/plain": "hello" }))).toEqual([]);
+    expect(imagesFrom(null)).toEqual([]);
+  });
+
+  it("ignores files that aren't JPEG, PNG or WebP", () => {
+    const gif = new File([new Uint8Array([1])], "a.gif", { type: "image/gif" });
+    const pdf = new File([new Uint8Array([1])], "a.pdf", { type: "application/pdf" });
+    expect(imagesFrom(clip([gif, pdf]))).toEqual([]);
+  });
+
+  it("names screenshots by date, keeps real file names", () => {
+    const at = new Date("2026-10-28T09:05:00Z");
+    expect(pastedName(png, at)).toBe("pasted-202610280905.png");
+    expect(pastedName(new File([], "camp-day.jpg", { type: "image/jpeg" }), at)).toBe("camp-day.jpg");
   });
 });
