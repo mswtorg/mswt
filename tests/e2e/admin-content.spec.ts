@@ -256,6 +256,19 @@ test.describe("admin content", () => {
     // Once the editor is ready (the saved photo shows as a card): the caret at the end of the
     // heading (the same on every OS), then paste there.
     await expect(body.getByRole("button", { name: "Remove photo" })).toHaveCount(1);
+    // A real click opens the card's Position list: the editor must not take the click (and the
+    // focus) back, which closed the list at once.
+    const position = body.getByLabel("Position");
+    await position.click();
+    await page.waitForTimeout(300);
+    await expect(position).toBeFocused();
+    await page.keyboard.press("Escape");
+    // Enter at the end of a paragraph starts a new line there (the caret must not jump to the top).
+    await body.getByText("Monthly camps.").click();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Next line.");
+    await expect(page.locator("#cause-text-body")).toHaveValue(/Monthly camps\.\n\nNext line\.\n\n!\[\]/);
     await body.getByRole("heading", { name: "What we do" }).click();
     await page.keyboard.press("End");
     await page.keyboard.type(" and see");
@@ -272,7 +285,7 @@ test.describe("admin content", () => {
     const markup = page.locator("#cause-text-body");
     // The photo sits where it was pasted: after the heading, before the rest of the text.
     await expect(markup).toHaveValue(
-      /^## What we do and see\n\n!\[\]\(media:[0-9a-f-]{36}\)\n\nMonthly camps\.\n\n!\[\]\(media:[0-9a-f-]{36}\)\{small left\}$/,
+      /^## What we do and see\n\n!\[\]\(media:[0-9a-f-]{36}\)\n\nMonthly camps\.\n\nNext line\.\n\n!\[\]\(media:[0-9a-f-]{36}\)\{small left\}$/,
     );
     const textPhoto = (await markup.inputValue()).match(/and see\n\n!\[\]\(media:([0-9a-f-]{36})\)/)![1]!;
     pastedIds.push(textPhoto);
