@@ -96,7 +96,7 @@ Open the preview in a browser where you are signed in to Vercel.
     }
   ]
   ```
-  Without it, "Upload PDF" says the upload was refused.
+  Without it, "Upload PDF" says the storage didn't accept the upload (the browser blocks the request).
 - [ ] **M8c-7 Upload a real annual report** (about 10 MB) on stage, publish it, and download it from `/en/transparency`.
 - [ ] **M8c-8 Sliders on a phone and with a screen reader.** Swipe an event's slider on Android and iPhone; open the full-screen viewer and close it. With VoiceOver/NVDA, the buttons say "Next photo", "Photo 2 of 5" and the viewer announces the photo.
 - [ ] **M8c-9 Menus.** Rename a header link in Hindi and check `/hi`; add a link to a cause; reset the menu and check the built-in one is back.
