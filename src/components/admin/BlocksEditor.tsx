@@ -34,6 +34,7 @@ export function BlocksEditor({
   describedBy,
   media,
   library,
+  onTextChange,
 }: {
   id: string;
   name: string;
@@ -43,6 +44,8 @@ export function BlocksEditor({
   describedBy?: string;
   media: Record<string, ImageView>;
   library: LibraryItem[];
+  /** Called with the text on every change (RichEditor's Text view). */
+  onTextChange?: (text: string) => void;
 }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const imagePicker = useRef<PhotoPickerHandle>(null);
@@ -135,7 +138,10 @@ export function BlocksEditor({
             lang={lang}
             rows={16}
             defaultValue={defaultValue}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              onTextChange?.(e.target.value);
+            }}
             onKeyDown={onKeyDown}
             aria-invalid={error ? true : undefined}
             aria-describedby={[describedBy, helpId].filter(Boolean).join(" ")}
