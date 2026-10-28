@@ -26,9 +26,9 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorised" }, { status: 401, headers: NO_STORE });
   const now = new Date();
   const result = await reconcile(undefined, now);
-  const summarySent = await sendDailySummary(now, result).catch((error) => {
+  const summary = await sendDailySummary(now, result).catch((error) => {
     console.error("Daily summary failed", error);
-    return false;
+    return { sent: 0 };
   });
-  return Response.json({ ...result, summarySent }, { headers: NO_STORE });
+  return Response.json({ ...result, summarySent: summary.sent }, { headers: NO_STORE });
 }

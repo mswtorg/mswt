@@ -118,6 +118,13 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M9-7 Email Routing.** Cloudflare → Email → Email Routing → enable for the domain, add the destination (the Trust's Gmail, verify it) and a rule `info@mswelfaretrust.org` → that Gmail. Send a test to `info@`.
 - [ ] **M9-8 mail-tester ≥ 9/10.** On mail-tester.com copy the test address; send it each email type: a receipt (offline donation with that email), a contact acknowledgement (contact form with that email), and an admin alert (temporarily add it as an alert recipient). Each should score 9/10 or more; fix whatever it flags (usually SPF/DKIM/DMARC).
 
+## Home, header and failed-payment alerts
+
+- [ ] **MH-1 Failed payment alert.** On stage pay with a Cashfree test card that fails (or close the payment page): `[MSWT] [Payment failed] ₹… – <reason> – MSWT-…` arrives once. Add a Gmail filter for `[MSWT] [Payment failed]`.
+- [ ] **MH-2 Send summary now.** Stage → Admin → Settings → Email → **Send yesterday's summary now**: the recipients get `[MSWT] [Daily summary] …` (or "Nothing to report"), and the audit log shows `email.summary_sent`.
+- [ ] **MH-3 Home on a phone and a laptop.** Header photos edge to edge (16:9 on the phone, wide on the laptop), the headline uses the full width, the donate box sits beside it (laptop) or under it (phone). Pick an amount and cause → the donate page opens with them filled in. Switch the box off in Settings → Payments → it disappears from Home.
+- [ ] **MH-4 Header.** It stays at the top while scrolling with a light shadow. Causes dropdown with the mouse, with the keyboard (Tab to the arrow, Enter, Tab through, Esc) and with VoiceOver/TalkBack (announced as "Causes list, collapsed/expanded").
+
 ## Workflow setup (stage → main)
 
 - [x] **MW-1 Production secrets.** (Done 2026-10-22: 2FA works on production.) In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.

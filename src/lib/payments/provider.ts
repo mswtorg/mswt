@@ -27,7 +27,16 @@ export type FetchedOrder = {
 
 export type WebhookEvent =
   | { kind: "payment_success"; orderId: string; paymentId: string; eventId: string }
-  | { kind: "payment_failed"; orderId: string; paymentId: string | null; eventId: string }
+  | {
+      kind: "payment_failed";
+      orderId: string;
+      paymentId: string | null;
+      eventId: string;
+      /** The bank's or Cashfree's reason, e.g. "Transaction declined by bank". */
+      reason: string | null;
+      /** The donor closed the payment page (PAYMENT_USER_DROPPED_WEBHOOK). */
+      dropped: boolean;
+    }
   | {
       kind: "refund_success";
       orderId: string;

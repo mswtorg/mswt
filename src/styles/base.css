@@ -18,6 +18,8 @@
 /* Element defaults live in the base layer so Tailwind utilities (the utilities layer) override them. */
 @layer base {
   html {
+    /* The header is sticky: keep anchors and the skip link's target clear of it. */
+    scroll-padding-top: 6rem;
     font-family: var(--font-sans);
     line-height: var(--leading-body);
     color: var(--color-fg-default);

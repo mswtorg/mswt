@@ -60,7 +60,16 @@ export class FakeProvider implements PaymentProvider {
         payment: {
           cf_payment_id: o.paymentId ?? `fakefail_${orderId}_${now.getTime()}`,
           payment_status: outcome === "paid" ? "SUCCESS" : "FAILED",
+          ...(outcome === "paid" ? {} : { payment_message: "Transaction declined by bank" }),
         },
+        ...(outcome === "paid"
+          ? {}
+          : {
+              error_details: {
+                error_description: "Card declined by the bank",
+                error_reason: "bank_declined",
+              },
+            }),
       },
     });
     const timestamp = String(now.getTime());

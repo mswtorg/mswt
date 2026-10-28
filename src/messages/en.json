@@ -44,6 +44,7 @@
     "menu": "Menu",
     "about": "About",
     "causes": "Causes",
+    "causesList": "Causes list",
     "gallery": "Gallery",
     "events": "Events",
     "news": "News",
@@ -336,5 +337,10 @@
     "contact": "Contact us",
     "signoff": "With gratitude,",
     "team": "MS Welfare Trust"
+  },
+  "QuickDonate": {
+    "title": "Donate now",
+    "note": "80G receipt by email for Indian donors.",
+    "submit": "Donate"
   }
 }

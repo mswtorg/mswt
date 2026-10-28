@@ -1,0 +1,1 @@
+ALTER TABLE "payment_settings" ADD COLUMN "home_donate_box" boolean DEFAULT true NOT NULL;

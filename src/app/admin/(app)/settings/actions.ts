@@ -192,16 +192,19 @@ export async function savePayments(_prev: FormState, form: FormData) {
         .map((p) => rupees(p, "Suggested amounts")),
       feeCoverEnabled: v.feeCoverEnabled === "on",
       feeCoverPercentBp: Math.round(Number(v.feePercent || "0") * 100),
+      homeDonateBox: v.homeDonateBox === "on",
     }),
     PaymentSettingsInput,
     (tx, data, actor) => updatePaymentSettings(tx, PaymentSettingsInput.parse(data), actor),
-    [PAYMENT_SETTINGS_TAG],
+    // The Home page caches its content: refresh it so the donate box appears or goes at once.
+    [PAYMENT_SETTINGS_TAG, CONTENT_TAG],
     {
       minAmountPaise: "min",
       maxAmountPaise: "max",
       presetAmountsPaise: "presets",
       feeCoverPercentBp: "feePercent",
       feeCoverEnabled: "feeCoverEnabled",
+      homeDonateBox: "homeDonateBox",
     },
   );
 }

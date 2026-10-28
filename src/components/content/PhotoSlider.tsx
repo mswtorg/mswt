@@ -27,6 +27,16 @@ export const ENGLISH_PHOTO_STRINGS: PhotoStrings = {
 
 export type SlidePhoto = ImageView & { alt: string; caption?: string | null };
 
+export type PhotoRatio = "wide" | "photo" | "banner";
+
+/** Photo shape: 16:9, 4:3, or the full-width Home banner (16:9 on phones, 5:2 from lg, at most 560px high). */
+export const ratioClass = (ratio: PhotoRatio) =>
+  ratio === "banner"
+    ? "rounded-none aspect-video lg:aspect-[5/2] lg:max-h-[35rem]"
+    : ratio === "wide"
+      ? "aspect-video"
+      : "aspect-[4/3]";
+
 const fill = (s: string, n: number, total: number) =>
   s.replace("{n}", String(n)).replace("{total}", String(total));
 
@@ -149,11 +159,14 @@ export function PhotoSlider({
   ratio = "wide",
   priority = false,
   sizes = "(min-width: 1024px) 960px, 100vw",
+  overlayDots = false,
   className,
 }: {
   photos: SlidePhoto[];
   t?: PhotoStrings;
-  ratio?: "wide" | "photo";
+  ratio?: PhotoRatio;
+  /** Dots sit on the photo's bottom edge instead of under it (full-width banner). */
+  overlayDots?: boolean;
   /** The first slide loads eagerly with high priority (page hero only). */
   priority?: boolean;
   sizes?: string;
@@ -182,13 +195,20 @@ export function PhotoSlider({
 
   if (total === 0) return null;
   return (
-    <section aria-roledescription="carousel" aria-label={t.label} className={cn("grid gap-3", className)}>
+    <section
+      aria-roledescription="carousel"
+      aria-label={t.label}
+      className={cn("grid", overlayDots ? "relative" : "gap-3", className)}
+    >
       <div className="relative">
         {/* Keyboard users move with the ‹ › and dot buttons (each slide's button is focusable too). */}
         <ul
           ref={track}
           aria-label={t.label}
-          className="m-0 flex list-none snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-lg p-0 [scrollbar-width:none] motion-reduce:scroll-auto"
+          className={cn(
+            "m-0 flex list-none snap-x snap-mandatory overflow-x-auto scroll-smooth p-0 [scrollbar-width:none] motion-reduce:scroll-auto",
+            ratio !== "banner" && "rounded-lg",
+          )}
         >
           {photos.map((p, i) => (
             <li
@@ -208,7 +228,7 @@ export function PhotoSlider({
                   alt={p.alt}
                   sizes={sizes}
                   priority={priority && i === 0}
-                  className={cn("rounded-none", ratio === "wide" ? "aspect-video" : "aspect-[4/3]")}
+                  className={cn("rounded-none", ratioClass(ratio))}
                 />
               </button>
               {p.caption ? <p className="m-0 px-1 pt-2 text-sm text-fg-muted">{p.caption}</p> : null}
@@ -239,7 +259,12 @@ export function PhotoSlider({
         ) : null}
       </div>
       {total > 1 ? (
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-2",
+            overlayDots && "absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-bg-canvas px-2",
+          )}
+        >
           {photos.map((p, i) => (
             <button
               key={`dot-${p.id}-${i}`}

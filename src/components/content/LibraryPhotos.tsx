@@ -8,7 +8,7 @@ import { db } from "@/lib/db/client";
 import { pages } from "@/lib/db/schema";
 import { cn } from "@/lib/cn";
 import { getPhotoStrings } from "./ContentBody";
-import { PhotoSlider, type SlidePhoto } from "./PhotoSlider";
+import { PhotoSlider, ratioClass, type PhotoRatio, type SlidePhoto } from "./PhotoSlider";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 /**
@@ -27,7 +27,7 @@ export async function LibraryPhotos({
   ids: string[];
   locale: Locale;
   priority?: boolean;
-  ratio?: "wide" | "photo";
+  ratio?: PhotoRatio;
   sizes?: string;
   className?: string;
 }) {
@@ -44,7 +44,7 @@ export async function LibraryPhotos({
           alt={p.alt}
           sizes={sizes}
           priority={priority}
-          className={ratio === "wide" ? "aspect-video" : "aspect-[4/3]"}
+          className={ratioClass(ratio)}
         />
         {p.caption ? <figcaption className="text-sm text-fg-muted">{p.caption}</figcaption> : null}
       </figure>
@@ -57,6 +57,7 @@ export async function LibraryPhotos({
       ratio={ratio}
       priority={priority}
       sizes={sizes}
+      overlayDots={ratio === "banner"}
       className={className}
     />
   );
@@ -75,23 +76,30 @@ export const getPageHeroIds = unstable_cache(
   { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
 );
 
-/** Header photo(s) for a fixed page, above its heading. */
+/**
+ * Header photo(s) for a fixed page, above its heading. `full` (Home only) is an edge-to-edge
+ * banner: place it outside the page container.
+ */
 export async function PageHero({
   pageKey,
   locale,
+  variant = "contained",
   className,
 }: {
   pageKey: ContentPageKey;
   locale: Locale;
+  variant?: "contained" | "full";
   className?: string;
 }) {
   const ids = await getPageHeroIds(pageKey);
+  const full = variant === "full";
   return (
     <LibraryPhotos
       ids={ids}
       locale={locale}
       priority
-      sizes="(min-width: 1280px) 1200px, 100vw"
+      ratio={full ? "banner" : "wide"}
+      sizes={full ? "100vw" : "(min-width: 1280px) 1200px, 100vw"}
       className={className}
     />
   );

@@ -65,6 +65,20 @@ export default async function PaymentSettingsPage() {
             },
           ],
         },
+        {
+          title: "Home page",
+          description:
+            "A small donate box beside the Home heading: suggested amounts, a cause and a Donate button that opens the donate form filled in. It only appears while online donations are switched on.",
+          fields: [
+            {
+              name: "homeDonateBox",
+              label: "Show the quick donate box on Home",
+              type: "checkbox",
+              span: "full",
+              defaultValue: s?.homeDonateBox === false ? "" : "on",
+            },
+          ],
+        },
       ]}
     />
   );
