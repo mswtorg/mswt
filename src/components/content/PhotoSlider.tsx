@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { ImageView } from "@/lib/media/view";
+import { ratioClass, type PhotoRatio } from "./photo-ratio";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 /** UI text for sliders and the viewer (from the "Photos" messages, or English in the admin). */
@@ -26,16 +27,6 @@ export const ENGLISH_PHOTO_STRINGS: PhotoStrings = {
 };
 
 export type SlidePhoto = ImageView & { alt: string; caption?: string | null };
-
-export type PhotoRatio = "wide" | "photo" | "banner";
-
-/** Photo shape: 16:9, 4:3, or the full-width Home banner (16:9 on phones, 5:2 from lg, at most 560px high). */
-export const ratioClass = (ratio: PhotoRatio) =>
-  ratio === "banner"
-    ? "rounded-none aspect-video lg:aspect-[5/2] lg:max-h-[35rem]"
-    : ratio === "wide"
-      ? "aspect-video"
-      : "aspect-[4/3]";
 
 const fill = (s: string, n: number, total: number) =>
   s.replace("{n}", String(n)).replace("{total}", String(total));
