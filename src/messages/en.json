@@ -31,7 +31,11 @@
     "newsH": "News and updates",
     "allNews": "All news",
     "bandH": "Every donation is receipted the moment it is received",
-    "bandP": "You get an email with your receipt number. Your PAN is used only for your 80G receipt and the Trust's tax filings."
+    "bandP": "You get an email with your receipt number. Your PAN is used only for your 80G receipt and the Trust's tax filings.",
+    "impactH": "Our impact in numbers",
+    "storyH": "Our story",
+    "readStory": "Read our story",
+    "testimonialsH": "What people say"
   },
   "NotFound": {
     "title": "We can't find that page",
@@ -40,6 +44,7 @@
     "metaTitle": "Page not found"
   },
   "Nav": {
+    "home": "Home",
     "label": "Main",
     "menu": "Menu",
     "about": "About",
@@ -160,7 +165,8 @@
     "validity": "valid {from} to {to}",
     "fcra": "FCRA",
     "fcraValue": "Not registered. We accept donations from Indian citizens only.",
-    "reports": "Read our annual reports and audited accounts"
+    "reports": "Read our annual reports and audited accounts",
+    "testimonials": "What people say"
   },
   "Contact": {
     "title": "Contact us",

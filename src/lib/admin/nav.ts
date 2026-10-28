@@ -64,6 +64,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { key: "events", label: "Events", href: "/admin/content/events", icon: "events", anyOf: ["cms.write"] },
       { key: "news", label: "News", href: "/admin/content/news", icon: "news", anyOf: ["cms.write"] },
       {
+        key: "testimonials",
+        label: "Testimonials",
+        href: "/admin/content/testimonials",
+        icon: "testimonials",
+        anyOf: ["cms.write"],
+      },
+      {
         key: "gallery",
         label: "Gallery",
         href: "/admin/content/gallery",

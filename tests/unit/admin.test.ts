@@ -60,6 +60,7 @@ describe("role permissions match docs/spec.md §5", () => {
       "causes",
       "events",
       "news",
+      "testimonials",
       "gallery",
       "documents",
       "media",

@@ -37,6 +37,9 @@ export async function savePageAction(
             title: v[`point${n}Title`] ?? "",
             text: v[`point${n}Text`] ?? "",
           })),
+          impact: [1, 2, 3, 4]
+            .map((n) => ({ value: v[`impact${n}Value`] ?? "", label: v[`impact${n}Label`] ?? "" }))
+            .filter((x) => x.value.trim() || x.label.trim()),
           sections: Object.fromEntries(HOME_SECTION_FIELDS.map(([k]) => [k, v[`section_${k}`] ?? ""])),
         }
       : null;

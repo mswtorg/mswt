@@ -8,6 +8,9 @@ import { ngo, pageGraph, webPage, website } from "@/lib/seo/jsonld";
 import { getOrganizationSettings } from "@/lib/settings";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getHomeContent } from "@/lib/content/home";
+import { getTestimonials } from "@/lib/content/testimonials";
+import { ContentBody } from "@/components/content/ContentBody";
+import { TestimonialList } from "@/components/content/Testimonials";
 import { getCauses, getEvents, getNews, splitEvents } from "@/lib/content/queries";
 import { formatDate } from "@/lib/dates/format";
 import { CauseCard, EventCard, NewsCard } from "@/components/content/Cards";
@@ -45,19 +48,22 @@ export default async function HomePage({ params }: Props) {
   // Same check as the layout: "/favicon.ico" and other unknown paths also reach this page.
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale as Locale);
-  const [t, tm, tn, tnews, org, causes, events, news, home, payments, donateCauses] = await Promise.all([
-    getTranslations("Home"),
-    getTranslations("Meta"),
-    getTranslations("Nav"),
-    getTranslations("News"),
-    getOrganizationSettings(),
-    getCauses(locale as Locale),
-    getEvents(locale as Locale),
-    getNews(locale as Locale),
-    getHomeContent(locale as Locale),
-    getPaymentSettings(),
-    donatableCauses(locale as Locale),
-  ]);
+  const [t, tm, tn, tnews, org, causes, events, news, home, payments, donateCauses, testimonials] =
+    await Promise.all([
+      getTranslations("Home"),
+      getTranslations("Meta"),
+      getTranslations("Nav"),
+      getTranslations("News"),
+      getOrganizationSettings(),
+      getCauses(locale as Locale),
+      getEvents(locale as Locale),
+      getNews(locale as Locale),
+      getHomeContent(locale as Locale),
+      getPaymentSettings(),
+      donatableCauses(locale as Locale),
+      getTestimonials(locale as Locale),
+    ]);
+  const quotes = testimonials.filter((q) => q.showOnHome).slice(0, 6);
   // Settings → Payments → "Show the quick donate box on Home", and only once donations are live.
   const donateBox = PAGES.donate.ready && (payments?.homeDonateBox ?? true) && payments;
   const section = (k: keyof NonNullable<typeof home>["sections"]) => home?.sections[k] || t(k);
@@ -115,6 +121,39 @@ export default async function HomePage({ params }: Props) {
           </div>
         </div>
       </section>
+
+      {home && home.impact.length > 0 ? (
+        <section
+          aria-labelledby="impact-h"
+          className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8 lg:py-20"
+        >
+          <HeadingRule id="impact-h" className="text-3xl">
+            {section("impactH")}
+          </HeadingRule>
+          <dl className="m-0 mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {home.impact.map((n, i) => (
+              <div key={i} className="flex flex-col-reverse gap-1 border-t-2 border-border-rule pt-3">
+                <dt className="text-fg-muted">{n.label}</dt>
+                <dd className="m-0 text-4xl font-semibold text-fg-strong">{n.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+
+      {home && home.story.length > 0 ? (
+        <section aria-labelledby="story-h" className="bg-bg-subtle py-12 lg:py-20">
+          <div className="mx-auto max-w-(--size-container-max) px-4 lg:px-8">
+            <HeadingRule id="story-h" className="text-3xl">
+              {section("storyH")}
+            </HeadingRule>
+            <ContentBody blocks={home.story} locale={lang} />
+            <p className="mt-6">
+              <TextLink href={`/${locale}/about`}>{t("readStory")}</TextLink>
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {[...causes, ...upcoming, ...news].some((x) => x.isSample) ? (
         <div className="mx-auto max-w-(--size-container-max) px-4 pt-12 lg:px-8">
@@ -186,6 +225,17 @@ export default async function HomePage({ params }: Props) {
           <p className="mt-6">
             <TextLink href={`/${locale}/news`}>{t("allNews")}</TextLink>
           </p>
+        </section>
+      ) : null}
+
+      {quotes.length > 0 ? (
+        <section aria-labelledby="testimonials-h" className="bg-bg-subtle py-12 lg:py-20">
+          <div className="mx-auto max-w-(--size-container-max) px-4 lg:px-8">
+            <HeadingRule id="testimonials-h" className="text-3xl">
+              {section("testimonialsH")}
+            </HeadingRule>
+            <TestimonialList items={quotes} locale={lang} />
+          </div>
         </section>
       ) : null}
 

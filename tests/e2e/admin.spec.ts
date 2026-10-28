@@ -174,6 +174,7 @@ test.describe("admin flows", () => {
       "Causes",
       "Events",
       "News",
+      "Testimonials",
       "Gallery",
       "Documents",
       "Media",

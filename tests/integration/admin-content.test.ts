@@ -184,8 +184,42 @@ describe("pages", () => {
       .select()
       .from(pageTranslations)
       .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "hi")));
-    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point], sections: {} });
+    expect(row!.extras).toEqual({
+      eyebrow: "12A और 80G",
+      points: [point, point, point],
+      impact: [],
+      sections: {},
+    });
     await deletePageTranslation("home", "hi", actor());
+  });
+
+  it("home keeps its impact numbers and its body as Our story", async () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    await expect(
+      savePageTranslation(
+        "home",
+        "mr",
+        { ...base, body: "", reviewed: false },
+        { points: [point, point, point], impact: [{ value: "500+", label: "" }] },
+        actor(),
+      ),
+    ).rejects.toMatchObject({ field: "impact1Value" });
+    await savePageTranslation(
+      "home",
+      "mr",
+      { ...base, body: "Started in 2015 with one flood-relief camp.", reviewed: false },
+      { points: [point, point, point], impact: [{ value: "500+", label: "families helped" }] },
+      actor(),
+    );
+    const [row] = await db
+      .select()
+      .from(pageTranslations)
+      .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "mr")));
+    expect(row!.extras).toMatchObject({ impact: [{ value: "500+", label: "families helped" }] });
+    expect(row!.sections).toEqual([
+      { type: "paragraph", text: "Started in 2015 with one flood-relief camp." },
+    ]);
+    await deletePageTranslation("home", "mr", actor());
   });
 });
 
