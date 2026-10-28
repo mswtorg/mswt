@@ -39,6 +39,13 @@ test.describe("admin content", () => {
   test("Content Editor sees the Content menu and edits a page in Hindi", async () => {
     await signInFirstTime(page, await createUser("content_editor"));
     const nav = page.getByRole("navigation", { name: "Admin" });
+    // On a Pages screen the page list is open; it folds and unfolds with the chevron.
+    await page.goto("/admin/content/pages");
+    const toggle = nav.getByRole("button", { name: "Pages: hide the list" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
+    await expect(nav.getByRole("link", { name: "About" })).toBeHidden();
+    await nav.getByRole("button", { name: "Pages: show the list" }).click();
     // Messages may carry a "3 new" count in its name.
     for (const name of [
       /^Pages$/,

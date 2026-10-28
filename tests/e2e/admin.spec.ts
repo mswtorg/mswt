@@ -145,6 +145,15 @@ test.describe("admin flows", () => {
     await signInFirstTime(other, editor, "editor passphrase for e2e");
 
     const nav = other.getByRole("navigation", { name: "Admin" });
+    // The page list under Pages is folded outside the Pages screens; its button opens it.
+    const toggle = nav.getByRole("button", { name: "Pages: show the list" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(nav.getByRole("link", { name: "Privacy policy" })).toBeHidden();
+    await toggle.click();
+    await expect(nav.getByRole("button", { name: "Pages: hide the list" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     await expect(nav.getByRole("link")).toHaveText([
       "Dashboard",
       "Pages",
