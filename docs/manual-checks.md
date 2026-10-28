@@ -2,6 +2,20 @@
 
 Checks that automated tests can't cover or that are waiting on accounts or keys. Tick each one when done and note the date. Steps are listed in order.
 
+## Production setup (owner decision: do last, before go-live)
+
+Production runs the latest release (2026-10-27) and its page texts and menus can already be edited. These Vercel **Production** settings are still missing, so photo and PDF uploads, offline donation receipts, emails, the contact form and the nightly job don't work there yet. Add them in Vercel → Settings → Environment Variables → **Production**, then redeploy production once.
+
+- [ ] **P-1 Production R2 buckets.** In Cloudflare R2 create **`mswt-prod-receipts`** (private) and **`mswt-prod-media`** (public access on; copy its `https://pub-….r2.dev` URL). Don't reuse stage's buckets: stage's database is a copy of production, so receipt numbers would collide and stage deletes would remove production photos. Create an API token with Object Read & Write on both buckets.
+- [ ] **P-2 R2 variables.** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the production token), `R2_RECEIPTS_BUCKET=mswt-prod-receipts`, `R2_MEDIA_BUCKET=mswt-prod-media`, `R2_MEDIA_PUBLIC_URL` (the r2.dev URL, no trailing `/`).
+- [ ] **P-3 CORS rule on `mswt-prod-media`** for PDF uploads (same JSON as M8c-6).
+- [ ] **P-4 Email (Brevo).** `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS` (verified sender), `EMAIL_FROM_NAME=MS Welfare Trust`. Brevo → Security → Authorised IPs must stay off.
+- [ ] **P-5 Secrets.** New values, not stage's: `RECEIPT_LINK_SECRET` (`openssl rand -base64 32`) and `CRON_SECRET` (16+ characters).
+- [ ] **P-5b Admin alerts.** Admin → Settings → Email → admin alert recipients on production (the Trust's mailbox). Without it no alert or daily summary is sent.
+- [ ] **P-6 Contact form.** Cloudflare Turnstile → add a site for `mswelfaretrust.vercel.app` (and later `mswelfaretrust.org`); add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
+- [ ] **P-7 Redeploy production and check:** upload a photo (Content → Media), upload a PDF (Content → Documents), record an offline donation and download its receipt, send the contact form, and run the cron once from Vercel → Cron Jobs.
+- [ ] **P-8 Go-live only (later):** Cashfree **production** keys after KYC (`CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY`, `CASHFREE_ENV=production`) and the production webhook URL with the 4 events, then `NEXT_PUBLIC_DONATIONS_LIVE=true` (M7-18). Real content reviewed in the admin; legal pages approved (B11).
+
 ## Step 7: Donations
 
 ### Waiting on accounts (SMS verification)
@@ -82,7 +96,7 @@ Open the preview in a browser where you are signed in to Vercel.
     }
   ]
   ```
-  Without it, "Upload PDF" says the upload was refused.
+  Without it, "Upload PDF" says the storage didn't accept the upload (the browser blocks the request).
 - [ ] **M8c-7 Upload a real annual report** (about 10 MB) on stage, publish it, and download it from `/en/transparency`.
 - [ ] **M8c-8 Sliders on a phone and with a screen reader.** Swipe an event's slider on Android and iPhone; open the full-screen viewer and close it. With VoiceOver/NVDA, the buttons say "Next photo", "Photo 2 of 5" and the viewer announces the photo.
 - [ ] **M8c-9 Menus.** Rename a header link in Hindi and check `/hi`; add a link to a cause; reset the menu and check the built-in one is back.
@@ -93,9 +107,36 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **M8c-11 Edit a list page.** Content → Pages → Causes (list) → change the heading in Hindi, mark reviewed, check `/hi/causes`.
 - [ ] **M8c-12 Production (when ready).** Loading sample content on production adds hidden drafts only; mark reviewed only what should go live, or use Remove sample content.
 
+## Step 9: PWA and email
+
+- [ ] **M9-1 Install on Android.** Chrome on an Android phone → stage → menu → **Install app**. Open it from the home screen: it opens `/en` full screen with the logo icon (no white square around a shrunken logo). Turn on airplane mode: pages you visited open; another page shows "You're offline" in its language.
+- [ ] **M9-2 Add to Home Screen on iPhone.** Safari → stage → Share → Add to Home Screen: the name is "MS Welfare" with the logo icon; it opens full screen.
+- [ ] **M9-3 Chrome DevTools.** Application → Manifest shows no installability errors; Service workers shows `/serwist/sw.js` with scope `/`; Cache storage never lists a `/donate`, `/admin` or `/api` URL.
+- [ ] **M9-4 Alert recipients on stage.** Admin → Settings → Email → admin alert recipients = your Gmail. Make a test donation and send the contact form on stage: you get `[MSWT] [Donation] …`, `[MSWT] [Contact] …`, and the contact sender gets the acknowledgement in the page's language. Run the cron (Vercel → Cron Jobs → Run) the next day for `[MSWT] [Daily summary] …`.
+- [ ] **M9-5 Gmail filters.** In Gmail search `subject:"[MSWT] [Donation]"` → Create filter → apply a label (e.g. MSWT/Donations). Repeat for `[MSWT] [Contact]`, `[MSWT] [Payment problem]` (also "Star it" / "Never send to Spam") and `[MSWT] [Daily summary]`.
+- [ ] **M9-6 Domain email (when `mswelfaretrust.org` is on Cloudflare, D5/B14).** Brevo → Senders & IP → Domains → add `mswelfaretrust.org` and copy its records into Cloudflare DNS: the Brevo **DKIM** record(s), the Brevo code TXT, and **SPF** `v=spf1 include:spf.brevo.com ~all` (merge into one SPF record if one exists). Add **DMARC**: TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:<the Trust's mailbox>`; after two clean weeks change `p=none` to `p=quarantine`. Then set `EMAIL_FROM_ADDRESS` to an address on the domain (e.g. `receipts@mswelfaretrust.org`).
+- [ ] **M9-7 Email Routing.** Cloudflare → Email → Email Routing → enable for the domain, add the destination (the Trust's Gmail, verify it) and a rule `info@mswelfaretrust.org` → that Gmail. Send a test to `info@`.
+- [ ] **M9-8 mail-tester ≥ 9/10.** On mail-tester.com copy the test address; send it each email type: a receipt (offline donation with that email), a contact acknowledgement (contact form with that email), and an admin alert (temporarily add it as an alert recipient). Each should score 9/10 or more; fix whatever it flags (usually SPF/DKIM/DMARC).
+
+## Home, header and failed-payment alerts
+
+- [ ] **MH-1 Failed payment alert.** On stage pay with a Cashfree test card that fails (or close the payment page): `[MSWT] [Payment failed] ₹… – <reason> – MSWT-…` arrives once. Add a Gmail filter for `[MSWT] [Payment failed]`.
+- [ ] **MH-2 Send summary now.** Stage → Admin → Settings → Email → **Send yesterday's summary now**: the recipients get `[MSWT] [Daily summary] …` (or "Nothing to report"), and the audit log shows `email.summary_sent`.
+- [ ] **MH-3 Home on a phone and a laptop.** Header photos edge to edge (16:9 on the phone, wide on the laptop), the headline uses the full width, the donate box sits beside it (laptop) or under it (phone). Pick an amount and cause → the donate page opens with them filled in. Switch the box off in Settings → Payments → it disappears from Home.
+- [ ] **MH-4 Header.** It stays at the top while scrolling with a light shadow. Causes dropdown with the mouse, with the keyboard (Tab to the arrow, Enter, Tab through, Esc) and with VoiceOver/TalkBack (announced as "Causes: more links, collapsed/expanded").
+- [ ] **MH-5 Header dropdowns from the admin.** Stage → Admin → Content → Menus → Header: give About **Pick by hand** sub-links and News **Automatic: latest news**, save. On a laptop both open from the arrow or on hover; on a phone (Menu) the sub-links stay folded until the arrow is tapped, and tapping the link itself opens its page. Check Hindi too (untranslated sub-links don't show). Put the menu back afterwards.
+- [ ] **MH-6 Site name in Google (after go-live).** Search Console → URL inspection → `https://mswelfaretrust.org/en` → Test live URL: the WebSite item shows name "MS Welfare Trust" and the other names. Google picks the site name and sitelinks itself over the following weeks; neither can be forced.
+- [ ] **MH-7 Footer social icons.** Stage → Admin → Settings → Organization → Official profiles: add the Trust's real Facebook, Instagram and YouTube addresses (one per line, https://), Save. Every page's footer shows "Follow us" icons that open the right profiles; VoiceOver reads each as the platform name.
+- [ ] **MH-8 Visual editor.** Stage → Admin → Content → Pages → About: paste a section from the Trust's Word/Google document; headings, bold, lists and links come through. Add a note, a library photo with a caption and a link (select text, Ctrl+K). Save, check the public page, then open **Text** and back to **Visual**: nothing changes. Try it with VoiceOver: the box is announced as "Text, edit text" and the toolbar as "Formatting".
+- [ ] **MH-9 Impact, Our story and testimonials.** Stage → Admin → Content → Pages → Home: fill two or more impact numbers and Our story from the Trust's document, Save. Content → Testimonials: give the stories saved earlier a heading, the full story and their real date; add three more (with the person's consent; a first name or initials is enough), publish them, untick "Show on the home page" for one. Home shows the numbers, the story with "Read our story", and the testimonial cards with dates; About shows up to 6; `/en/testimonials` lists all and each card opens the full story. Check on a phone and in Hindi (stories appear only once written in Hindi). Optionally add Testimonials to the header or footer in Admin → Menus.
+- [ ] **MH-10 Full-width text.** On a laptop, About, a cause, a news post and a legal page use the full content width (no empty right half); photos in the text fill that width without looking blurry.
+- [ ] **MH-11 Home design.** On a laptop and a phone: the header menu is centred with even gaps, language is plain text and only Donate is a button. Impact numbers count up when scrolled to (turn on "Reduce motion" in the OS: they don't). Content → Pages → Home → Section order: move a section, save, check `/en`. Give two causes a card icon and a card label; compare the cards on Home, Causes, News, Events, Gallery and Testimonials with the reference design; tab through a card list with the keyboard and VoiceOver (one link per card).
+- [ ] **MH-12 Drag-and-drop sorting.** On a laptop (mouse) and a phone (finger): drag Home sections (Content → Pages → Home → Sections), header menu links and sub-links (Content → Menus) and header photos by their ⠿ grip; save and check the site. Switch a Home section off, check `/en`, switch it on again: it's back in the same place. With the keyboard only: Tab to a grip, Space, ↓, Space; and with VoiceOver: each move is announced.
+- [ ] **MH-13 Photo layouts and sizes.** In About's text, add a small photo on the left with a paragraph after it, and a large centred photo; save, then check `/en/about` on a laptop (text beside the small photo) and a phone (photos full width, text below). Set About's Header photo size to Short banner and a cause's Cover photo size to Tall; check both pages.
+
 ## Workflow setup (stage → main)
 
-- [ ] **MW-1 Production secrets.** In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.
+- [x] **MW-1 Production secrets.** (Done 2026-10-22: 2FA works on production.) In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.
 - [ ] **MW-2 Default branch.** GitHub → mswtorg/mswt → Settings → General → Default branch → **stage**, so new PRs target stage.
 - [ ] **MW-3 Auto-delete merged branches.** Same page → turn on **Automatically delete head branches**. Neon then removes preview databases automatically.
 - [ ] **MW-4 Preview secrets for stage.** Vercel → Environment Variables → **Preview**, branch `stage`: `AUTH_SECRET`, `PII_ENCRYPTION_KEY` (any values; not the production ones), plus R2/Brevo/Cashfree test keys when you have them.

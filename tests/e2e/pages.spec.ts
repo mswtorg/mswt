@@ -83,7 +83,7 @@ test("main navigation links to the new pages", async ({ page, isMobile }) => {
   if (isMobile) await page.getByRole("button", { name: "Menu" }).click();
   const nav = page.getByRole("navigation", { name: "Main" });
   for (const name of ["About", "Causes", "Gallery", "Events", "News", "Transparency", "Contact"]) {
-    await expect(nav.getByRole("link", { name })).toBeVisible();
+    await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
   }
 });
 
@@ -119,6 +119,14 @@ test.describe("contact form", () => {
     // Turnstile renders in a closed shadow root, so don't depend on its iframe. With Cloudflare's
     // test secret the server accepts the documented dummy token; supply it if the widget hasn't
     // produced a token yet. The server still calls Cloudflare's real siteverify endpoint.
+    // Give the widget time first: if its script loads late, it resets the token we put in.
+    await page
+      .waitForFunction(
+        () => document.querySelector<HTMLInputElement>('form [name="cf-turnstile-response"]')?.value,
+        null,
+        { timeout: 10_000 },
+      )
+      .catch(() => {});
     await page.evaluate(() => {
       const form = document.querySelector("form")!;
       let input = form.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]');

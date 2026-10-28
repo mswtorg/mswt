@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
@@ -7,6 +7,8 @@ import { routing } from "@/i18n/routing";
 import { getSeoSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/seo/site";
 import { SiteShell } from "@/components/layout/SiteShell";
+import { THEME_COLOR } from "@/lib/pwa/manifest";
+import { ServiceWorker } from "@/components/pwa/ServiceWorker";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -29,13 +31,17 @@ export async function generateMetadata({
     title: { template, default: t("homeTitle") },
     description: seo?.defaultDescription[lang] || t("homeDescription"),
     applicationName: t("siteName"),
-    icons: { icon: "/brand/mswt-mark-compact.svg" },
+    icons: { icon: "/brand/mswt-mark-compact.svg", apple: "/icons/apple-touch-icon.png" },
+    // Installed on iOS ("Add to Home Screen"): app name and a light status bar.
+    appleWebApp: { capable: true, title: "MS Welfare", statusBarStyle: "default" },
     verification: {
       ...(seo?.googleSiteVerification ? { google: seo.googleSiteVerification } : {}),
       ...(seo?.bingSiteVerification ? { other: { "msvalidate.01": seo.bingSiteVerification } } : {}),
     },
   };
 }
+
+export const viewport: Viewport = { themeColor: THEME_COLOR };
 
 export default async function LocaleLayout({
   children,
@@ -46,5 +52,10 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
-  return <SiteShell locale={locale}>{children}</SiteShell>;
+  return (
+    <SiteShell locale={locale}>
+      {children}
+      <ServiceWorker />
+    </SiteShell>
+  );
 }

@@ -16,7 +16,21 @@ export function LanguageSwitcher({ locale, label }: { locale: Locale; label: str
   const pathname = usePathname() ?? `/${locale}`;
   return (
     <details className="group relative">
-      <summary className="inline-flex min-h-(--size-target-comfortable) cursor-pointer list-none items-center gap-2 rounded-md border border-border-input px-3 font-medium [&::-webkit-details-marker]:hidden">
+      {/* Plain text like the menu links: only Donate is a filled button in the header. */}
+      <summary className="inline-flex min-h-(--size-target-comfortable) cursor-pointer list-none items-center gap-1.5 rounded-sm font-medium text-fg-default hover:text-link-hover hover:underline [&::-webkit-details-marker]:hidden">
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className="size-4 text-fg-muted"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
         <span className="sr-only">{label}: </span>
         <span lang={locale}>{LANGUAGE_NAMES[locale]}</span>
         <span aria-hidden="true" className="text-fg-muted group-open:rotate-180">

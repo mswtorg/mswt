@@ -1,12 +1,14 @@
 "use server";
 
+import { z } from "zod";
+import { COVER_SIZES } from "@/components/content/photo-ratio";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Locale } from "@/i18n/routing";
 import { actorFor } from "@/lib/admin/actor";
 import { ContentError, deletePageTranslation, PageInput, savePageTranslation } from "@/lib/admin/content";
 import type { ContentPageKey } from "@/lib/admin/content-pages";
-import { HOME_SECTION_FIELDS } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HiddenSectionsInput, SectionOrderInput } from "@/lib/content/home";
 import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import { CONTENT_TAG } from "@/lib/content/source";
 import { formValues, issuesToErrors, type FormState } from "@/components/admin/form-state";
@@ -37,11 +39,36 @@ export async function savePageAction(
             title: v[`point${n}Title`] ?? "",
             text: v[`point${n}Text`] ?? "",
           })),
+          impact: [1, 2, 3, 4]
+            .map((n) => ({ value: v[`impact${n}Value`] ?? "", label: v[`impact${n}Label`] ?? "" }))
+            .filter((x) => x.value.trim() || x.label.trim()),
           sections: Object.fromEntries(HOME_SECTION_FIELDS.map(([k]) => [k, v[`section_${k}`] ?? ""])),
         }
       : null;
+  // Home: the section order (the same in every language).
+  const order =
+    key === "home" && v.sectionOrder !== undefined
+      ? SectionOrderInput.safeParse(v.sectionOrder.split(",").filter(Boolean))
+      : null;
+  const heroSize = z.enum(COVER_SIZES).safeParse(v.heroSize);
+  const off =
+    key === "home" && v.sectionOrder !== undefined
+      ? HiddenSectionsInput.safeParse((v.hiddenSections ?? "").split(",").filter(Boolean))
+      : null;
+  const layoutError = (order && !order.success ? order : off && !off.success ? off : null)?.error;
+  if (layoutError)
+    return { status: "error", errors: { sectionOrder: layoutError.issues[0]!.message }, values: v };
   try {
-    await savePageTranslation(key, locale, parsed.data, extras, actor, parsePhotoIds(v.heroMediaIds, 8));
+    await savePageTranslation(
+      key,
+      locale,
+      parsed.data,
+      extras,
+      actor,
+      parsePhotoIds(v.heroMediaIds, 8),
+      heroSize.success ? heroSize.data : undefined,
+      order?.success && off?.success ? { order: order.data, hidden: off.data } : undefined,
+    );
   } catch (error) {
     if (error instanceof ContentError)
       return { status: "error", errors: { [error.field]: error.message }, values: v };

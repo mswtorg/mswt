@@ -17,6 +17,8 @@ import { ImagePlaceholder } from "@/components/ui/ImagePlaceholder";
 import { ResponsiveImage } from "@/components/content/ResponsiveImage";
 import { getMediaViews } from "@/lib/content/media";
 import { TextLink } from "@/components/ui/TextLink";
+import { getTestimonials } from "@/lib/content/testimonials";
+import { TestimonialList } from "@/components/content/Testimonials";
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ locale: string }> };
@@ -38,11 +40,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AboutPage({ params }: Props) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
-  const [t, tc, page, org] = await Promise.all([
+  const [t, tc, tt, page, org, testimonials] = await Promise.all([
     getTranslations("About"),
     getTranslations("Common"),
+    getTranslations("Testimonials"),
     getPage("about", locale),
     getOrganizationSettings(),
+    getTestimonials(locale),
   ]);
   if (!page && !org) notFound();
   const title = page?.h1 ?? t("title");
@@ -118,6 +122,18 @@ export default async function AboutPage({ params }: Props) {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {testimonials.length > 0 ? (
+        <section aria-labelledby="testimonials-h" className="mt-16">
+          <HeadingRule id="testimonials-h" className="text-3xl">
+            {t("testimonials")}
+          </HeadingRule>
+          <TestimonialList items={testimonials.slice(0, 6)} locale={locale} />
+          <p className="mt-6">
+            <TextLink href={`/${locale}/testimonials`}>{tt("all")}</TextLink>
+          </p>
         </section>
       ) : null}
 

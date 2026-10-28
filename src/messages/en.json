@@ -31,7 +31,11 @@
     "newsH": "News and updates",
     "allNews": "All news",
     "bandH": "Every donation is receipted the moment it is received",
-    "bandP": "You get an email with your receipt number. Your PAN is used only for your 80G receipt and the Trust's tax filings."
+    "bandP": "You get an email with your receipt number. Your PAN is used only for your 80G receipt and the Trust's tax filings.",
+    "impactH": "Our impact in numbers",
+    "storyH": "Our story",
+    "readStory": "Read our story",
+    "testimonialsH": "What people say"
   },
   "NotFound": {
     "title": "We can't find that page",
@@ -40,17 +44,20 @@
     "metaTitle": "Page not found"
   },
   "Nav": {
+    "home": "Home",
     "label": "Main",
     "menu": "Menu",
     "about": "About",
     "causes": "Causes",
+    "subLinks": "{label}: more links",
     "gallery": "Gallery",
     "events": "Events",
     "news": "News",
     "transparency": "Transparency",
     "contact": "Contact",
     "donate": "Donate",
-    "donateSoon": "Donate (coming soon)"
+    "donateSoon": "Donate (coming soon)",
+    "testimonials": "Testimonials"
   },
   "Footer": {
     "about": "Munira Shoaib Welfare Trust is a registered charitable trust in India. Donations are eligible for tax deduction under Section 80G.",
@@ -62,7 +69,8 @@
     "refund": "Refund policy",
     "disclaimer80g": "80G disclaimer",
     "noFcra": "We accept donations from Indian citizens only.",
-    "email": "Email"
+    "email": "Email",
+    "followUs": "Follow us"
   },
   "Common": {
     "required": "required",
@@ -96,7 +104,8 @@
     "donateSoon": "Online donations are coming soon.",
     "eligible80g": "80G tax receipt available. Indian citizens only.",
     "empty": "No causes are published yet. Please check back soon.",
-    "donateTo": "Donate to {title}"
+    "donateTo": "Donate to {title}",
+    "readMore": "Read more"
   },
   "Events": {
     "title": "Events",
@@ -116,21 +125,25 @@
       "postponed": "Postponed",
       "rescheduled": "Rescheduled",
       "moved_online": "Moved online"
-    }
+    },
+    "view": "View event"
   },
   "News": {
     "title": "News and updates",
     "description": "News and updates from MS Welfare Trust.",
     "empty": "No news yet.",
     "published": "Published {date}",
-    "by": "By {name}"
+    "by": "By {name}",
+    "badge": "News",
+    "readMore": "Read more"
   },
   "Gallery": {
     "title": "Gallery",
     "description": "Photos from MS Welfare Trust's work and events.",
     "empty": "No albums yet.",
     "photos": "{count, plural, one {# photo} other {# photos}}",
-    "photoPending": "Photo coming soon"
+    "photoPending": "Photo coming soon",
+    "view": "View album"
   },
   "Transparency": {
     "title": "Transparency",
@@ -158,7 +171,8 @@
     "validity": "valid {from} to {to}",
     "fcra": "FCRA",
     "fcraValue": "Not registered. We accept donations from Indian citizens only.",
-    "reports": "Read our annual reports and audited accounts"
+    "reports": "Read our annual reports and audited accounts",
+    "testimonials": "What people say"
   },
   "Contact": {
     "title": "Contact us",
@@ -318,5 +332,36 @@
     "slide": "Photo {n} of {total}",
     "open": "View full screen",
     "close": "Close"
+  },
+  "Offline": {
+    "metaTitle": "You're offline",
+    "title": "You're offline",
+    "body": "This page isn't saved on your device, and there's no internet connection right now. Check your connection and try again.",
+    "retry": "Try again",
+    "saved": "Pages you can open offline",
+    "home": "Home"
+  },
+  "ContactEmail": {
+    "subject": "We've received your message",
+    "greeting": "Dear {name},",
+    "received": "Thank you for writing to us. We've received your message about \"{subject}\" and will reply to this email address.",
+    "copy": "Your message:",
+    "reply": "To add anything, reply to this email or write to {email}.",
+    "contact": "Contact us",
+    "signoff": "With gratitude,",
+    "team": "MS Welfare Trust"
+  },
+  "QuickDonate": {
+    "title": "Donate now",
+    "note": "80G receipt by email for Indian donors.",
+    "submit": "Donate"
+  },
+  "Testimonials": {
+    "title": "Testimonials",
+    "description": "Stories from the families, donors and volunteers we work with.",
+    "empty": "No stories yet. Please check back soon.",
+    "readStory": "Read the full story",
+    "more": "More stories",
+    "all": "All testimonials"
   }
 }

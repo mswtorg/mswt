@@ -98,7 +98,7 @@ export default async function NewsArticlePage({ params }: Props) {
             mediaId={post.coverImageId}
             locale={locale}
             fallback={post.headline}
-            ratio="wide"
+            ratio={post.coverSize === "standard" ? "wide" : post.coverSize}
             priority
           />
         ) : null}

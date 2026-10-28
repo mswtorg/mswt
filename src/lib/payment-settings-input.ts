@@ -13,6 +13,8 @@ export const PaymentSettingsInput = z
     presetAmountsPaise: z.array(paise).min(3).max(4),
     feeCoverEnabled: z.boolean(),
     feeCoverPercentBp: z.number().int().min(0).max(1000),
+    // The quick donate box on Home (shown only while online donations are live).
+    homeDonateBox: z.boolean().default(true),
   })
   .superRefine((s, ctx) => {
     if (s.maxAmountPaise !== null && s.maxAmountPaise < s.minAmountPaise)

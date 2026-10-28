@@ -39,6 +39,13 @@ test.describe("admin content", () => {
   test("Content Editor sees the Content menu and edits a page in Hindi", async () => {
     await signInFirstTime(page, await createUser("content_editor"));
     const nav = page.getByRole("navigation", { name: "Admin" });
+    // On a Pages screen the page list is open; it folds and unfolds with the chevron.
+    await page.goto("/admin/content/pages");
+    const toggle = nav.getByRole("button", { name: "Pages: hide the list" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
+    await expect(nav.getByRole("link", { name: "About" })).toBeHidden();
+    await nav.getByRole("button", { name: "Pages: show the list" }).click();
     // Messages may carry a "3 new" count in its name.
     for (const name of [
       /^Pages$/,
@@ -57,18 +64,39 @@ test.describe("admin content", () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
     await page.locator("#page-title").fill("नियम और शर्तें");
     await page.locator("#page-h1").fill("नियम और शर्तें (परीक्षण)");
-    const editor = page.locator("#page-body");
-    await editor.fill("## उपयोग\n\nयह **परीक्षण** पाठ है।\n\n- पहला\n- दूसरा");
-    // Keyboard shortcut from the toolbar: Ctrl/Cmd+B wraps the selection in **.
-    await editor.press("End");
-    await editor.press("Enter");
-    await editor.press("Enter");
-    await editor.press("ControlOrMeta+b");
-    await expect(editor).toHaveValue(/\*\*bold text\*\*$/);
-    const preview = page.getByRole("region", { name: "Preview" });
-    await expect(preview.getByRole("heading", { name: "उपयोग" })).toBeVisible();
-    await expect(preview.getByRole("listitem")).toHaveCount(2);
+    // Visual editor: write as in a document, with the toolbar and Ctrl/Cmd+B.
+    const editor = page.getByRole("textbox", { name: "Text" });
+    const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.press("Delete");
+    await page.keyboard.type("उपयोग");
+    await toolbar.getByRole("button", { name: "Heading", exact: true }).click();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("यह ");
+    await page.keyboard.press("ControlOrMeta+b");
+    await page.keyboard.type("परीक्षण");
+    await page.keyboard.press("ControlOrMeta+b");
+    await page.keyboard.type(" पाठ है।");
+    await page.keyboard.press("Enter");
+    await toolbar.getByRole("button", { name: "List", exact: true }).click();
+    await page.keyboard.type("पहला");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("दूसरा");
+    await expect(editor.getByRole("heading", { name: "उपयोग" })).toBeVisible();
+    await expect(editor.getByRole("listitem")).toHaveCount(2);
+    // The form posts the same text format as before.
+    await expect(page.locator("#page-body")).toHaveValue(
+      "## उपयोग\n\nयह **परीक्षण** पाठ है।\n\n- पहला\n- दूसरा",
+    );
     await expectAccessible(page);
+    // The Text view shows that text, with its preview, and switches back without losing anything.
+    await page.getByRole("button", { name: "Text", exact: true }).click();
+    await expect(page.locator("#page-body")).toHaveValue(/^## उपयोग/);
+    await expect(page.getByRole("region", { name: "Preview" }).getByRole("listitem")).toHaveCount(2);
+    await page.getByRole("button", { name: "Visual", exact: true }).click();
+    await expect(editor.getByRole("listitem")).toHaveCount(2);
     await page.getByLabel(/Reviewed by a person/).check();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Saved and published in this language.")).toBeVisible();
@@ -109,22 +137,48 @@ test.describe("admin content", () => {
       .getByRole("button", { name: new RegExp(`${slug}\\.webp`) })
       .click();
     await expect(page.locator("#cause-coverImageId")).toHaveValue(photoId);
+    await page.locator("#cause-icon").selectOption("health");
     await page.getByRole("button", { name: "Create cause" }).click();
     await expect(page.getByText(/Cause created as active/)).toBeVisible();
 
     await page.locator("#cause-text-title").fill("E2E health camps");
     await page.locator("#cause-text-summary").fill("Free health camps, tested end to end.");
-    await page.locator("#cause-text-body").fill("## What we do\n\nMonthly camps.");
-    // Insert the photo with the toolbar's picker.
+    await page.locator("#cause-text-tag").fill("Health");
+    const body = page.getByRole("textbox", { name: "Text" });
+    await body.click();
+    await page.keyboard.type("What we do");
+    await page
+      .getByRole("toolbar", { name: "Formatting" })
+      .getByRole("button", { name: "Heading", exact: true })
+      .click();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Monthly camps.");
+    // Insert the photo with the toolbar's picker: it shows as a photo card in the text.
     await page.getByRole("button", { name: "Insert image" }).click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: new RegExp(`${slug}\\.webp`) })
       .click();
-    await expect(page.locator("#cause-text-body")).toHaveValue(new RegExp(`!\\[\\]\\(media:${photoId}\\)`));
+    await expect(body.getByRole("button", { name: "Remove photo" })).toBeVisible();
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId})`,
+    );
+    // Layout: a small photo on the left, with the text that follows beside it.
+    await body.getByLabel("Position").selectOption({ label: "Left, text on the right" });
+    await body.getByLabel("Size").selectOption({ label: "Small (a third of the width)" });
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId}){small left}`,
+    );
     await page.getByLabel(/Reviewed by a person/).check();
     await page.getByRole("button", { name: "Save text" }).click();
     await expect(page.getByText(/Saved\. It shows in this language/)).toBeVisible();
+    // After saving, the editor keeps what was saved (the form's automatic reset must not undo it).
+    await expect(body.getByRole("button", { name: "Remove photo" })).toBeVisible();
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId}){small left}`,
+    );
+    await expect(body.getByLabel("Position")).toHaveValue("left");
     await expectAccessible(page);
 
     // Hindi can't be marked reviewed while the photo has no Hindi alt text.
@@ -141,6 +195,27 @@ test.describe("admin content", () => {
     const html = await res.text();
     expect(html).toContain(`media/${photoId}/${slug}-640.webp 640w`);
     expect(html).toContain('alt="Volunteers at an e2e health camp"');
+    // On a laptop the small photo floats left at a third of the text width.
+    await page.goto(`/en/causes/${slug}`);
+    const fig = page
+      .locator("main figure", { has: page.getByAltText("Volunteers at an e2e health camp") })
+      .last();
+    await expect(fig).toHaveCSS("float", "left");
+    const [figW, textW] = await Promise.all([
+      fig.evaluate((f) => f.getBoundingClientRect().width),
+      fig.evaluate((f) => f.parentElement!.getBoundingClientRect().width),
+    ]);
+    expect(figW / textW).toBeGreaterThan(0.3);
+    expect(figW / textW).toBeLessThan(0.36);
+
+    // The card: the label on the photo, the icon beside the title, "Support this cause".
+    await expect(async () => {
+      await page.goto("/en/causes");
+      const card = page.locator("main article", { hasText: "E2E health camps" });
+      await expect(card).toContainText("Health", { timeout: 1000 });
+      await expect(card.locator("span[aria-hidden] svg").first()).toBeAttached();
+      await expect(card).toContainText("Support this cause");
+    }).toPass({ timeout: 15_000 });
   });
 
   test("a used photo can't be deleted", async () => {

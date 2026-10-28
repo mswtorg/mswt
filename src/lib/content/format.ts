@@ -27,12 +27,18 @@ export const ContentFileSchema = z.object({
         raisedPaise: z.number().int().nonnegative().default(0),
         sortOrder: z.number().int().default(0),
         is80gEligible: z.boolean().default(true),
+        /** Card icon (src/lib/content/card-icons.ts); unknown names show no icon. */
+        icon: z.string().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
             title: z.string().min(1),
             summary: z.string().min(1),
+            /** Short label on the card photo, e.g. "Education". */
+            tag: z.string().nullable().default(null),
             body: BlocksSchema.default([]),
             ...reviewed,
           }),
@@ -65,6 +71,8 @@ export const ContentFileSchema = z.object({
           .default(null),
         onlineUrl: z.url().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
@@ -87,6 +95,8 @@ export const ContentFileSchema = z.object({
         publishedAt: isoInstant,
         authorName: z.string().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
+        /** Cover height on the item's own page (short, standard, tall). */
+        coverSize: z.enum(["short", "standard", "tall"]).default("standard"),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
@@ -155,6 +165,7 @@ export const ContentFileSchema = z.object({
         "gallery",
         "events",
         "news",
+        "testimonials",
       ]),
       per(
         z.object({

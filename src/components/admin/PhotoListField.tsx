@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useDragSort } from "./useDragSort";
+import { moveItem } from "@/lib/admin/order";
 import { PhotoPicker, type LibraryItem, type PhotoPickerHandle } from "./PhotoPicker";
 
 const small =
@@ -8,7 +10,7 @@ const small =
 
 /**
  * One photo (a cover) or an ordered list of photos (a slider/album) from the media library.
- * Posted as a hidden input of comma-separated ids; reordering uses ↑ ↓ buttons (no drag needed).
+ * Posted as a hidden input of comma-separated ids; reorder by dragging the grip, or with ↑ ↓.
  */
 export function PhotoListField({
   id,
@@ -39,24 +41,32 @@ export function PhotoListField({
     setIds(next);
     queueMicrotask(() => hidden.current?.dispatchEvent(new Event("change", { bubbles: true })));
   };
-  const move = (i: number, d: number) => {
-    const next = [...ids];
-    [next[i], next[i + d]] = [next[i + d]!, next[i]!];
-    update(next);
-  };
+  const move = (i: number, d: number) => update(moveItem(ids, i, i + d));
+  const listRef = useRef<HTMLOListElement>(null);
+  const dnd = useDragSort({
+    list: listRef,
+    count: ids.length,
+    onMove: (from, to) => {
+      setIds((list) => moveItem(list, from, to));
+      queueMicrotask(() => hidden.current?.dispatchEvent(new Event("change", { bubbles: true })));
+    },
+    name: (i) => `photo ${i + 1}`,
+  });
 
   return (
     <div role="group" aria-label={label} className="grid gap-3" aria-describedby={describedBy}>
       <input ref={hidden} type="hidden" id={id} name={name} value={ids.join(",")} />
       {ids.length ? (
-        <ol className="m-0 grid list-none gap-2 p-0">
+        <ol ref={listRef} className="m-0 grid list-none gap-2 p-0">
           {ids.map((photoId, i) => {
             const m = byId.get(photoId);
             return (
               <li
-                key={`${photoId}-${i}`}
-                className="flex items-center gap-3 rounded-md border border-border-decorative p-2"
+                key={photoId}
+                {...dnd.row(i)}
+                className="flex items-center gap-3 rounded-md border border-border-decorative bg-bg-canvas p-2 data-dragging:shadow-md"
               >
+                {!single ? <button {...dnd.grip(i)} /> : null}
                 {m?.thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={m.thumb} alt="" className="h-12 w-16 flex-none rounded-sm object-cover" />
@@ -109,6 +119,9 @@ export function PhotoListField({
           {single ? "No photo: a placeholder is shown." : "No photos yet."}
         </p>
       )}
+      <p aria-live="polite" className="sr-only">
+        {dnd.status}
+      </p>
       <div>
         <button
           type="button"

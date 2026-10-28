@@ -1,7 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MenuInput } from "@/lib/admin/menus";
+import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
+import { TestimonialInput, TestimonialTextInput } from "@/lib/admin/testimonials";
+import { storySummary } from "@/lib/content/testimonials";
+import { moveItem } from "@/lib/admin/order";
+import {
+  HiddenSectionsInput,
+  normalizeSectionOrder,
+  SectionOrderInput,
+  visibleSections,
+} from "@/lib/content/home";
+import { CauseInput, CauseTextInput } from "@/lib/admin/causes";
+import { formatCount, parseCount } from "@/components/content/CountUp";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
@@ -115,6 +126,82 @@ describe("home page fields", () => {
     expect(HomeExtras.safeParse({ points: [point, point] }).success).toBe(false);
     expect(HomeExtras.safeParse({ points: [point, point, { title: "", text: "x" }] }).success).toBe(false);
   });
+
+  it("takes up to four impact numbers, each with a value and a label", () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    const n = { value: "1,200+", label: "families helped" };
+    const parse = (impact: unknown) => HomeExtras.safeParse({ points: [point, point, point], impact });
+    expect(HomeExtras.parse({ points: [point, point, point] }).impact).toEqual([]);
+    expect(parse([n, n, n, n]).success).toBe(true);
+    expect(parse([n, n, n, n, n]).success).toBe(false);
+    expect(parse([{ value: "12", label: "" }]).success).toBe(false);
+    expect(parse([{ value: "x".repeat(21), label: "y" }]).success).toBe(false);
+  });
+});
+
+describe("testimonial fields", () => {
+  const settings = {
+    slug: "asha-school",
+    storyDate: "2026-03-14",
+    sortOrder: "3",
+    showOnHome: true,
+    photoId: "",
+  };
+  it("settings: address, date, status, order and an optional photo", () => {
+    expect(TestimonialInput.parse({ ...settings, status: "published" })).toEqual({
+      slug: "asha-school",
+      storyDate: "2026-03-14",
+      status: "published",
+      sortOrder: 3,
+      showOnHome: true,
+      photoId: null,
+    });
+    const bad = (over: object) =>
+      TestimonialInput.safeParse({ ...settings, status: "draft", ...over }).success;
+    expect(bad({ status: "live" })).toBe(false);
+    expect(bad({ sortOrder: "-1" })).toBe(false);
+    expect(bad({ photoId: "x" })).toBe(false);
+    expect(bad({ slug: "Asha School" })).toBe(false);
+    expect(bad({ storyDate: "" })).toBe(false);
+    expect(bad({ storyDate: "14/03/2026" })).toBe(false);
+  });
+
+  it("text: heading, story and name are required; summary and role are optional", () => {
+    const text = {
+      title: " Back to school ",
+      body: "She is in class 6 now.",
+      summary: "",
+      name: "Asha",
+      role: "",
+    };
+    expect(TestimonialTextInput.parse({ ...text, reviewed: true })).toEqual({
+      title: "Back to school",
+      body: "She is in class 6 now.",
+      summary: null,
+      name: "Asha",
+      role: null,
+      reviewed: true,
+    });
+    const bad = (over: object) =>
+      TestimonialTextInput.safeParse({ ...text, reviewed: false, ...over }).success;
+    expect(bad({ title: "" })).toBe(false);
+    expect(bad({ name: "" })).toBe(false);
+    expect(bad({ summary: "x".repeat(301) })).toBe(false);
+  });
+
+  it("cards use the summary, else the story's first paragraph without markup, shortened", () => {
+    expect(storySummary("Own summary", [{ type: "paragraph", text: "Story" }])).toBe("Own summary");
+    expect(
+      storySummary(null, [
+        { type: "heading", level: 2, text: "Start" },
+        { type: "paragraph", text: "She is **back** at [school](/en/causes/education) now." },
+      ]),
+    ).toBe("She is back at school now.");
+    const long = storySummary(null, [{ type: "paragraph", text: "word ".repeat(80) }]);
+    expect(long.length).toBeLessThanOrEqual(201);
+    expect(long.endsWith("word…")).toBe(true);
+    expect(storySummary(null, [])).toBe("");
+  });
 });
 
 describe("menus", () => {
@@ -135,6 +222,34 @@ describe("menus", () => {
     ])
       expect(MenuInput.safeParse(bad).success).toBe(false);
   });
+  it("header links take hand-picked or automatic sub-links (one level, at most 12)", () => {
+    const header = menuInputFor("header");
+    const sub = { kind: "page", target: "contact" };
+    const ok = header.safeParse([
+      { kind: "page", target: "about", children: [sub, { kind: "cause", target: "school-support" }] },
+      { kind: "page", target: "causes", auto: "causes" },
+      { kind: "page", target: "news" },
+    ]);
+    expect(ok.success).toBe(true);
+    expect(ok.data![2]).toMatchObject({ auto: null, children: [] });
+    for (const bad of [
+      [{ kind: "page", target: "about", auto: "events", children: [sub] }],
+      [{ kind: "page", target: "about", children: [{ ...sub, children: [sub] }] }],
+      [{ kind: "page", target: "about", children: [{ ...sub, auto: "news" }] }],
+      [{ kind: "page", target: "about", children: Array(13).fill(sub) }],
+      [{ kind: "page", target: "about", auto: "gallery" }],
+    ])
+      expect(header.safeParse(bad).success).toBe(false);
+  });
+  it("footer menus stay flat", () => {
+    const footer = menuInputFor("footer_trust");
+    expect(footer.safeParse([{ kind: "page", target: "about" }]).success).toBe(true);
+    expect(footer.safeParse([{ kind: "page", target: "about", auto: "news" }]).success).toBe(false);
+    expect(
+      footer.safeParse([{ kind: "page", target: "about", children: [{ kind: "page", target: "contact" }] }])
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("built-in page texts (ensure defaults)", () => {
@@ -153,5 +268,79 @@ describe("built-in page texts (ensure defaults)", () => {
       }
       expect(HomeExtras.safeParse(pages.home!.extras).success).toBe(true);
     }
+  });
+});
+
+describe("home design", () => {
+  it("count-up keeps the text around the number", () => {
+    expect(parseCount("1,200+ Families")).toMatchObject({ prefix: "", value: 1200, suffix: "+ Families" });
+    expect(parseCount("₹5.5 lakh")).toMatchObject({ prefix: "₹", value: 5.5, decimals: 1, suffix: " lakh" });
+    expect(parseCount("Hundreds")).toBeNull();
+    const p = parseCount("1,20,000 meals")!;
+    expect(formatCount(p, 0)).toBe("0 meals");
+    expect(formatCount(p, 120000)).toBe("1,20,000 meals");
+    expect(formatCount(parseCount("45 Relief Kits")!, 7)).toBe("7 Relief Kits");
+  });
+
+  it("section order: unknown keys dropped, missing ones appended; duplicates rejected", () => {
+    expect(normalizeSectionOrder(["news", "old", "impact"])).toEqual([
+      "news",
+      "impact",
+      "why",
+      "story",
+      "causes",
+      "events",
+      "testimonials",
+      "band",
+    ]);
+    expect(normalizeSectionOrder([])[0]).toBe("impact");
+    expect(SectionOrderInput.safeParse(["news", "news"]).success).toBe(false);
+    expect(SectionOrderInput.safeParse(["news", "nope"]).success).toBe(false);
+    expect(SectionOrderInput.safeParse(["band", "news"]).success).toBe(true);
+  });
+
+  it("cause card icon from the list, and a short card label", () => {
+    const base = {
+      slug: "school-kits",
+      status: "draft",
+      goal: "",
+      is80gEligible: true,
+      sortOrder: "0",
+      coverImageId: "",
+    };
+    expect(CauseInput.parse({ ...base, icon: "education" }).icon).toBe("education");
+    expect(CauseInput.parse({ ...base, icon: "" }).icon).toBeNull();
+    expect(CauseInput.safeParse({ ...base, icon: "rocket" }).success).toBe(false);
+    const text = { title: "T", summary: "S", body: "", seoTitle: "", seoDescription: "", reviewed: false };
+    expect(CauseTextInput.parse({ ...text, tag: " Education " }).tag).toBe("Education");
+    expect(CauseTextInput.parse({ ...text, tag: "" }).tag).toBeNull();
+    expect(CauseTextInput.safeParse({ ...text, tag: "x".repeat(25) }).success).toBe(false);
+  });
+});
+
+describe("admin sorting and hidden sections", () => {
+  it("moveItem moves one item and leaves the rest in order", () => {
+    expect(moveItem(["a", "b", "c", "d"], 0, 2)).toEqual(["b", "c", "a", "d"]);
+    expect(moveItem(["a", "b", "c", "d"], 3, 1)).toEqual(["a", "d", "b", "c"]);
+    expect(moveItem(["a", "b"], 1, 1)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], 0, 5)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], -1, 0)).toEqual(["a", "b"]);
+    const list = ["a", "b"];
+    expect(moveItem(list, 0, 1)).not.toBe(list);
+  });
+
+  it("hidden sections: known keys only, each once; the rest keep their order", () => {
+    expect(HiddenSectionsInput.safeParse(["news", "band"]).success).toBe(true);
+    expect(HiddenSectionsInput.safeParse([]).success).toBe(true);
+    expect(HiddenSectionsInput.safeParse(["old"]).success).toBe(false);
+    expect(HiddenSectionsInput.safeParse(["news", "news"]).success).toBe(false);
+    expect(visibleSections(["news", "impact"], ["impact", "band"])).toEqual([
+      "news",
+      "why",
+      "story",
+      "causes",
+      "events",
+      "testimonials",
+    ]);
   });
 });

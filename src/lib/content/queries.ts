@@ -1,3 +1,4 @@
+import type { CoverSize } from "@/components/content/photo-ratio";
 import type { Locale } from "@/i18n/routing";
 import { routing } from "@/i18n/routing";
 import type { Blocks } from "./blocks";
@@ -37,10 +38,13 @@ export type CauseView = Meta & {
   goalPaise: number | null;
   raisedPaise: number;
   is80gEligible: boolean;
+  icon: string | null;
   coverImageId: string | null;
+  coverSize: CoverSize;
   photoIds: string[];
   title: string;
   summary: string;
+  tag: string | null;
   body: Blocks;
 };
 
@@ -53,6 +57,7 @@ export type EventView = Meta & {
   venue: { name: string; street?: string; city?: string; region?: string; postalCode?: string } | null;
   onlineUrl: string | null;
   coverImageId: string | null;
+  coverSize: CoverSize;
   photoIds: string[];
   title: string;
   summary: string;
@@ -64,6 +69,7 @@ export type NewsView = Meta & {
   publishedAt: Date;
   authorName: string | null;
   coverImageId: string | null;
+  coverSize: CoverSize;
   photoIds: string[];
   headline: string;
   excerpt: string;
@@ -120,10 +126,13 @@ export function causesFrom(c: SiteContent, locale: Locale): CauseView[] {
         goalPaise: x.goalPaise,
         raisedPaise: x.raisedPaise,
         is80gEligible: x.is80gEligible,
+        icon: x.icon,
         coverImageId: x.coverImageId,
+        coverSize: x.coverSize,
         photoIds: x.photoIds,
         title: tr.title,
         summary: tr.summary,
+        tag: tr.tag,
         body: tr.body,
       },
     ];
@@ -148,6 +157,7 @@ export function eventsFrom(c: SiteContent, locale: Locale): EventView[] {
           venue: x.venue,
           onlineUrl: x.onlineUrl,
           coverImageId: x.coverImageId,
+          coverSize: x.coverSize,
           photoIds: x.photoIds,
           title: tr.title,
           summary: tr.summary,
@@ -172,6 +182,7 @@ export function newsFrom(c: SiteContent, locale: Locale): NewsView[] {
           publishedAt: new Date(x.publishedAt),
           authorName: x.authorName,
           coverImageId: x.coverImageId,
+          coverSize: x.coverSize,
           photoIds: x.photoIds,
           headline: tr.headline,
           excerpt: tr.excerpt,

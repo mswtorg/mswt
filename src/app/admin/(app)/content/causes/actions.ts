@@ -23,8 +23,10 @@ const causeInput = (v: Record<string, string>) =>
     status: v.status,
     goal: v.goal ?? "",
     is80gEligible: v.is80gEligible === "on",
+    icon: v.icon ?? "",
     sortOrder: v.sortOrder || "0",
     coverImageId: v.coverImageId ?? "",
+    coverSize: v.coverSize || "standard",
     photoIds: v.photoIds ?? "",
   });
 
@@ -74,6 +76,7 @@ export async function saveCauseTextAction(
   const parsed = CauseTextInput.safeParse({
     title: v.title ?? "",
     summary: v.summary ?? "",
+    tag: v.tag ?? "",
     body: v.body ?? "",
     seoTitle: v.seoTitle ?? "",
     seoDescription: v.seoDescription ?? "",

@@ -1,3 +1,4 @@
+import { COVER_SIZES } from "@/components/content/photo-ratio";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Locale } from "@/i18n/routing";
@@ -12,7 +13,7 @@ import { parsePhotoIds } from "./photo-ids";
 
 // Events and news (Step 8c-2): settings + text per language, like causes.
 
-const slug = z
+export const slug = z
   .string()
   .trim()
   .toLowerCase()
@@ -74,6 +75,8 @@ export const EventInput = z
       .union([z.literal(""), z.url().refine((u) => u.startsWith("https://"), "Use an https:// link")])
       .transform((v) => v || null),
     coverImageId: photo,
+    /** Cover photo height on the item's own page. */
+    coverSize: z.enum(COVER_SIZES).default("standard"),
     photoIds: photos,
   })
   .superRefine((v, ctx) => {
@@ -122,6 +125,7 @@ const eventValues = (i: EventInput) => ({
   venuePostalCode: i.venuePostalCode,
   onlineUrl: i.onlineUrl,
   coverImageId: i.coverImageId,
+  coverSize: i.coverSize,
   photoIds: i.photoIds,
 });
 
@@ -206,6 +210,8 @@ export const NewsInput = z
     publishedAt: optionalIstDateTime,
     authorName: text(120),
     coverImageId: photo,
+    /** Cover photo height on the item's own page. */
+    coverSize: z.enum(COVER_SIZES).default("standard"),
     photoIds: photos,
   })
   .transform((v) => ({

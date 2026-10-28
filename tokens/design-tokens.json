@@ -626,7 +626,11 @@
     },
     "lg": {
       "$value": "8px",
-      "$description": "Cards, images, dialogs."
+      "$description": "Images inside text, dialogs, panels."
+    },
+    "xl": {
+      "$value": "16px",
+      "$description": "Public tiles (cause, event, news, album, testimonial and impact cards): the owner's chosen card style (Oct 2026)."
     },
     "full": {
       "$value": "9999px",

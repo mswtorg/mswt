@@ -1,0 +1,129 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
+
+export type NavDropdownLink = { href: string; label: string };
+
+/**
+ * A header link with a list under it (sub-links from Admin → Menus, e.g. the causes). The link
+ * stays a link; the chevron button beside it opens the list. Large screens: a panel that also
+ * opens on hover. Phones (in the Menu panel): an indented list, collapsed until the chevron is
+ * tapped. Esc, clicking outside or tabbing away closes it. Every link is in the server HTML, so
+ * crawlers still reach each page.
+ */
+export function NavDropdown({
+  id,
+  link,
+  current = false,
+  toggleLabel,
+  items,
+  all,
+  linkClassName,
+}: {
+  id: string;
+  link: NavDropdownLink;
+  current?: boolean;
+  /** Accessible name of the chevron button, e.g. "Causes: more links". */
+  toggleLabel: string;
+  items: NavDropdownLink[];
+  /** An optional last link in the panel ("View all causes"). */
+  all?: NavDropdownLink;
+  linkClassName: string;
+}) {
+  // "hover" closes again when the mouse leaves; "click" (button or keyboard) stays until closed.
+  const [open, setOpen] = useState<false | "hover" | "click">(false);
+  const root = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+
+  // Mouse hover opens it; focus leaving the whole dropdown closes it.
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const enter = (e: PointerEvent) => e.pointerType === "mouse" && setOpen((o) => o || "hover");
+    const leave = (e: PointerEvent) =>
+      e.pointerType === "mouse" && setOpen((o) => (o === "hover" ? false : o));
+    const focusOut = (e: FocusEvent) => {
+      if (!el.contains(e.relatedTarget as Node | null)) setOpen(false);
+    };
+    el.addEventListener("pointerenter", enter);
+    el.addEventListener("pointerleave", leave);
+    el.addEventListener("focusout", focusOut);
+    return () => {
+      el.removeEventListener("pointerenter", enter);
+      el.removeEventListener("pointerleave", leave);
+      el.removeEventListener("focusout", focusOut);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggle.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="relative">
+      <div className="flex items-center">
+        <a href={link.href} aria-current={current ? "page" : undefined} className={linkClassName}>
+          {link.label}
+        </a>
+        <button
+          ref={toggle}
+          type="button"
+          aria-expanded={Boolean(open)}
+          aria-controls={id}
+          aria-label={toggleLabel}
+          onClick={() => setOpen((o) => (o === "click" ? false : "click"))}
+          // Slim (the 24px minimum target wide, full height) so a link with a dropdown takes about
+          // the same room as one without and the gaps in the menu stay even.
+          className="grid h-(--size-target-comfortable) w-(--size-target-min) place-items-center rounded-sm text-fg-default hover:text-link-hover"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className={cn("size-4 transition-transform motion-reduce:transition-none", open && "rotate-180")}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
+            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      {/* Shown only while open: indented under the link on phones, a panel on large screens. */}
+      <div
+        id={id}
+        className={cn("lg:absolute lg:top-full lg:left-0 lg:z-10 lg:w-72 lg:pt-2", open ? "block" : "hidden")}
+      >
+        <ul className="m-0 list-none border-l-2 border-border-decorative py-0 pl-4 lg:rounded-md lg:border lg:bg-bg-canvas lg:p-2 lg:shadow-md">
+          {[...items, ...(all ? [all] : [])].map((item, i) => (
+            <li key={`${i}-${item.href}`}>
+              <a
+                href={item.href}
+                className={cn(
+                  "flex min-h-(--size-target-comfortable) items-center rounded-sm text-fg-default no-underline hover:text-link-hover hover:underline lg:px-3 lg:hover:bg-bg-subtle",
+                  i === items.length && "font-medium text-link-default",
+                )}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}

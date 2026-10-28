@@ -1,5 +1,7 @@
+import { COVER_SIZES } from "@/components/content/photo-ratio";
 import { and, asc, count, eq } from "drizzle-orm";
 import { z } from "zod";
+import { CARD_ICON_KEYS, type CardIconKey } from "@/lib/content/card-icons";
 import type { Locale } from "@/i18n/routing";
 import { recordAudit, type Actor } from "@/lib/audit";
 import { imageIds } from "@/lib/content/markup";
@@ -33,8 +35,15 @@ export const CauseInput = z.object({
       return z.NEVER;
     }),
   is80gEligible: z.boolean(),
+  /** Card icon (one of CARD_ICONS) or "" for none. */
+  icon: z
+    .union([z.literal(""), z.enum(CARD_ICON_KEYS as [CardIconKey, ...CardIconKey[]])])
+    .default("")
+    .transform((v) => v || null),
   sortOrder: z.coerce.number().int().min(0).max(9999),
   coverImageId: z.union([z.literal(""), z.uuid()]).transform((v) => v || null),
+  /** Cover photo height on the item's own page. */
+  coverSize: z.enum(COVER_SIZES).default("standard"),
   photoIds: z
     .string()
     .default("")
@@ -45,6 +54,13 @@ export type CauseInput = z.infer<typeof CauseInput>;
 export const CauseTextInput = z.object({
   title: z.string().trim().min(1, "Enter the title").max(120),
   summary: z.string().trim().min(1, "Write a one- or two-sentence summary").max(300),
+  /** Short label on the card photo, e.g. "Education"; "" for none. */
+  tag: z
+    .string()
+    .trim()
+    .max(24)
+    .default("")
+    .transform((v) => v || null),
   body: z.string().max(60_000),
   seoTitle: z
     .string()
@@ -116,8 +132,10 @@ export async function createCause(input: CauseInput, actor: Actor): Promise<stri
           status: input.status,
           goalPaise: input.goal,
           is80gEligible: input.is80gEligible,
+          icon: input.icon,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          coverSize: input.coverSize,
           photoIds: input.photoIds,
         })
         .returning({ id: causes.id });
@@ -148,8 +166,10 @@ export async function updateCause(id: string, input: CauseInput, actor: Actor) {
           status: input.status,
           goalPaise: input.goal,
           is80gEligible: input.is80gEligible,
+          icon: input.icon,
           sortOrder: input.sortOrder,
           coverImageId: input.coverImageId,
+          coverSize: input.coverSize,
           photoIds: input.photoIds,
           updatedAt: new Date(),
         })
@@ -163,8 +183,10 @@ export async function updateCause(id: string, input: CauseInput, actor: Actor) {
           status: before.status,
           goal: before.goalPaise,
           is80gEligible: before.is80gEligible,
+          icon: before.icon,
           sortOrder: before.sortOrder,
           coverImageId: before.coverImageId,
+          coverSize: before.coverSize,
         },
         after: input,
       });
@@ -190,6 +212,7 @@ export async function saveCauseTranslation(id: string, locale: Locale, input: Ca
     const values = {
       title: input.title,
       summary: input.summary,
+      tag: input.tag,
       body,
       seoTitle: input.seoTitle,
       seoDescription: input.seoDescription,

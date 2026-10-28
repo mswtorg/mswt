@@ -4,7 +4,8 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from "rea
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
-import { BlocksEditor } from "./BlocksEditor";
+import { RichEditor } from "./RichEditor";
+import { OrderListField } from "./OrderListField";
 import { PhotoListField } from "./PhotoListField";
 import { compactControl } from "./ui";
 import type { FieldSpec, FormSectionSpec, FormState } from "./form-state";
@@ -16,9 +17,26 @@ const primaryButton =
 const secondaryButton =
   "inline-flex min-h-10 items-center justify-center rounded-md border border-border-input bg-bg-canvas px-4 text-sm font-semibold text-fg-default hover:bg-bg-subtle";
 
-function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; error?: string; value: string }) {
+function Field({
+  f,
+  formId,
+  error,
+  value,
+  hiddenValue,
+}: {
+  f: FieldSpec;
+  formId: string;
+  error?: string;
+  value: string;
+  hiddenValue?: string;
+}) {
   const id = fieldId(formId, f.name);
-  const full = f.span === "full" || f.type === "textarea" || f.type === "blocks" || f.type === "photos";
+  const full =
+    f.span === "full" ||
+    f.type === "textarea" ||
+    f.type === "blocks" ||
+    f.type === "photos" ||
+    f.type === "order";
   if (f.type === "checkbox")
     return (
       <div className={cn("grid gap-1", full && "sm:col-span-2")}>
@@ -48,11 +66,22 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
   );
   return (
     <div className={cn("grid content-start gap-1.5", full && "sm:col-span-2")}>
-      <label htmlFor={id} className="text-sm font-medium text-fg-strong">
+      <label id={`${id}-label`} htmlFor={id} className="text-sm font-medium text-fg-strong">
         {f.label}
         {f.required ? <span className="ml-1 text-xs font-normal text-fg-muted">(required)</span> : null}
       </label>
-      {f.type === "photo" || f.type === "photos" ? (
+      {f.type === "order" ? (
+        <OrderListField
+          id={id}
+          name={f.name}
+          label={f.label}
+          defaultValue={value}
+          items={f.items ?? []}
+          hiddenName={f.hiddenName}
+          hiddenDefault={hiddenValue}
+          describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
+        />
+      ) : f.type === "photo" || f.type === "photos" ? (
         <PhotoListField
           label={f.label}
           id={id}
@@ -64,8 +93,9 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
           describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
         />
       ) : f.type === "blocks" ? (
-        <BlocksEditor
+        <RichEditor
           id={id}
+          labelId={`${id}-label`}
           name={f.name}
           defaultValue={value}
           lang={f.lang}
@@ -86,7 +116,9 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
           className={control}
         />
       ) : f.type === "select" ? (
-        <select {...p} name={f.name} defaultValue={value} className={control}>
+        // Keyed by the saved value: React applies a select's defaultValue only when it mounts, so
+        // without a remount the form's reset after a save would show the value the page opened with.
+        <select key={value} {...p} name={f.name} defaultValue={value} className={control}>
           {(f.options ?? []).map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -177,6 +209,7 @@ export function AdminForm({
             formId={id}
             error={errors[f.name]}
             value={values[f.name] ?? f.defaultValue ?? ""}
+            hiddenValue={f.hiddenName ? (values[f.hiddenName] ?? f.hiddenDefault ?? "") : undefined}
           />
         ))}
       </div>

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Blocks } from "@/lib/content/blocks";
 import {
+  type AnyPgColumn,
   bigint,
   bigserial,
   boolean,
@@ -197,6 +198,8 @@ export const paymentSettings = pgTable(
     // Section 80G(5D): cash above ₹2,000 is not deductible.
     cash80gLimitPaise: paise("cash_80g_limit_paise").default(200000).notNull(),
     providerMode: providerMode("provider_mode").default("sandbox").notNull(),
+    // Admin → Settings → Payments: the quick donate box on Home.
+    homeDonateBox: boolean("home_donate_box").default(true).notNull(),
     updatedBy: updatedBy(),
     updatedAt: updatedAt(),
   },
@@ -264,6 +267,7 @@ export const pageKey = pgEnum("page_key", [
   "gallery",
   "events",
   "news",
+  "testimonials",
 ]);
 export const eventStatus = pgEnum("event_status", [
   "scheduled",
@@ -331,12 +335,16 @@ export const causes = pgTable(
     raisedPaise: paise("raised_paise").default(0).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()
       .default(sql`'{}'::uuid[]`)
       .notNull(),
     is80gEligible: boolean("is_80g_eligible").default(true).notNull(),
+    /** Icon beside the title on the cause card (one of CARD_ICONS); null: no icon. */
+    icon: text("icon"),
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     createdAt: createdAt(),
@@ -358,6 +366,8 @@ export const causeTranslations = pgTable(
       .references(() => causes.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     summary: text("summary").notNull(),
+    /** Short label on the card photo, e.g. "Education" (per language); null: no label. */
+    tag: text("tag"),
     body: blocks("body"),
     ...translationCols(),
   },
@@ -371,6 +381,18 @@ export const pages = pgTable("pages", {
   heroMediaIds: uuid("hero_media_ids")
     .array()
     .default(sql`'{}'::uuid[]`)
+    .notNull(),
+  /** Home only: the order of the sections under the headline (HOME_SECTIONS keys); empty: default. */
+  sectionOrder: text("section_order")
+    .array()
+    .default(sql`'{}'::text[]`)
+    .notNull(),
+  /** Header photo height: short, standard or tall (src/components/content/photo-ratio.ts). */
+  heroSize: text("hero_size").default("standard").notNull(),
+  /** Home only: sections switched off in the admin (kept in the order, not shown). */
+  hiddenSections: text("hidden_sections")
+    .array()
+    .default(sql`'{}'::text[]`)
     .notNull(),
   updatedAt: updatedAt(),
 });
@@ -458,6 +480,8 @@ export const events = pgTable(
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()
@@ -499,6 +523,8 @@ export const newsPosts = pgTable(
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     coverImageId: uuid("cover_image_id").references(() => media.id),
+    /** Cover photo height on its own page: short, standard or tall (cards keep one shape). */
+    coverSize: text("cover_size").default("standard").notNull(),
     /** Ordered library photos shown as a slider on the public page (Step 8c-2). */
     photoIds: uuid("photo_ids")
       .array()
@@ -527,6 +553,51 @@ export const newsTranslations = pgTable(
     ...translationCols(),
   },
   (t) => [primaryKey({ columns: [t.postId, t.locale] })],
+);
+
+/**
+ * Testimonials (Content → Testimonials): quotes from donors, volunteers and families, shown on
+ * Home (when `show_on_home`) and About. Published ones show in a language once its text is there
+ * (and reviewed, in production). Not marked up as reviews in JSON-LD (self-serving reviews).
+ */
+export const testimonials = pgTable(
+  "testimonials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Public address: /{locale}/testimonials/{slug}. */
+    slug: slugCol(),
+    status: publishStatus("status").default("draft").notNull(),
+    /** The date of the story, shown with it (the same in every language). */
+    storyDate: date("story_date", { mode: "string" }).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    showOnHome: boolean("show_on_home").default(true).notNull(),
+    photoId: uuid("photo_id").references(() => media.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("testimonials_sort_idx").on(t.sortOrder), uniqueIndex("testimonials_slug_idx").on(t.slug)],
+);
+
+export const testimonialTranslations = pgTable(
+  "testimonial_translations",
+  {
+    testimonialId: uuid("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    locale: locale("locale").notNull(),
+    title: text("title").notNull(),
+    /** The whole story (typed blocks, edited in the visual editor). */
+    body: blocks("body"),
+    /** Short text for cards and search results; empty: the story's first lines. */
+    summary: text("summary"),
+    name: text("name").notNull(),
+    /** Who they are: "Parent, Mumbai", "Volunteer since 2021"… */
+    role: text("role"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.testimonialId, t.locale] })],
 );
 
 /** Transparency documents. The PDF lives in R2 (Step 8); until then pdf_r2_key is null. */
@@ -570,12 +641,16 @@ export const menuLocation = pgEnum("menu_location", [
   "footer_legal",
 ]);
 export const menuItemKind = pgEnum("menu_item_kind", ["page", "cause", "news", "event", "url"]);
+/** Header dropdowns filled automatically: all causes, latest news, upcoming events. */
+export const menuAuto = pgEnum("menu_auto", ["causes", "news", "events"]);
 
 export const menuItems = pgTable(
   "menu_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     location: menuLocation("location").notNull(),
+    /** A header sub-link (one level only); its order is `sort` among its siblings. */
+    parentId: uuid("parent_id").references((): AnyPgColumn => menuItems.id, { onDelete: "cascade" }),
     sort: integer("sort").default(0).notNull(),
     kind: menuItemKind("kind").notNull(),
     /** Page key (src/config/nav.ts), cause/news/event slug, or an https URL. */
@@ -583,10 +658,15 @@ export const menuItems = pgTable(
     hidden: boolean("hidden").default(false).notNull(),
     /** Optional label per language; the built-in name (or the item's title) is used otherwise. */
     labels: jsonb("labels").$type<Partial<Record<"en" | "hi" | "mr" | "gu", string>>>().default({}).notNull(),
+    /** Header link whose dropdown lists causes, news or events by itself (no hand-picked sub-links). */
+    auto: menuAuto("auto"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("menu_items_location_idx").on(t.location, t.sort)],
+  (t) => [
+    index("menu_items_location_idx").on(t.location, t.sort),
+    index("menu_items_parent_idx").on(t.parentId),
+  ],
 );
 
 export const messageStatus = pgEnum("message_status", ["new", "read", "replied", "spam"]);

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withSerwist } from "@serwist/turbopack";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -23,17 +24,29 @@ const mediaOrigin = (() => {
   }
 })();
 
+// The Vercel Toolbar (comments, feedback) on preview deployments such as stage: the domains Vercel
+// recommends. Production doesn't get them, so its policy stays tight.
+const toolbar = process.env.VERCEL_ENV === "production" ? null : "https://vercel.live";
+const vercelToolbar = {
+  script: toolbar ? ` ${toolbar}` : "",
+  style: toolbar ? ` ${toolbar}` : "",
+  img: toolbar ? ` ${toolbar} https://vercel.com` : "",
+  font: toolbar ? ` ${toolbar} https://assets.vercel.com` : "",
+  connect: toolbar ? ` ${toolbar} wss://ws-us3.pusher.com` : "",
+  frame: toolbar ? ` ${toolbar}` : "",
+};
+
 // Baseline security headers. CSP is report-only; it is enforced and tightened in Step 10.
 // Cashfree: the checkout SDK (sdk.cashfree.com) and its payment pages/APIs (*.cashfree.com).
 const cspReportOnly = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://sdk.cashfree.com",
-  "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob:${mediaOrigin ? ` ${mediaOrigin}` : ""}`,
-  "font-src 'self'",
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://sdk.cashfree.com${vercelToolbar.script}`,
+  `style-src 'self' 'unsafe-inline'${vercelToolbar.style}`,
+  `img-src 'self' data: blob:${mediaOrigin ? ` ${mediaOrigin}` : ""}${vercelToolbar.img}`,
+  `font-src 'self'${vercelToolbar.font}`,
   // *.r2.cloudflarestorage.com: admins upload large PDFs straight to the media bucket (signed URL).
-  "connect-src 'self' https://challenges.cloudflare.com https://*.cashfree.com https://*.r2.cloudflarestorage.com",
-  "frame-src https://challenges.cloudflare.com https://*.cashfree.com",
+  `connect-src 'self' https://challenges.cloudflare.com https://*.cashfree.com https://*.r2.cloudflarestorage.com${vercelToolbar.connect}`,
+  `frame-src https://challenges.cloudflare.com https://*.cashfree.com${vercelToolbar.frame}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self' https://*.cashfree.com",
@@ -94,4 +107,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// withSerwist: keeps esbuild (which builds the service worker) out of the server bundle.
+export default withSerwist(withNextIntl(nextConfig));

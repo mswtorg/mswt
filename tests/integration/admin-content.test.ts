@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CauseInput, createCause, deleteCause, saveCauseTranslation, updateCause } from "@/lib/admin/causes";
@@ -15,10 +15,14 @@ import {
   causeTranslations,
   media,
   messages,
+  pages,
   pageTranslations,
   users,
 } from "@/lib/db/schema";
 import { MediaError } from "@/lib/media/process";
+import { visibleSections } from "@/lib/content/home";
+import { causesFrom } from "@/lib/content/queries";
+import { databaseContent } from "@/lib/content/source";
 import { LOCAL_MEDIA_DIR } from "@/lib/storage/media";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -184,8 +188,86 @@ describe("pages", () => {
       .select()
       .from(pageTranslations)
       .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "hi")));
-    expect(row!.extras).toEqual({ eyebrow: "12A और 80G", points: [point, point, point], sections: {} });
+    expect(row!.extras).toEqual({
+      eyebrow: "12A और 80G",
+      points: [point, point, point],
+      impact: [],
+      sections: {},
+    });
     await deletePageTranslation("home", "hi", actor());
+  });
+
+  it("home keeps its section order (one for every language) and audits it", async () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    const extras = { points: [point, point, point] };
+    const order = ["news", "impact", "why", "story", "causes", "events", "testimonials", "band"] as const;
+    await savePageTranslation(
+      "home",
+      "gu",
+      { ...base, body: "", reviewed: false },
+      extras,
+      actor(),
+      undefined,
+      "short",
+      { order: [...order], hidden: ["events"] },
+    );
+    const [page] = await db.select().from(pages).where(eq(pages.key, "home"));
+    expect(page!.sectionOrder).toEqual(order);
+    expect(page!.hiddenSections).toEqual(["events"]);
+    expect(page!.heroSize).toBe("short");
+    expect(visibleSections(page!.sectionOrder, page!.hiddenSections)).toEqual(
+      order.filter((k) => k !== "events"),
+    );
+    // Saving another language without an order leaves it as it is.
+    await savePageTranslation("home", "mr", { ...base, body: "", reviewed: false }, extras, actor());
+    const [after] = await db.select().from(pages).where(eq(pages.key, "home"));
+    expect(after!.sectionOrder).toEqual(order);
+    expect(after!.hiddenSections).toEqual(["events"]);
+    const [entry] = await db
+      .select({ after: auditLog.after })
+      .from(auditLog)
+      .where(eq(auditLog.action, "content.page.update"))
+      .orderBy(desc(auditLog.createdAt))
+      .offset(1)
+      .limit(1);
+    expect(entry!.after).toMatchObject({
+      key: "home",
+      locale: "gu",
+      sectionOrder: order,
+      hiddenSections: ["events"],
+    });
+    await db.update(pages).set({ sectionOrder: [], hiddenSections: [] }).where(eq(pages.key, "home"));
+    await deletePageTranslation("home", "gu", actor());
+    await deletePageTranslation("home", "mr", actor());
+  });
+
+  it("home keeps its impact numbers and its body as Our story", async () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    await expect(
+      savePageTranslation(
+        "home",
+        "mr",
+        { ...base, body: "", reviewed: false },
+        { points: [point, point, point], impact: [{ value: "500+", label: "" }] },
+        actor(),
+      ),
+    ).rejects.toMatchObject({ field: "impact1Value" });
+    await savePageTranslation(
+      "home",
+      "mr",
+      { ...base, body: "Started in 2015 with one flood-relief camp.", reviewed: false },
+      { points: [point, point, point], impact: [{ value: "500+", label: "families helped" }] },
+      actor(),
+    );
+    const [row] = await db
+      .select()
+      .from(pageTranslations)
+      .where(and(eq(pageTranslations.pageKey, "home"), eq(pageTranslations.locale, "mr")));
+    expect(row!.extras).toMatchObject({ impact: [{ value: "500+", label: "families helped" }] });
+    expect(row!.sections).toEqual([
+      { type: "paragraph", text: "Started in 2015 with one flood-relief camp." },
+    ]);
+    await deletePageTranslation("home", "mr", actor());
   });
 });
 
@@ -219,6 +301,7 @@ describe("causes", () => {
       {
         title: "शिविर",
         summary: "सारांश",
+        tag: "शिक्षा",
         body: "पाठ",
         seoTitle: null,
         seoDescription: null,
@@ -228,8 +311,39 @@ describe("causes", () => {
     );
     const [tr] = await db.select().from(causeTranslations).where(eq(causeTranslations.causeId, id));
     expect(tr!.reviewedAt).not.toBeNull();
+    expect(tr!.tag).toBe("शिक्षा");
+    // The card icon is one setting for every language; the label is per language.
+    await updateCause(id, input(slug, { icon: "education", status: "active" }), actor());
+    const [withIcon] = await db.select().from(causes).where(eq(causes.id, id));
+    expect(withIcon!.icon).toBe("education");
+    const content = { ...(await databaseContent()), sampleParts: [] };
+    expect(causesFrom(content, "hi").find((c) => c.slug === slug)).toMatchObject({
+      icon: "education",
+      tag: "शिक्षा",
+    });
     await updateCause(id, input(slug, { status: "active" }), actor());
     await expect(deleteCause(id, actor())).rejects.toBeInstanceOf(ContentError);
+  });
+
+  it("the cover photo size is saved, audited and shown on the cause; unknown sizes are refused", async () => {
+    const slug = `cause-${unique()}`;
+    expect(input(slug).coverSize).toBe("standard");
+    expect(CauseInput.safeParse({ ...input(slug), coverSize: "huge" }).success).toBe(false);
+    const id = await createCause(input(slug, { coverSize: "short" }), actor());
+    await updateCause(id, input(slug, { coverSize: "tall" }), actor());
+    const [row] = await db.select().from(causes).where(eq(causes.id, id));
+    expect(row!.coverSize).toBe("tall");
+    const [entry] = await db
+      .select({ before: auditLog.before, after: auditLog.after })
+      .from(auditLog)
+      .where(and(eq(auditLog.entityId, id), eq(auditLog.action, "cause.update")))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(1);
+    expect(entry).toMatchObject({ before: { coverSize: "short" }, after: { coverSize: "tall" } });
+    // The database refuses sizes the site doesn't know, whatever writes them.
+    await expect(db.update(causes).set({ coverSize: "huge" }).where(eq(causes.id, id))).rejects.toThrow();
+    await expect(db.update(pages).set({ heroSize: "huge" }).where(eq(pages.key, "about"))).rejects.toThrow();
+    await deleteCause(id, actor());
   });
 });
 

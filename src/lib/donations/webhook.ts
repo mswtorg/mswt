@@ -9,6 +9,7 @@ import {
   markUnpaid,
   UnknownOrderError,
 } from "./confirm";
+import { alertPaymentFailed, alertPaymentProblem } from "./alerts";
 
 export type WebhookOutcome = { status: number; body: { ok: boolean; duplicate?: boolean; error?: string } };
 
@@ -68,8 +69,11 @@ export async function handlePaymentWebhook(
 
   try {
     if (event.kind === "payment_success") await confirmOnlinePayment(event.orderId, provider);
-    else if (event.kind === "payment_failed") await markUnpaid(event.orderId, "failed");
-    else if (event.kind === "refund_success") {
+    else if (event.kind === "payment_failed") {
+      await markUnpaid(event.orderId, "failed");
+      // Once per Cashfree event: a repeated delivery returned early above.
+      await alertPaymentFailed(event.orderId, event);
+    } else if (event.kind === "refund_success") {
       const outcome = await markRefunded(event.orderId, event.refundId, event);
       // Kept on the event row (admin timeline) when nothing changed, e.g. a duplicate payment returned.
       if (outcome !== "refunded" && eventRowId)
@@ -85,6 +89,12 @@ export async function handlePaymentWebhook(
     // Retrying cannot fix an unknown order or a tampered amount: record it, stop the retries.
     if (error instanceof UnknownOrderError || error instanceof AmountMismatchError) {
       console.error("Payment webhook not applied", message);
+      await alertPaymentProblem(
+        error instanceof AmountMismatchError ? "Amount mismatch" : "Unknown order",
+        event.orderId || event.eventId,
+        message,
+        donation?.id,
+      );
       if (eventRowId)
         await db
           .update(paymentEvents)

@@ -129,6 +129,14 @@ export default async function CausePage({ params, searchParams }: Props) {
                     maxLength: 300,
                     defaultValue: row?.summary ?? "",
                   },
+                  {
+                    name: "tag",
+                    label: "Card label",
+                    lang: locale,
+                    maxLength: 24,
+                    defaultValue: row?.tag ?? "",
+                    hint: "Optional, one or two words shown on the card photo, e.g. “Education”.",
+                  },
                 ],
               },
               {

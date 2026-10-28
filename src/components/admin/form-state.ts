@@ -28,11 +28,13 @@ export type FieldSpec = {
     | "checkbox"
     | "url"
     | "tel"
-    /** Content text with toolbar and preview (BlocksEditor); needs `editor`. */
+    /** Rich content: visual editor or text with preview (RichEditor); needs `editor`. */
     | "blocks"
     /** One library photo (cover) or an ordered list (slider/album); needs `photos`. */
     | "photo"
-    | "photos";
+    | "photos"
+    /** A fixed set of items put in order by dragging or ↑ ↓ (posted comma-separated); needs `items`. */
+    | "order";
   hint?: string;
   required?: boolean;
   defaultValue?: string;
@@ -49,6 +51,12 @@ export type FieldSpec = {
   editor?: { media: Record<string, ImageView>; library: LibraryItem[] };
   /** For type "photo"/"photos": the library to choose from, and the most photos allowed. */
   photos?: { library: LibraryItem[]; max?: number };
+  /** For type "order": the items, in their default order. */
+  items?: { value: string; label: string }[];
+  /** For type "order": a "Show" switch per item; the items switched off are posted under this name. */
+  hiddenName?: string;
+  /** For type "order" with `hiddenName`: the items switched off, comma-separated. */
+  hiddenDefault?: string;
 };
 
 /** Everything a form posted, as strings (checkboxes "on"). */

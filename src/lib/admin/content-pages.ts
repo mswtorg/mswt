@@ -7,6 +7,7 @@ export const CONTENT_PAGES = [
   { key: "events", label: "Events (list)", path: "/events" },
   { key: "news", label: "News (list)", path: "/news" },
   { key: "gallery", label: "Gallery (list)", path: "/gallery" },
+  { key: "testimonials", label: "Testimonials (list)", path: "/testimonials" },
   { key: "transparency", label: "Transparency", path: "/transparency" },
   { key: "privacy", label: "Privacy policy", path: "/privacy" },
   { key: "terms", label: "Terms", path: "/terms" },

@@ -18,6 +18,7 @@ import {
   organizationSettings,
   pages,
   pageTranslations,
+  testimonials,
 } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
 import { mediaSlug, processImage, variantKey } from "@/lib/media/process";
@@ -129,7 +130,7 @@ const inList = (col: unknown, id: string) => sql`${id}::uuid = any(${col})`;
 
 /** Where a photo is used: covers, sliders, page headers, albums, trustees and text in any language. */
 export async function mediaUsage(id: string): Promise<{ label: string; href: string }[]> {
-  const [causeRows, pageRows, eventRows, newsRows, albums, trustees] = await Promise.all([
+  const [causeRows, pageRows, eventRows, newsRows, albums, trustees, quotes] = await Promise.all([
     db
       .selectDistinct({ id: causes.id, slug: causes.slug })
       .from(causes)
@@ -169,6 +170,7 @@ export async function mediaUsage(id: string): Promise<{ label: string; href: str
       .select({ id: organizationSettings.id })
       .from(organizationSettings)
       .where(sql`${organizationSettings.trustees} @> ${JSON.stringify([{ photoMediaId: id }])}::jsonb`),
+    db.select({ id: testimonials.id }).from(testimonials).where(eq(testimonials.photoId, id)),
   ]);
   return [
     ...pageRows.map((p) => ({ label: `Page: ${p.key}`, href: `/admin/content/pages/${p.key}` })),
@@ -177,6 +179,7 @@ export async function mediaUsage(id: string): Promise<{ label: string; href: str
     ...newsRows.map((n) => ({ label: `News: ${n.slug}`, href: `/admin/content/news/${n.id}` })),
     ...albums.map((a) => ({ label: `Gallery: ${a.slug}`, href: `/admin/content/gallery/${a.id}` })),
     ...(trustees.length ? [{ label: "Trustees", href: "/admin/settings/organization" }] : []),
+    ...quotes.map((t) => ({ label: "Testimonial", href: `/admin/content/testimonials/${t.id}` })),
   ];
 }
 

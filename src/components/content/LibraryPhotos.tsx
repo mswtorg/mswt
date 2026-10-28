@@ -8,6 +8,14 @@ import { db } from "@/lib/db/client";
 import { pages } from "@/lib/db/schema";
 import { cn } from "@/lib/cn";
 import { getPhotoStrings } from "./ContentBody";
+import {
+  coverRatio,
+  COVER_SIZES,
+  isBanner,
+  ratioClass,
+  type CoverSize,
+  type PhotoRatio,
+} from "./photo-ratio";
 import { PhotoSlider, type SlidePhoto } from "./PhotoSlider";
 import { ResponsiveImage } from "./ResponsiveImage";
 
@@ -27,7 +35,7 @@ export async function LibraryPhotos({
   ids: string[];
   locale: Locale;
   priority?: boolean;
-  ratio?: "wide" | "photo";
+  ratio?: PhotoRatio;
   sizes?: string;
   className?: string;
 }) {
@@ -44,7 +52,7 @@ export async function LibraryPhotos({
           alt={p.alt}
           sizes={sizes}
           priority={priority}
-          className={ratio === "wide" ? "aspect-video" : "aspect-[4/3]"}
+          className={ratioClass(ratio)}
         />
         {p.caption ? <figcaption className="text-sm text-fg-muted">{p.caption}</figcaption> : null}
       </figure>
@@ -57,41 +65,52 @@ export async function LibraryPhotos({
       ratio={ratio}
       priority={priority}
       sizes={sizes}
+      overlayDots={isBanner(ratio)}
       className={className}
     />
   );
 }
 
-/** A fixed page's header photos (Content → Pages); the same in every language. */
-export const getPageHeroIds = unstable_cache(
-  async (key: ContentPageKey): Promise<string[]> => {
+/** A fixed page's header photos and their size (Content → Pages); the same in every language. */
+export const getPageHero = unstable_cache(
+  async (key: ContentPageKey): Promise<{ ids: string[]; size: CoverSize }> => {
     const [row] = await db
-      .select({ ids: pages.heroMediaIds })
+      .select({ ids: pages.heroMediaIds, size: pages.heroSize })
       .from(pages)
       .where(and(eq(pages.key, key)));
-    return row?.ids ?? [];
+    const size = (COVER_SIZES as readonly string[]).includes(row?.size ?? "")
+      ? (row!.size as CoverSize)
+      : "standard";
+    return { ids: row?.ids ?? [], size };
   },
   ["page-hero"],
   { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
 );
 
-/** Header photo(s) for a fixed page, above its heading. */
+/**
+ * Header photo(s) for a fixed page, above its heading. `full` (Home only) is an edge-to-edge
+ * banner: place it outside the page container.
+ */
 export async function PageHero({
   pageKey,
   locale,
+  variant = "contained",
   className,
 }: {
   pageKey: ContentPageKey;
   locale: Locale;
+  variant?: "contained" | "full";
   className?: string;
 }) {
-  const ids = await getPageHeroIds(pageKey);
+  const { ids, size } = await getPageHero(pageKey);
+  const full = variant === "full";
   return (
     <LibraryPhotos
       ids={ids}
       locale={locale}
       priority
-      sizes="(min-width: 1280px) 1200px, 100vw"
+      ratio={coverRatio(size, full)}
+      sizes={full ? "100vw" : "(min-width: 1280px) 1200px, 100vw"}
       className={className}
     />
   );

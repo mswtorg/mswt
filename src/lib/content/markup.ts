@@ -1,4 +1,14 @@
-import { safeHref, type Block, type Blocks } from "./blocks";
+import {
+  PHOTO_ALIGNS,
+  PHOTO_SIZES,
+  safeHref,
+  SLIDER_SIZES,
+  type Block,
+  type Blocks,
+  type PhotoAlign,
+  type PhotoSize,
+  type SliderSize,
+} from "./blocks";
 
 /**
  * The admin's text format for content blocks (Step 8c). One block per paragraph, separated by a
@@ -8,14 +18,35 @@ import { safeHref, type Block, type Blocks } from "./blocks";
  *   - item / 1. item      (consecutive lines make one list)
  *   > Note                >! Warning note
  *   ![Caption](media:ID)  (a photo from the media library, alone on its line)
- *   !slider[Caption](media:ID,ID,…)  (2–20 photos shown as a slider)
+ *   ![Caption](media:ID){small left}  (layout: small|medium|large and center|left|right)
+ *   !slider[Caption](media:ID,ID,…)  (2–20 photos shown as a slider; {medium} or {large} after it)
  *
  * Inline: **bold** and [label](https://… | /path | mailto: | tel:). Stored as typed blocks, never HTML.
  */
 export type MarkupError = { line: number; message: string };
 
-const IMAGE = /^!\[([^\]]*)\]\(media:([0-9a-f-]{36})\)$/i;
-const SLIDER = /^!slider\[([^\]]*)\]\(media:([^)]*)\)$/i;
+const IMAGE = /^!\[([^\]]*)\]\(media:([0-9a-f-]{36})\)(?:\{([^}]*)\})?$/i;
+const SLIDER = /^!slider\[([^\]]*)\]\(media:([^)]*)\)(?:\{([^}]*)\})?$/i;
+
+/** "{small left}" → the photo's layout; null when a word isn't a size or a position. */
+function photoLayout(words: string | undefined): { size?: PhotoSize; align?: PhotoAlign } | null {
+  const out: { size?: PhotoSize; align?: PhotoAlign } = {};
+  for (const w of (words ?? "").toLowerCase().split(/\s+/).filter(Boolean)) {
+    if ((PHOTO_SIZES as readonly string[]).includes(w)) out.size = w as PhotoSize;
+    else if ((PHOTO_ALIGNS as readonly string[]).includes(w)) out.align = w as PhotoAlign;
+    else return null;
+  }
+  // A size alone means a centred photo of that size.
+  if (out.size && !out.align) out.align = "center";
+  return out;
+}
+
+/** "{medium}" → the slider's width; null when the word isn't medium or large. */
+function sliderLayout(words: string | undefined): { size?: SliderSize } | null {
+  const w = (words ?? "").trim().toLowerCase();
+  if (!w) return {};
+  return (SLIDER_SIZES as readonly string[]).includes(w) ? { size: w as SliderSize } : null;
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Links only: "![…](media:…)" is an image line, checked separately.
 const LINK = /(?<!!)\[([^\]]+)\]\(([^)\s]*)\)/g;
@@ -66,7 +97,11 @@ export function markupToBlocks(text: string): { blocks: Blocks; errors: MarkupEr
           errors.push({ line: n, message: `Line ${n}: insert sliders with the “Insert slider” button` });
         else if (ids.length < 2 || ids.length > 20)
           errors.push({ line: n, message: `Line ${n}: a slider needs 2 to 20 photos` });
-        else blocks.push({ type: "slider", mediaIds: ids, ...(m[1] ? { caption: m[1] } : {}) });
+        else {
+          const layout = sliderLayout(m[3]);
+          if (!layout) errors.push({ line: n, message: `Line ${n}: a slider's size is {medium} or {large}` });
+          else blocks.push({ type: "slider", mediaIds: ids, ...(m[1] ? { caption: m[1] } : {}), ...layout });
+        }
         return;
       }
 
@@ -84,8 +119,20 @@ export function markupToBlocks(text: string): { blocks: Blocks; errors: MarkupEr
       if (line.startsWith("![")) {
         flush();
         const m = IMAGE.exec(line);
+        const layout = m ? photoLayout(m[3]) : null;
         if (!m) errors.push({ line: n, message: `Line ${n}: insert photos with the “Insert image” button` });
-        else blocks.push({ type: "image", mediaId: m[2]!.toLowerCase(), ...(m[1] ? { caption: m[1] } : {}) });
+        else if (!layout)
+          errors.push({
+            line: n,
+            message: `Line ${n}: a photo's layout is a size (small, medium, large) and a position (center, left, right)`,
+          });
+        else
+          blocks.push({
+            type: "image",
+            mediaId: m[2]!.toLowerCase(),
+            ...(m[1] ? { caption: m[1] } : {}),
+            ...layout,
+          });
         return;
       }
 
@@ -138,10 +185,12 @@ export function blocksToMarkup(blocks: Blocks): string {
           return b.items.map((item, i) => (b.ordered ? `${i + 1}. ${item}` : `- ${item}`)).join("\n");
         case "callout":
           return `${b.tone === "warning" ? ">!" : ">"} ${b.text}`;
-        case "image":
-          return `![${b.caption ?? ""}](media:${b.mediaId})`;
+        case "image": {
+          const layout = b.align ? `{${[b.size, b.align].filter(Boolean).join(" ")}}` : "";
+          return `![${b.caption ?? ""}](media:${b.mediaId})${layout}`;
+        }
         case "slider":
-          return `!slider[${b.caption ?? ""}](media:${b.mediaIds.join(",")})`;
+          return `!slider[${b.caption ?? ""}](media:${b.mediaIds.join(",")})${b.size ? `{${b.size}}` : ""}`;
       }
     })
     .join("\n\n");

@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { pageHeroIds, pageTranslationsFor } from "@/lib/admin/content";
+import { pageHero, pageSectionLayout, pageTranslationsFor } from "@/lib/admin/content";
+import { COVER_SIZE_OPTIONS } from "@/components/content/photo-ratio";
 import { contentPage, type ContentPageKey } from "@/lib/admin/content-pages";
 import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
 import { LANGUAGES } from "@/lib/admin/languages";
 import { editorMedia } from "@/lib/admin/media";
-import { HOME_SECTION_FIELDS, HomeExtras } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HOME_SECTIONS, HomeExtras, normalizeSectionOrder } from "@/lib/content/home";
 import { blocksToMarkup } from "@/lib/content/markup";
 import { AdminForm } from "@/components/admin/AdminForm";
 import type { FormSectionSpec } from "@/components/admin/form-state";
@@ -37,12 +38,14 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const key = page.key as ContentPageKey;
   const q = await searchParams;
   const locale = pickLocale(q.lang);
-  const [rows, editor, heroIds, { library: englishLibrary }] = await Promise.all([
+  const [rows, editor, hero, { library: englishLibrary }, layout] = await Promise.all([
     pageTranslationsFor(key),
     editorMedia(locale),
-    pageHeroIds(key),
+    pageHero(key),
     editorMedia("en"),
+    key === "home" ? pageSectionLayout() : Promise.resolve({ order: [], hidden: [] }),
   ]);
+  const sectionOrder = normalizeSectionOrder(layout.order);
   const row = rows.find((r) => r.locale === locale);
   const draft = row ? null : pageDraft(key, locale);
   // Home: the built-in text (src/messages) is the starting point in each language.
@@ -105,7 +108,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
     ? [
         {
           title: "Sections",
-          description: "Headings and text for the causes, events, news and donate parts of the home page.",
+          description: "Headings and text for the other parts of the home page.",
           fields: HOME_SECTION_FIELDS.map(([k, label]) => ({
             name: `section_${k}`,
             label,
@@ -117,6 +120,63 @@ export default async function EditPagePage({ params, searchParams }: Props) {
         },
       ]
     : [];
+  const bodyField = {
+    name: "body",
+    label: key === "home" ? "Story" : "Text",
+    type: "blocks" as const,
+    lang: locale,
+    defaultValue: blocksToMarkup(row?.sections ?? draft?.sections ?? []),
+    editor,
+  };
+  const impact = extras?.success ? extras.data.impact : [];
+  const homeParts: FormSectionSpec[] =
+    key === "home"
+      ? [
+          {
+            title: "Sections",
+            description:
+              "Drag to reorder (or use ↑ ↓). Turn a section off to remove it from the Home page; its content is kept. The headline and donate box always come first. The same in every language; sections with nothing to show are skipped.",
+            fields: [
+              {
+                name: "sectionOrder",
+                label: "Sections",
+                type: "order",
+                defaultValue: sectionOrder.join(","),
+                hiddenName: "hiddenSections",
+                hiddenDefault: layout.hidden.join(","),
+                items: HOME_SECTIONS.map(([value, label]) => ({ value, label })),
+              },
+            ],
+          },
+          {
+            title: "Impact in numbers",
+            description:
+              "Up to four figures, e.g. “1,200+” with “families helped”. Leave a row empty to drop it; with none filled the section is hidden.",
+            fields: ([1, 2, 3, 4] as const).flatMap((n) => [
+              {
+                name: `impact${n}Value`,
+                label: `Number ${n}`,
+                lang: locale,
+                maxLength: 20,
+                defaultValue: impact[n - 1]?.value ?? "",
+              },
+              {
+                name: `impact${n}Label`,
+                label: `Number ${n} label`,
+                lang: locale,
+                maxLength: 80,
+                defaultValue: impact[n - 1]?.label ?? "",
+              },
+            ]),
+          },
+          {
+            title: "Our story",
+            description:
+              "A short story of the Trust, shown on the home page with a “Read our story” link to About. Leave it empty to hide the section.",
+            fields: [bodyField],
+          },
+        ]
+      : [];
   const body: FormSectionSpec =
     key === "home"
       ? {
@@ -148,17 +208,8 @@ export default async function EditPagePage({ params, searchParams }: Props) {
               ? "Optional text shown above the form or the documents list."
               : ["causes", "events", "news", "gallery"].includes(key)
                 ? "Optional text shown above the list."
-                : "The page text. Use the toolbar or the marks shown under the box.",
-          fields: [
-            {
-              name: "body",
-              label: "Text",
-              type: "blocks",
-              lang: locale,
-              defaultValue: blocksToMarkup(row?.sections ?? draft?.sections ?? []),
-              editor,
-            },
-          ],
+                : "The page text. Write as in a document; use the toolbar for headings, lists, notes and photos.",
+          fields: [bodyField],
         };
 
   return (
@@ -220,13 +271,22 @@ export default async function EditPagePage({ params, searchParams }: Props) {
                 name: "heroMediaIds",
                 label: "Photos",
                 type: "photos",
-                defaultValue: heroIds.join(","),
+                defaultValue: hero.ids.join(","),
                 photos: { library: englishLibrary, max: 8 },
+              },
+              {
+                name: "heroSize",
+                label: "Header photo size",
+                type: "select",
+                defaultValue: hero.size,
+                options: COVER_SIZE_OPTIONS,
+                hint: "Short banner, standard (16:9) or tall. The same photo, shown taller or shorter.",
               },
             ],
           },
           heading,
           body,
+          ...homeParts,
           ...homeSections,
           {
             title: "Search engines",
