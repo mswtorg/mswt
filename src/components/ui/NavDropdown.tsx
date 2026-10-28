@@ -6,10 +6,11 @@ import { cn } from "@/lib/cn";
 export type NavDropdownLink = { href: string; label: string };
 
 /**
- * A header link with a list under it (Causes). Large screens: the link stays a link, and a chevron
- * button (or hovering) opens a panel; Esc, clicking outside or tabbing away closes it. Phones (in
- * the Menu panel): the list shows indented under the link. Every link is in the server HTML, so
- * crawlers and visitors without JavaScript still reach each page.
+ * A header link with a list under it (sub-links from Admin → Menus, e.g. the causes). The link
+ * stays a link; the chevron button beside it opens the list. Large screens: a panel that also
+ * opens on hover. Phones (in the Menu panel): an indented list, collapsed until the chevron is
+ * tapped. Esc, clicking outside or tabbing away closes it. Every link is in the server HTML, so
+ * crawlers still reach each page.
  */
 export function NavDropdown({
   id,
@@ -23,11 +24,11 @@ export function NavDropdown({
   id: string;
   link: NavDropdownLink;
   current?: boolean;
-  /** Accessible name of the chevron button, e.g. "Causes list". */
+  /** Accessible name of the chevron button, e.g. "Causes: more links". */
   toggleLabel: string;
   items: NavDropdownLink[];
-  /** The last link in the panel ("View all causes"). */
-  all: NavDropdownLink;
+  /** An optional last link in the panel ("View all causes"). */
+  all?: NavDropdownLink;
   linkClassName: string;
 }) {
   // "hover" closes again when the mouse leaves; "click" (button or keyboard) stays until closed.
@@ -86,7 +87,7 @@ export function NavDropdown({
           aria-controls={id}
           aria-label={toggleLabel}
           onClick={() => setOpen((o) => (o === "click" ? false : "click"))}
-          className="hidden size-(--size-target-comfortable) place-items-center rounded-sm text-fg-default hover:text-link-hover lg:grid"
+          className="grid size-(--size-target-comfortable) place-items-center rounded-sm text-fg-default hover:text-link-hover"
         >
           <svg
             viewBox="0 0 24 24"
@@ -100,17 +101,14 @@ export function NavDropdown({
           </svg>
         </button>
       </div>
-      {/* Phones: always listed under the link. Large screens: a panel shown while open. */}
+      {/* Shown only while open: indented under the link on phones, a panel on large screens. */}
       <div
         id={id}
-        className={cn(
-          "lg:absolute lg:top-full lg:left-0 lg:z-10 lg:w-72 lg:pt-2",
-          open ? "lg:block" : "lg:hidden",
-        )}
+        className={cn("lg:absolute lg:top-full lg:left-0 lg:z-10 lg:w-72 lg:pt-2", open ? "block" : "hidden")}
       >
         <ul className="m-0 list-none border-l-2 border-border-decorative py-0 pl-4 lg:rounded-md lg:border lg:bg-bg-canvas lg:p-2 lg:shadow-md">
-          {[...items, all].map((item, i) => (
-            <li key={item.href}>
+          {[...items, ...(all ? [all] : [])].map((item, i) => (
+            <li key={`${i}-${item.href}`}>
               <a
                 href={item.href}
                 className={cn(

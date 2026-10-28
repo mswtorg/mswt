@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { MAIN_NAV, PAGES, pageHref } from "@/config/nav";
 import { resolveMenu } from "@/lib/admin/menus";
-import { getCauses } from "@/lib/content/queries";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { CollapsibleNav } from "@/components/ui/CollapsibleNav";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
@@ -14,14 +13,20 @@ const linkClass =
   "inline-flex min-h-(--size-target-comfortable) items-center font-medium text-fg-default no-underline hover:text-link-hover hover:underline aria-[current=page]:text-fg-brand aria-[current=page]:border-b-2 aria-[current=page]:border-border-rule";
 
 export async function SiteHeader({ locale, current }: { locale: Locale; current?: string }) {
-  const [t, tl, th, causes] = await Promise.all([
+  const [t, tl, th] = await Promise.all([
     getTranslations("Nav"),
     getTranslations("Layout"),
     getTranslations("Home"),
-    getCauses(locale),
   ]);
-  // Admin → Content → Menus, or the built-in menu until one is saved.
-  const items = await resolveMenu("header", locale, MAIN_NAV, (k) => t(k as "about"));
+  const ALL = { causes: "allCauses", news: "allNews", events: "allEvents" } as const;
+  // Admin → Content → Menus, or the built-in menu until one is saved (Causes lists the causes).
+  const items = await resolveMenu(
+    "header",
+    locale,
+    MAIN_NAV,
+    (k) => t(k as "about"),
+    (auto) => th(ALL[auto]),
+  );
   // Sticky; HeaderShadow swaps the bottom border for a shadow once the page scrolls.
   return (
     <header
@@ -37,17 +42,17 @@ export async function SiteHeader({ locale, current }: { locale: Locale; current?
           {items.length > 0 ? (
             <nav aria-label={t("label")}>
               <ul className="m-0 flex list-none flex-col p-0 lg:flex-row lg:gap-5">
-                {items.map((item) => (
+                {items.map((item, i) => (
                   <li key={item.key}>
-                    {/* Causes (built-in menu or a Menus page link): a dropdown of the causes. */}
-                    {item.page === "causes" && causes.length > 0 ? (
+                    {/* A link with sub-links (Admin → Menus): a dropdown, collapsed until opened. */}
+                    {item.children?.length ? (
                       <NavDropdown
-                        id="causes-menu"
+                        id={`menu-${i + 1}`}
                         link={{ href: item.href, label: item.label }}
-                        current={current === "causes"}
-                        toggleLabel={t("causesList")}
-                        items={causes.map((c) => ({ href: `/${locale}/causes/${c.slug}`, label: c.title }))}
-                        all={{ href: item.href, label: th("allCauses") }}
+                        current={Boolean(item.page && current === item.page)}
+                        toggleLabel={t("subLinks", { label: item.label })}
+                        items={item.children}
+                        all={item.all}
                         linkClassName={linkClass}
                       />
                     ) : (

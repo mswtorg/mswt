@@ -19,8 +19,10 @@ test.describe("admin content 2", () => {
   test.beforeAll(async ({ browser }) => {
     page = await newPage(browser);
   });
-  test.afterAll(async () => {
+  test.afterAll(async ({}, testInfo) => {
     await page.context().close();
+    // The phone project skips these tests: it must not clean up while the desktop one is running.
+    if (testInfo.project.use.isMobile) return;
     const db = postgres(process.env.DATABASE_URL!);
     await db`delete from events where slug like ${run + "%"}`;
     await db`delete from news_posts where slug like ${run + "%"}`;
@@ -187,6 +189,53 @@ test.describe("admin content 2", () => {
       }).toPass({ timeout: 15_000 });
       await expect(nav.getByRole("link").first()).not.toHaveText(label); // Causes is first now
     }
+    await visitor.context().close();
+  });
+
+  test("a header link gets hand-picked sub-links, in the HTML in each language", async () => {
+    await page.goto("/admin/content/menus?menu=header");
+    const about = page.getByRole("listitem").filter({ hasText: "2. Who we are" });
+    await about.getByLabel("Sub-links").selectOption("manual");
+    const add = about.getByRole("group", { name: "Add a sub-link under link 2" });
+    await add.getByLabel("Page, cause, news or event").selectOption("page:transparency");
+    await add.getByRole("button", { name: "Add", exact: true }).click();
+    await add.getByLabel("Web link").fill("https://example.org/annual-report");
+    await add.getByLabel("Label (English)").fill("Annual report");
+    await add.getByRole("button", { name: "Add link" }).click();
+    await expect(about.getByText("1. Transparency")).toBeVisible();
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Save menu" }).click();
+    await expect(page.getByText("Menu saved.")).toBeVisible();
+
+    // Every sub-link is a plain link in the server HTML; the web link has no Hindi label.
+    const panelOf = (html: string) => {
+      const start = html.indexOf('aria-label="Who we are: more links"');
+      return start < 0 ? "" : html.slice(start, html.indexOf("</ul>", start));
+    };
+    await expect(async () => {
+      const en = panelOf(await (await page.request.get("/en/about")).text());
+      expect(en).toContain('href="/en/transparency"');
+      expect(en).toContain('href="https://example.org/annual-report"');
+    }).toPass({ timeout: 15_000 });
+    await expect(async () => {
+      const html = await (await page.request.get("/hi/about")).text();
+      const start = html.indexOf('aria-label="हमारे बारे में: और लिंक"');
+      expect(start).toBeGreaterThan(0);
+      const hi = html.slice(start, html.indexOf("</ul>", start));
+      expect(hi).toContain('href="/hi/transparency"');
+      expect(hi).not.toContain("example.org");
+    }).toPass({ timeout: 15_000 });
+
+    const visitor = await newPage(page.context().browser()!);
+    await visitor.goto("/en/about");
+    const toggle = visitor.getByRole("button", { name: "Who we are: more links" });
+    const panel = visitor.locator(`#${await toggle.getAttribute("aria-controls")}`);
+    await expect(panel).toBeHidden();
+    await toggle.click();
+    await expect(panel.getByRole("link", { name: "Annual report" })).toBeVisible();
+    await expectAccessible(visitor);
+    await panel.getByRole("link", { name: "Transparency" }).click();
+    await expect(visitor).toHaveURL(/\/en\/transparency$/);
     await visitor.context().close();
   });
 

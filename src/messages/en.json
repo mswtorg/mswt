@@ -44,7 +44,7 @@
     "menu": "Menu",
     "about": "About",
     "causes": "Causes",
-    "causesList": "Causes list",
+    "subLinks": "{label}: more links",
     "gallery": "Gallery",
     "events": "Events",
     "news": "News",

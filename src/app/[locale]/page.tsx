@@ -73,7 +73,11 @@ export default async function HomePage({ params }: Props) {
   const lang = locale as Locale;
   const graph = pageGraph([
     org ? ngo(org, lang) : null,
-    website(lang, tm("siteName")),
+    website(
+      lang,
+      tm("siteName"),
+      org ? [org.displayName, org.legalName, ...Object.values(org.alternateNames ?? {}).flat()] : [],
+    ),
     webPage({ locale: lang, path: "", name: tm("homeTitle"), description: tm("homeDescription") }),
   ]);
 

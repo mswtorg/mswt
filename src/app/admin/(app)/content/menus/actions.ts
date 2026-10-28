@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { actorFor } from "@/lib/admin/actor";
-import { MENU_LOCATIONS, MenuInput, saveMenu, type MenuLocation } from "@/lib/admin/menus";
+import { MENU_LOCATIONS, menuInputFor, saveMenu, type MenuLocation } from "@/lib/admin/menus";
 import { CONTENT_TAG } from "@/lib/content/source";
 import type { FormState } from "@/components/admin/form-state";
 
@@ -19,10 +19,16 @@ export async function saveMenuAction(
   } catch {
     return { status: "error", errors: { form: "The menu could not be read. Reload and try again." } };
   }
-  const parsed = MenuInput.safeParse(raw);
+  const parsed = menuInputFor(location).safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0]!;
-    const row = typeof issue.path[0] === "number" ? `Link ${issue.path[0] + 1}: ` : "";
+    const [n, sub, m] = issue.path;
+    const row =
+      typeof n !== "number"
+        ? ""
+        : sub === "children" && typeof m === "number"
+          ? `Sub-link ${n + 1}.${m + 1}: `
+          : `Link ${n + 1}: `;
     return { status: "error", errors: { form: `${row}${issue.message}` } };
   }
   await saveMenu(location, parsed.data, actor);

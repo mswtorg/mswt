@@ -152,9 +152,16 @@ export async function ensureDefaults(db: Db): Promise<{ pages: number; menus: nu
         .from(schema.menuItems)
         .where(eq(schema.menuItems.location, location));
       if ((row?.n ?? 0) > 0) continue;
-      await tx
-        .insert(schema.menuItems)
-        .values(keys.map((target, i) => ({ location, sort: i + 1, kind: "page" as const, target })));
+      await tx.insert(schema.menuItems).values(
+        keys.map((target, i) => ({
+          location,
+          sort: i + 1,
+          kind: "page" as const,
+          target,
+          // The header's Causes link lists every cause (as in the built-in menu).
+          auto: location === "header" && target === "causes" ? ("causes" as const) : null,
+        })),
+      );
       menus++;
     }
     if (pages || menus)

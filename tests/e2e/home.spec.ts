@@ -41,13 +41,13 @@ test("every cause link is in the HTML without JavaScript", async ({ request }) =
 });
 
 test("Causes dropdown: mouse, keyboard and Esc", async ({ page, isMobile }) => {
-  test.skip(isMobile, "large screens only; phones list the causes in the Menu");
+  test.skip(isMobile, "large screens; phones are tested below");
   await page.goto("/en/about");
   const causes = page
     .getByRole("navigation", { name: "Main" })
     .getByRole("link", { name: "Causes", exact: true });
-  const toggle = page.getByRole("button", { name: "Causes list" });
-  const panel = page.locator("#causes-menu");
+  const toggle = page.getByRole("button", { name: "Causes: more links" });
+  const panel = page.locator(`#${await toggle.getAttribute("aria-controls")}`);
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(panel).toBeHidden();
 
@@ -73,12 +73,37 @@ test("Causes dropdown: mouse, keyboard and Esc", async ({ page, isMobile }) => {
   await expect(page).toHaveURL(/\/en\/causes$/);
 });
 
-test("phone Menu lists the causes under Causes", async ({ page, isMobile }) => {
+test("phone Menu keeps the causes folded until the arrow is tapped", async ({ page, isMobile }) => {
   test.skip(!isMobile, "phones only");
   await page.goto("/en");
   await page.getByRole("button", { name: "Menu" }).click();
   const menu = page.locator("#site-nav");
-  await expect(menu.getByRole("link", { name: "Medical help for patients" })).toBeVisible();
-  await menu.getByRole("link", { name: "Medical help for patients" }).click();
+  const cause = menu.getByRole("link", { name: "Medical help for patients" });
+  const toggle = menu.getByRole("button", { name: "Causes: more links" });
+  await expect(menu.getByRole("link", { name: "Causes", exact: true })).toBeVisible();
+  await expect(cause).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(cause).toBeVisible();
+  await expectAccessible(page);
+  await toggle.click();
+  await expect(cause).toBeHidden();
+  await toggle.click();
+  await cause.click();
   await expect(page).toHaveURL(/\/en\/causes\/medical-help$/);
+});
+
+test("Home WebSite JSON-LD names the site and its other names", async ({ request }) => {
+  const html = await (await request.get("/en")).text();
+  const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]!)[
+    "@graph"
+  ] as { "@type": string; name?: string; alternateName?: string[] }[];
+  const site = graph.find((n) => n["@type"] === "WebSite")!;
+  expect(site.name).toBe("MS Welfare Trust");
+  // The other names come from Settings → Organization (empty in a bare CI database).
+  const ngo = graph.find((n) => n["@type"] === "NGO") as { legalName?: string } | undefined;
+  test.skip(!ngo, "no organization settings in this database");
+  expect(site.alternateName).toContain(ngo!.legalName);
+  expect(site.alternateName).not.toContain(site.name);
 });

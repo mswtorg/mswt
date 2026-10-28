@@ -4,12 +4,15 @@ import { useRef, useState } from "react";
 import { compactControl } from "./ui";
 
 export type MenuOption = { kind: "page" | "cause" | "news" | "event"; target: string; label: string };
-export type MenuItemState = {
+export type MenuLinkState = {
   kind: "page" | "cause" | "news" | "event" | "url";
   target: string;
   hidden: boolean;
   labels: Partial<Record<"en" | "hi" | "mr" | "gu", string>>;
 };
+/** What a header link opens: nothing, hand-picked sub-links, or a list that fills itself. */
+export type SubLinks = "none" | "manual" | "causes" | "news" | "events";
+export type MenuItemState = MenuLinkState & { sub?: SubLinks; children?: MenuLinkState[] };
 
 const LANGS = [
   ["en", "English"],
@@ -18,39 +21,146 @@ const LANGS = [
   ["gu", "ગુજરાતી"],
 ] as const;
 const KIND_LABEL = { page: "Page", cause: "Cause", news: "News", event: "Event", url: "Web link" } as const;
+const SUB_LABEL: Record<SubLinks, string> = {
+  none: "None",
+  manual: "Pick by hand",
+  causes: "Automatic: all causes",
+  news: "Automatic: latest news (5)",
+  events: "Automatic: upcoming events (5)",
+};
+const MAX_SUB_LINKS = 12;
 const small =
   "inline-flex min-h-9 items-center rounded-md border border-border-input bg-bg-canvas px-2.5 text-sm font-medium text-fg-default hover:bg-bg-subtle disabled:opacity-40";
 
+/** The JSON the save action reads: `auto` or `children` only when the link has a dropdown. */
+const toInput = (items: MenuItemState[]) =>
+  items.map(({ sub = "none", children = [], ...link }) => ({
+    ...link,
+    auto: sub === "none" || sub === "manual" ? null : sub,
+    children: sub === "manual" ? children : [],
+  }));
+
 /**
  * Edits one menu: order (↑ ↓), show/hide, rename per language, remove, and add links to pages,
- * causes, news, events or web pages. Posted as JSON in a hidden "items" field.
+ * causes, news, events or web pages. With `allowSubLinks` (header), each link can open a dropdown
+ * of hand-picked or automatic sub-links (one level). Posted as JSON in a hidden "items" field.
  */
-export function MenuEditor({ initial, options }: { initial: MenuItemState[]; options: MenuOption[] }) {
+export function MenuEditor({
+  initial,
+  options,
+  allowSubLinks = false,
+}: {
+  initial: MenuItemState[];
+  options: MenuOption[];
+  allowSubLinks?: boolean;
+}) {
   const [items, setItems] = useState(initial);
-  const [adding, setAdding] = useState("");
-  const [url, setUrl] = useState("");
-  const [urlLabel, setUrlLabel] = useState("");
   const hidden = useRef<HTMLInputElement>(null);
 
   const update = (next: MenuItemState[]) => {
     setItems(next);
     queueMicrotask(() => hidden.current?.dispatchEvent(new Event("change", { bubbles: true })));
   };
-  const nameOf = (i: MenuItemState) =>
+
+  return (
+    <div className="grid gap-4">
+      <input ref={hidden} type="hidden" name="items" value={JSON.stringify(toInput(items))} />
+      <LinkList
+        items={items}
+        onChange={update}
+        options={options}
+        noun={(n) => `link ${n + 1}`}
+        empty="No links: the built-in menu is shown."
+        extra={
+          allowSubLinks
+            ? (it, n, set) => {
+                const sub = it.sub ?? "none";
+                return (
+                  <div className="grid gap-2">
+                    <label className="grid max-w-sm gap-1 text-sm">
+                      <span className="font-medium text-fg-strong">Sub-links</span>
+                      <select
+                        value={sub}
+                        onChange={(e) => set({ sub: e.target.value as SubLinks })}
+                        className={compactControl}
+                      >
+                        {(Object.keys(SUB_LABEL) as SubLinks[]).map((s) => (
+                          <option key={s} value={s}>
+                            {SUB_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {sub === "manual" ? (
+                      <div className="border-l-2 border-border-decorative pl-3">
+                        <LinkList
+                          items={it.children ?? []}
+                          onChange={(children) => set({ children })}
+                          options={options}
+                          noun={(m) => `sub-link ${n + 1}.${m + 1}`}
+                          empty="No sub-links yet: this shows as a plain link."
+                          max={MAX_SUB_LINKS}
+                          addLegend={`Add a sub-link under link ${n + 1}`}
+                        />
+                      </div>
+                    ) : sub !== "none" ? (
+                      <p className="m-0 text-xs text-fg-muted">
+                        Lists itself in each language, then a “View all” link. Empty lists show as a plain
+                        link.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              }
+            : undefined
+        }
+      />
+    </div>
+  );
+}
+
+/** One editable list of links (a menu, or the sub-links of one header link). */
+function LinkList<T extends MenuLinkState>({
+  items,
+  onChange,
+  options,
+  noun,
+  empty,
+  max,
+  addLegend = "Add a link",
+  extra,
+}: {
+  items: T[];
+  onChange: (next: T[]) => void;
+  options: MenuOption[];
+  /** How a row is named for screen readers, e.g. "link 2" or "sub-link 2.1". */
+  noun: (n: number) => string;
+  empty: string;
+  max?: number;
+  addLegend?: string;
+  extra?: (item: T, n: number, set: (patch: Partial<T>) => void) => React.ReactNode;
+}) {
+  const [adding, setAdding] = useState("");
+  const [url, setUrl] = useState("");
+  const [urlLabel, setUrlLabel] = useState("");
+  const full = max !== undefined && items.length >= max;
+
+  const nameOf = (i: MenuLinkState) =>
     i.kind === "url"
       ? i.target
       : (options.find((o) => o.kind === i.kind && o.target === i.target)?.label ?? i.target);
   const move = (n: number, d: number) => {
     const next = [...items];
     [next[n], next[n + d]] = [next[n + d]!, next[n]!];
-    update(next);
+    onChange(next);
   };
-  const set = (n: number, patch: Partial<MenuItemState>) =>
-    update(items.map((it, j) => (j === n ? { ...it, ...patch } : it)));
+  const set = (n: number, patch: Partial<T>) =>
+    onChange(items.map((it, j) => (j === n ? { ...it, ...patch } : it)));
+  const add = (link: MenuLinkState) => onChange([...items, link as T]);
+  const Noun = (n: number) => noun(n).replace(/^./, (c) => c.toUpperCase());
 
   return (
-    <div className="grid gap-4">
-      <input ref={hidden} type="hidden" name="items" value={JSON.stringify(items)} />
+    <div className="grid gap-3">
       {items.length ? (
         <ol className="m-0 grid list-none gap-2 p-0">
           {items.map((it, n) => (
@@ -73,7 +183,7 @@ export function MenuEditor({ initial, options }: { initial: MenuItemState[]; opt
                   className={small}
                   disabled={n === 0}
                   onClick={() => move(n, -1)}
-                  aria-label={`Move link ${n + 1} up`}
+                  aria-label={`Move ${noun(n)} up`}
                 >
                   ↑
                 </button>
@@ -82,7 +192,7 @@ export function MenuEditor({ initial, options }: { initial: MenuItemState[]; opt
                   className={small}
                   disabled={n === items.length - 1}
                   onClick={() => move(n, 1)}
-                  aria-label={`Move link ${n + 1} down`}
+                  aria-label={`Move ${noun(n)} down`}
                 >
                   ↓
                 </button>
@@ -90,7 +200,8 @@ export function MenuEditor({ initial, options }: { initial: MenuItemState[]; opt
                   <input
                     type="checkbox"
                     checked={it.hidden}
-                    onChange={(e) => set(n, { hidden: e.target.checked })}
+                    onChange={(e) => set(n, { hidden: e.target.checked } as Partial<T>)}
+                    aria-label={`Hide ${noun(n)}`}
                     className="size-4 accent-action-primary-bg"
                   />
                   Hide
@@ -98,7 +209,8 @@ export function MenuEditor({ initial, options }: { initial: MenuItemState[]; opt
                 <button
                   type="button"
                   className={small}
-                  onClick={() => update(items.filter((_, j) => j !== n))}
+                  onClick={() => onChange(items.filter((_, j) => j !== n))}
+                  aria-label={`Remove ${noun(n)}`}
                 >
                   Remove
                 </button>
@@ -118,88 +230,95 @@ export function MenuEditor({ initial, options }: { initial: MenuItemState[]; opt
                         placeholder={
                           it.kind === "url" ? "Required to show in this language" : "Built-in name"
                         }
-                        onChange={(e) => set(n, { labels: { ...it.labels, [code]: e.target.value } })}
+                        aria-label={`${Noun(n)}: ${name} name`}
+                        onChange={(e) =>
+                          set(n, { labels: { ...it.labels, [code]: e.target.value } } as Partial<T>)
+                        }
                         className={compactControl}
                       />
                     </label>
                   ))}
                 </div>
               </details>
+              {extra?.(it, n, (patch) => set(n, patch))}
             </li>
           ))}
         </ol>
       ) : (
-        <p className="m-0 text-sm text-fg-muted">No links: the built-in menu is shown.</p>
+        <p className="m-0 text-sm text-fg-muted">{empty}</p>
       )}
       <fieldset className="grid gap-3 rounded-md border border-border-decorative p-3">
-        <legend className="px-1 text-sm font-semibold text-fg-strong">Add a link</legend>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid min-w-60 flex-1 gap-1 text-sm">
-            <span className="font-medium text-fg-strong">Page, cause, news or event</span>
-            <select value={adding} onChange={(e) => setAdding(e.target.value)} className={compactControl}>
-              <option value="">Choose…</option>
-              {(["page", "cause", "news", "event"] as const).map((k) => (
-                <optgroup key={k} label={KIND_LABEL[k]}>
-                  {options
-                    .filter((o) => o.kind === k)
-                    .map((o) => (
-                      <option key={`${o.kind}:${o.target}`} value={`${o.kind}:${o.target}`}>
-                        {o.label}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className={small}
-            disabled={!adding}
-            onClick={() => {
-              const [kind, target] = adding.split(/:(.*)/) as [MenuOption["kind"], string];
-              update([...items, { kind, target, hidden: false, labels: {} }]);
-              setAdding("");
-            }}
-          >
-            Add
-          </button>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid min-w-48 flex-1 gap-1 text-sm">
-            <span className="font-medium text-fg-strong">Web link</span>
-            <input
-              type="url"
-              value={url}
-              placeholder="https://…"
-              onChange={(e) => setUrl(e.target.value)}
-              className={compactControl}
-            />
-          </label>
-          <label className="grid min-w-40 flex-1 gap-1 text-sm">
-            <span className="font-medium text-fg-strong">Label (English)</span>
-            <input
-              value={urlLabel}
-              maxLength={60}
-              onChange={(e) => setUrlLabel(e.target.value)}
-              className={compactControl}
-            />
-          </label>
-          <button
-            type="button"
-            className={small}
-            disabled={!/^https:\/\/\S+$/.test(url) || !urlLabel.trim()}
-            onClick={() => {
-              update([
-                ...items,
-                { kind: "url", target: url.trim(), hidden: false, labels: { en: urlLabel.trim() } },
-              ]);
-              setUrl("");
-              setUrlLabel("");
-            }}
-          >
-            Add link
-          </button>
-        </div>
+        <legend className="px-1 text-sm font-semibold text-fg-strong">{addLegend}</legend>
+        {full ? (
+          <p className="m-0 text-sm text-fg-muted">At most {max} sub-links.</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="grid min-w-60 flex-1 gap-1 text-sm">
+                <span className="font-medium text-fg-strong">Page, cause, news or event</span>
+                <select value={adding} onChange={(e) => setAdding(e.target.value)} className={compactControl}>
+                  <option value="">Choose…</option>
+                  {(["page", "cause", "news", "event"] as const).map((k) => (
+                    <optgroup key={k} label={KIND_LABEL[k]}>
+                      {options
+                        .filter((o) => o.kind === k)
+                        .map((o) => (
+                          <option key={`${o.kind}:${o.target}`} value={`${o.kind}:${o.target}`}>
+                            {o.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className={small}
+                disabled={!adding}
+                onClick={() => {
+                  const [kind, target] = adding.split(/:(.*)/) as [MenuOption["kind"], string];
+                  add({ kind, target, hidden: false, labels: {} });
+                  setAdding("");
+                }}
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="grid min-w-48 flex-1 gap-1 text-sm">
+                <span className="font-medium text-fg-strong">Web link</span>
+                <input
+                  type="url"
+                  value={url}
+                  placeholder="https://…"
+                  onChange={(e) => setUrl(e.target.value)}
+                  className={compactControl}
+                />
+              </label>
+              <label className="grid min-w-40 flex-1 gap-1 text-sm">
+                <span className="font-medium text-fg-strong">Label (English)</span>
+                <input
+                  value={urlLabel}
+                  maxLength={60}
+                  onChange={(e) => setUrlLabel(e.target.value)}
+                  className={compactControl}
+                />
+              </label>
+              <button
+                type="button"
+                className={small}
+                disabled={!/^https:\/\/\S+$/.test(url) || !urlLabel.trim()}
+                onClick={() => {
+                  add({ kind: "url", target: url.trim(), hidden: false, labels: { en: urlLabel.trim() } });
+                  setUrl("");
+                  setUrlLabel("");
+                }}
+              >
+                Add link
+              </button>
+            </div>
+          </>
+        )}
       </fieldset>
     </div>
   );

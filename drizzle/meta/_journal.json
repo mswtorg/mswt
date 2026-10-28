@@ -71,6 +71,13 @@
       "when": 1793125637693,
       "tag": "0009_home_donate_box",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793164093796,
+      "tag": "0010_menu_dropdowns",
+      "breakpoints": true
     }
   ]
 }

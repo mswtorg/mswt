@@ -73,15 +73,33 @@ export default async function MenusPage({ searchParams }: Props) {
   ];
   const meta = LOCATION[location];
   // No saved links yet: start from the built-in menu the site shows today.
+  // Built-in header: Causes lists every cause.
+  const link = (r: (typeof rows)[number]) => ({
+    kind: r.kind,
+    target: r.target,
+    hidden: r.hidden,
+    labels: r.labels,
+  });
   const initial: MenuItemState[] = rows.length
-    ? rows.map((r) => ({ kind: r.kind, target: r.target, hidden: r.hidden, labels: r.labels }))
-    : meta.defaults.map((k) => ({ kind: "page", target: k, hidden: false, labels: {} }));
+    ? rows
+        .filter((r) => !r.parentId)
+        .map((r) => {
+          const children = rows.filter((c) => c.parentId === r.id).map(link);
+          return { ...link(r), sub: r.auto ?? (children.length ? "manual" : "none"), children };
+        })
+    : meta.defaults.map((k) => ({
+        kind: "page",
+        target: k,
+        hidden: false,
+        labels: {},
+        sub: location === "header" && k === "causes" ? "causes" : "none",
+      }));
 
   return (
     <>
       <PageHeader
         title="Menus"
-        description="Order, rename and hide the links in the header and footer, or add links to causes, news, events and other sites. Pages that aren't live yet and drafts never show."
+        description="Order, rename and hide the links in the header and footer, or add links to causes, news, events and other sites. Header links can open a dropdown of sub-links. Pages that aren't live yet and drafts never show."
       />
       <nav aria-label="Menus" className="overflow-x-auto">
         <ul className="m-0 flex min-w-max list-none gap-1 border-b border-border-decorative p-0">
@@ -111,7 +129,7 @@ export default async function MenusPage({ searchParams }: Props) {
             submitLabel="Save menu"
             sticky
           >
-            <MenuEditor initial={initial} options={options} />
+            <MenuEditor initial={initial} options={options} allowSubLinks={location === "header"} />
           </AdminForm>
         </Section>
       </Card>
