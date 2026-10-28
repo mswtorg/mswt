@@ -1,10 +1,24 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import postgres from "postgres";
 import sharp from "sharp";
 import { E2E_REVALIDATE_SECRET } from "../../playwright.config";
 import { createUser, expectAccessible, newPage, signInFirstTime } from "./admin-helpers";
 
 const BASE_URL = "http://127.0.0.1:3100";
+
+/** Drags a list row by its grip (pointer down, move in steps, up) onto the top half of `target`. */
+async function dragTo(page: Page, grip: Locator, target: Locator) {
+  // The mouse only reaches what's on screen.
+  await target.scrollIntoViewIfNeeded();
+  await grip.scrollIntoViewIfNeeded();
+  const g = (await grip.boundingBox())!;
+  const t = (await target.boundingBox())!;
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  const [x0, y0, y1] = [g.x + g.width / 2, g.y + g.height / 2, t.y + t.height / 4];
+  for (let i = 1; i <= 10; i++) await page.mouse.move(x0, y0 + ((y1 - y0) * i) / 10);
+  await page.mouse.up();
+}
 
 // Step 8c-2: events, news, gallery, documents, menus and photos everywhere. Writes to the
 // database: CI or `npm run db:local` only.
@@ -171,8 +185,13 @@ test.describe("admin content 2", () => {
     await page.goto("/admin/content/menus?menu=header");
     await expectAccessible(page);
     // Built-in menu starts with About, Causes…; move Causes up and rename About.
-    await page.getByRole("button", { name: "Move link 2 up" }).click();
     const list = page.locator("ol", { has: page.getByText("Rename in each language").first() });
+    await dragTo(
+      page,
+      page.getByRole("button", { name: "Reorder link 2" }),
+      list.getByRole("listitem").first(),
+    );
+    await expect(list.getByRole("listitem").first()).toContainText("Causes");
     const about = list.getByRole("listitem").filter({ hasText: /About/ });
     await about.getByText("Rename in each language").click();
     await about.getByLabel("English").fill("Who we are");
@@ -245,6 +264,14 @@ test.describe("admin content 2", () => {
   test("the home page shows header photos as a slider", async () => {
     await page.goto("/admin/content/pages/home?lang=en");
     await pick("Photos", [photos[0]!.name, photos[1]!.name]);
+    // Photo 2 dragged above photo 1.
+    const heroIds = page.locator('input[name="heroMediaIds"]');
+    const [first, second] = (await heroIds.inputValue()).split(",");
+    const photoList = page.getByRole("group", { name: "Photos", exact: true }).getByRole("listitem");
+    await dragTo(page, page.getByRole("button", { name: "Reorder photo 2" }), photoList.first());
+    await expect(heroIds).toHaveValue(`${second},${first}`);
+    // The Donate band, switched off in an earlier test, comes back in the same place.
+    await page.getByRole("switch", { name: "Show Donate band on the page" }).check();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(/Saved/)).toBeVisible();
     const slider = page.getByRole("region", { name: "Photos" });
@@ -253,6 +280,10 @@ test.describe("admin content 2", () => {
       await expect(slider).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15_000 });
     await expect(slider.getByRole("img").first()).toHaveAttribute("loading", "eager");
+    const ids = await page
+      .locator("main section[aria-labelledby]")
+      .evaluateAll((s) => s.map((x) => x.getAttribute("aria-labelledby")));
+    expect(ids.at(-1)).toBe("transparency-h");
   });
 
   test("Home impact numbers, Our story and testimonial stories on Home, About and their own pages", async () => {
@@ -262,11 +293,29 @@ test.describe("admin content 2", () => {
     const story = page.getByRole("textbox", { name: "Story", exact: true });
     await story.click();
     await story.pressSequentially(`${run} began with one relief camp.`);
-    // Section order: News moved above Causes (twice up from after Events).
+    // Sections: News dragged above Causes.
     const order = page.getByRole("group", { name: "Sections" });
-    await order.getByRole("button", { name: "Move News up" }).click();
-    await order.getByRole("button", { name: "Move News up" }).click();
-    await expect(order.getByRole("listitem").nth(3)).toContainText("News");
+    const rows = order.getByRole("listitem");
+    await dragTo(
+      page,
+      order.getByRole("button", { name: "Reorder News" }),
+      rows.filter({ hasText: "Causes" }),
+    );
+    await expect(rows.nth(3)).toContainText("News");
+    await expect(rows.nth(4)).toContainText("Causes");
+    // Keyboard: Space picks a row up, the arrow keys move it, Escape puts it back.
+    const why = order.getByRole("button", { name: "Reorder Why give (three points)" });
+    await why.focus();
+    await why.press("Space");
+    await expect(why).toHaveAttribute("aria-pressed", "true");
+    await why.press("ArrowDown");
+    await expect(rows.nth(2)).toContainText("Why give");
+    await expect(why).toBeFocused();
+    await why.press("Escape");
+    await expect(rows.nth(1)).toContainText("Why give");
+    // Switched off: the Donate band leaves the Home page but keeps its place in the list.
+    await order.getByRole("switch", { name: "Show Donate band on the page" }).uncheck();
+    await expect(rows.last()).toContainText("Hidden");
     await expectAccessible(page);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(/Saved/)).toBeVisible();
@@ -325,6 +374,7 @@ test.describe("admin content 2", () => {
       .then((all) => all.filter((id) => id !== "quick-donate-h"));
     expect(ids[0]).toBe("impact-h");
     expect(ids.indexOf("news-h")).toBeLessThan(ids.indexOf("causes-h"));
+    expect(ids).not.toContain("transparency-h");
     // With "reduce motion" the value shows straight away, with no counting.
     const still = await page.context().browser()!.newContext({ reducedMotion: "reduce" });
     const stillPage = await still.newPage();

@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { moveItem } from "@/lib/admin/order";
 import { compactControl } from "./ui";
+import { useDragSort } from "./useDragSort";
 
 export type MenuOption = { kind: "page" | "cause" | "news" | "event"; target: string; label: string };
 export type MenuLinkState = {
@@ -29,6 +31,19 @@ const SUB_LABEL: Record<SubLinks, string> = {
   events: "Automatic: upcoming events (5)",
 };
 const MAX_SUB_LINKS = 12;
+/** Stable row keys for links (kept across edits), so a dragged row keeps its element and focus. */
+const rowKeys = new WeakMap<object, string>();
+let keySeq = 0;
+function rowKey(link: object): string {
+  let k = rowKeys.get(link);
+  if (!k) rowKeys.set(link, (k = `link-${++keySeq}`));
+  return k;
+}
+function carryKey<T extends object>(from: object, to: T): T {
+  rowKeys.set(to, rowKey(from));
+  return to;
+}
+
 const small =
   "inline-flex min-h-9 items-center rounded-md border border-border-input bg-bg-canvas px-2.5 text-sm font-medium text-fg-default hover:bg-bg-subtle disabled:opacity-40";
 
@@ -41,7 +56,7 @@ const toInput = (items: MenuItemState[]) =>
   }));
 
 /**
- * Edits one menu: order (↑ ↓), show/hide, rename per language, remove, and add links to pages,
+ * Edits one menu: order (drag, or ↑ ↓), show/hide, rename per language, remove, and add links to pages,
  * causes, news, events or web pages. With `allowSubLinks` (header), each link can open a dropdown
  * of hand-picked or automatic sub-links (one level). Posted as JSON in a hidden "items" field.
  */
@@ -149,26 +164,39 @@ function LinkList<T extends MenuLinkState>({
     i.kind === "url"
       ? i.target
       : (options.find((o) => o.kind === i.kind && o.target === i.target)?.label ?? i.target);
-  const move = (n: number, d: number) => {
-    const next = [...items];
-    [next[n], next[n + d]] = [next[n + d]!, next[n]!];
-    onChange(next);
-  };
+  const move = (n: number, d: number) => onChange(moveItem(items, n, n + d));
+  // Drag moves many steps in a row: keep the latest list so each step builds on the one before.
+  const current = useRef(items);
+  useEffect(() => {
+    current.current = items;
+  });
+  const listRef = useRef<HTMLOListElement>(null);
+  const dnd = useDragSort({
+    list: listRef,
+    count: items.length,
+    onMove: (from, to) => {
+      current.current = moveItem(current.current, from, to);
+      onChange(current.current);
+    },
+    name: noun,
+  });
   const set = (n: number, patch: Partial<T>) =>
-    onChange(items.map((it, j) => (j === n ? { ...it, ...patch } : it)));
+    onChange(items.map((it, j) => (j === n ? carryKey(it, { ...it, ...patch }) : it)));
   const add = (link: MenuLinkState) => onChange([...items, link as T]);
   const Noun = (n: number) => noun(n).replace(/^./, (c) => c.toUpperCase());
 
   return (
     <div className="grid gap-3">
       {items.length ? (
-        <ol className="m-0 grid list-none gap-2 p-0">
+        <ol ref={listRef} className="m-0 grid list-none gap-2 p-0">
           {items.map((it, n) => (
             <li
-              key={`${it.kind}-${it.target}-${n}`}
-              className="grid gap-2 rounded-md border border-border-decorative p-3"
+              key={rowKey(it)}
+              {...dnd.row(n)}
+              className="grid gap-2 rounded-md border border-border-decorative bg-bg-canvas p-3 data-dragging:shadow-md"
             >
               <div className="flex flex-wrap items-center gap-2">
+                <button {...dnd.grip(n)} />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-fg-strong">
                     {n + 1}. {it.labels.en || nameOf(it)}
@@ -247,6 +275,9 @@ function LinkList<T extends MenuLinkState>({
       ) : (
         <p className="m-0 text-sm text-fg-muted">{empty}</p>
       )}
+      <p aria-live="polite" className="sr-only">
+        {dnd.status}
+      </p>
       <fieldset className="grid gap-3 rounded-md border border-border-decorative p-3">
         <legend className="px-1 text-sm font-semibold text-fg-strong">{addLegend}</legend>
         {full ? (

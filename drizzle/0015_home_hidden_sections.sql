@@ -1,0 +1,1 @@
+ALTER TABLE "pages" ADD COLUMN "hidden_sections" text[] DEFAULT '{}'::text[] NOT NULL;

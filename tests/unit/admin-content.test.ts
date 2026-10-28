@@ -4,7 +4,13 @@ import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
 import { TestimonialInput, TestimonialTextInput } from "@/lib/admin/testimonials";
 import { storySummary } from "@/lib/content/testimonials";
-import { normalizeSectionOrder, SectionOrderInput } from "@/lib/content/home";
+import { moveItem } from "@/lib/admin/order";
+import {
+  HiddenSectionsInput,
+  normalizeSectionOrder,
+  SectionOrderInput,
+  visibleSections,
+} from "@/lib/content/home";
 import { CauseInput, CauseTextInput } from "@/lib/admin/causes";
 import { formatCount, parseCount } from "@/components/content/CountUp";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
@@ -309,5 +315,32 @@ describe("home design", () => {
     expect(CauseTextInput.parse({ ...text, tag: " Education " }).tag).toBe("Education");
     expect(CauseTextInput.parse({ ...text, tag: "" }).tag).toBeNull();
     expect(CauseTextInput.safeParse({ ...text, tag: "x".repeat(25) }).success).toBe(false);
+  });
+});
+
+describe("admin sorting and hidden sections", () => {
+  it("moveItem moves one item and leaves the rest in order", () => {
+    expect(moveItem(["a", "b", "c", "d"], 0, 2)).toEqual(["b", "c", "a", "d"]);
+    expect(moveItem(["a", "b", "c", "d"], 3, 1)).toEqual(["a", "d", "b", "c"]);
+    expect(moveItem(["a", "b"], 1, 1)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], 0, 5)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], -1, 0)).toEqual(["a", "b"]);
+    const list = ["a", "b"];
+    expect(moveItem(list, 0, 1)).not.toBe(list);
+  });
+
+  it("hidden sections: known keys only, each once; the rest keep their order", () => {
+    expect(HiddenSectionsInput.safeParse(["news", "band"]).success).toBe(true);
+    expect(HiddenSectionsInput.safeParse([]).success).toBe(true);
+    expect(HiddenSectionsInput.safeParse(["old"]).success).toBe(false);
+    expect(HiddenSectionsInput.safeParse(["news", "news"]).success).toBe(false);
+    expect(visibleSections(["news", "impact"], ["impact", "band"])).toEqual([
+      "news",
+      "why",
+      "story",
+      "causes",
+      "events",
+      "testimonials",
+    ]);
   });
 });

@@ -385,6 +385,11 @@ export const pages = pgTable("pages", {
     .array()
     .default(sql`'{}'::text[]`)
     .notNull(),
+  /** Home only: sections switched off in the admin (kept in the order, not shown). */
+  hiddenSections: text("hidden_sections")
+    .array()
+    .default(sql`'{}'::text[]`)
+    .notNull(),
   updatedAt: updatedAt(),
 });
 

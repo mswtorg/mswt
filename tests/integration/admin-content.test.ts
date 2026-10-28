@@ -20,6 +20,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { MediaError } from "@/lib/media/process";
+import { visibleSections } from "@/lib/content/home";
 import { causesFrom } from "@/lib/content/queries";
 import { databaseContent } from "@/lib/content/source";
 import { LOCAL_MEDIA_DIR } from "@/lib/storage/media";
@@ -207,14 +208,19 @@ describe("pages", () => {
       extras,
       actor(),
       undefined,
-      [...order],
+      { order: [...order], hidden: ["events"] },
     );
     const [page] = await db.select().from(pages).where(eq(pages.key, "home"));
     expect(page!.sectionOrder).toEqual(order);
+    expect(page!.hiddenSections).toEqual(["events"]);
+    expect(visibleSections(page!.sectionOrder, page!.hiddenSections)).toEqual(
+      order.filter((k) => k !== "events"),
+    );
     // Saving another language without an order leaves it as it is.
     await savePageTranslation("home", "mr", { ...base, body: "", reviewed: false }, extras, actor());
     const [after] = await db.select().from(pages).where(eq(pages.key, "home"));
     expect(after!.sectionOrder).toEqual(order);
+    expect(after!.hiddenSections).toEqual(["events"]);
     const [entry] = await db
       .select({ after: auditLog.after })
       .from(auditLog)
@@ -222,8 +228,13 @@ describe("pages", () => {
       .orderBy(desc(auditLog.createdAt))
       .offset(1)
       .limit(1);
-    expect(entry!.after).toMatchObject({ key: "home", locale: "gu", sectionOrder: order });
-    await db.update(pages).set({ sectionOrder: [] }).where(eq(pages.key, "home"));
+    expect(entry!.after).toMatchObject({
+      key: "home",
+      locale: "gu",
+      sectionOrder: order,
+      hiddenSections: ["events"],
+    });
+    await db.update(pages).set({ sectionOrder: [], hiddenSections: [] }).where(eq(pages.key, "home"));
     await deletePageTranslation("home", "gu", actor());
     await deletePageTranslation("home", "mr", actor());
   });

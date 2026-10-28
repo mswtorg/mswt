@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { pageHeroIds, pageSectionOrder, pageTranslationsFor } from "@/lib/admin/content";
+import { pageHeroIds, pageSectionLayout, pageTranslationsFor } from "@/lib/admin/content";
 import { contentPage, type ContentPageKey } from "@/lib/admin/content-pages";
 import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
@@ -37,14 +37,14 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const key = page.key as ContentPageKey;
   const q = await searchParams;
   const locale = pickLocale(q.lang);
-  const [rows, editor, heroIds, { library: englishLibrary }, savedOrder] = await Promise.all([
+  const [rows, editor, heroIds, { library: englishLibrary }, layout] = await Promise.all([
     pageTranslationsFor(key),
     editorMedia(locale),
     pageHeroIds(key),
     editorMedia("en"),
-    key === "home" ? pageSectionOrder() : Promise.resolve([]),
+    key === "home" ? pageSectionLayout() : Promise.resolve({ order: [], hidden: [] }),
   ]);
-  const sectionOrder = normalizeSectionOrder(savedOrder);
+  const sectionOrder = normalizeSectionOrder(layout.order);
   const row = rows.find((r) => r.locale === locale);
   const draft = row ? null : pageDraft(key, locale);
   // Home: the built-in text (src/messages) is the starting point in each language.
@@ -132,15 +132,17 @@ export default async function EditPagePage({ params, searchParams }: Props) {
     key === "home"
       ? [
           {
-            title: "Section order",
+            title: "Sections",
             description:
-              "The order of the sections under the headline and donate box, the same in every language. Sections with nothing to show are skipped.",
+              "Drag to reorder (or use ↑ ↓). Turn a section off to remove it from the Home page; its content is kept. The headline and donate box always come first. The same in every language; sections with nothing to show are skipped.",
             fields: [
               {
                 name: "sectionOrder",
                 label: "Sections",
                 type: "order",
                 defaultValue: sectionOrder.join(","),
+                hiddenName: "hiddenSections",
+                hiddenDefault: layout.hidden.join(","),
                 items: HOME_SECTIONS.map(([value, label]) => ({ value, label })),
               },
             ],

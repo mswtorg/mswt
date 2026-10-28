@@ -71,10 +71,13 @@ export async function pageHeroIds(key: ContentPageKey): Promise<string[]> {
   return row?.ids ?? [];
 }
 
-/** Home's saved section order (uncached, for the admin form); empty: the default. */
-export async function pageSectionOrder(): Promise<string[]> {
-  const [row] = await db.select({ order: pages.sectionOrder }).from(pages).where(eq(pages.key, "home"));
-  return row?.order ?? [];
+/** Home's saved section order and switched-off sections (uncached, for the admin form). */
+export async function pageSectionLayout(): Promise<{ order: string[]; hidden: string[] }> {
+  const [row] = await db
+    .select({ order: pages.sectionOrder, hidden: pages.hiddenSections })
+    .from(pages)
+    .where(eq(pages.key, "home"));
+  return { order: row?.order ?? [], hidden: row?.hidden ?? [] };
 }
 
 export async function pageTranslationsFor(key: ContentPageKey) {
@@ -90,8 +93,8 @@ export async function savePageTranslation(
   actor: Actor,
   /** Header photo(s); the same in every language. Undefined leaves them unchanged. */
   heroIds?: string[],
-  /** Home only: the order of its sections; the same in every language. Undefined leaves it unchanged. */
-  sectionOrder?: HomeSectionKey[],
+  /** Home only: the order of its sections and those switched off; the same in every language. */
+  layout?: { order: HomeSectionKey[]; hidden: HomeSectionKey[] },
 ): Promise<void> {
   // Home's body is the "Our story" section.
   const sections = parseBody(input.body);
@@ -124,10 +127,10 @@ export async function savePageTranslation(
     await tx.insert(pages);
     const pageSet = {
       ...(heroIds ? { heroMediaIds: heroIds } : {}),
-      ...(key === "home" && sectionOrder ? { sectionOrder } : {}),
+      ...(key === "home" && layout ? { sectionOrder: layout.order, hiddenSections: layout.hidden } : {}),
     };
     const [pageBefore] = await tx
-      .select({ sectionOrder: pages.sectionOrder })
+      .select({ sectionOrder: pages.sectionOrder, hiddenSections: pages.hiddenSections })
       .from(pages)
       .where(eq(pages.key, key));
     await tx
@@ -148,7 +151,12 @@ export async function savePageTranslation(
             locale,
             title: before.title,
             reviewed: Boolean(before.reviewedAt),
-            ...(pageSet.sectionOrder ? { sectionOrder: pageBefore?.sectionOrder ?? [] } : {}),
+            ...(pageSet.sectionOrder
+              ? {
+                  sectionOrder: pageBefore?.sectionOrder ?? [],
+                  hiddenSections: pageBefore?.hiddenSections ?? [],
+                }
+              : {}),
           }
         : null,
       after: {
@@ -158,7 +166,9 @@ export async function savePageTranslation(
         reviewed: input.reviewed,
         blocks: sections.length,
         ...(heroIds ? { headerPhotos: heroIds.length } : {}),
-        ...(pageSet.sectionOrder ? { sectionOrder: pageSet.sectionOrder } : {}),
+        ...(pageSet.sectionOrder
+          ? { sectionOrder: pageSet.sectionOrder, hiddenSections: pageSet.hiddenSections }
+          : {}),
       },
     });
   });
