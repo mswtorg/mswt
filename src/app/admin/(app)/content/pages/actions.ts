@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+import { COVER_SIZES } from "@/components/content/photo-ratio";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Locale } from "@/i18n/routing";
@@ -48,6 +50,7 @@ export async function savePageAction(
     key === "home" && v.sectionOrder !== undefined
       ? SectionOrderInput.safeParse(v.sectionOrder.split(",").filter(Boolean))
       : null;
+  const heroSize = z.enum(COVER_SIZES).safeParse(v.heroSize);
   const off =
     key === "home" && v.sectionOrder !== undefined
       ? HiddenSectionsInput.safeParse((v.hiddenSections ?? "").split(",").filter(Boolean))
@@ -63,6 +66,7 @@ export async function savePageAction(
       extras,
       actor,
       parsePhotoIds(v.heroMediaIds, 8),
+      heroSize.success ? heroSize.data : undefined,
       order?.success && off?.success ? { order: order.data, hidden: off.data } : undefined,
     );
   } catch (error) {

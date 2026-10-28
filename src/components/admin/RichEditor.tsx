@@ -107,18 +107,25 @@ export function RichEditor({
     queueMicrotask(() => linkInput.current?.focus());
   };
 
-  // The form's Reset button puts the saved text back.
+  // The form's Reset button puts the saved text back. React also resets the form after every
+  // successful save, by which time the page has the newly saved text: use the latest, never the
+  // text the page opened with (that would quietly undo the save, e.g. remove a photo just added).
+  // The hidden field's defaultValue is that saved text (React keeps it current, and the browser's
+  // own reset of the other fields uses it too).
   useEffect(() => {
     const form = field.current?.form;
     if (!form) return;
-    const onReset = () => {
-      editor?.commands.setContent(blocksToDoc(initial.blocks), { emitUpdate: false });
-      setText(defaultValue);
-      setMode(initial.errors.length ? "text" : "visual");
-    };
+    // The "reset" event fires before the browser resets the fields: rebuild the editor after it.
+    const onReset = () =>
+      setTimeout(() => {
+        const saved = field.current?.defaultValue ?? "";
+        const latest = markupToBlocks(saved);
+        editor?.commands.setContent(blocksToDoc(latest.blocks), { emitUpdate: false });
+        setText(saved);
+        setMode(latest.errors.length ? "text" : "visual");
+      });
     form.addEventListener("reset", onReset);
     return () => form.removeEventListener("reset", onReset);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the saved text only changes on remount
   }, [editor]);
 
   const toVisual = () => {

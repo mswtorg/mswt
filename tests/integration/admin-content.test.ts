@@ -208,11 +208,13 @@ describe("pages", () => {
       extras,
       actor(),
       undefined,
+      "short",
       { order: [...order], hidden: ["events"] },
     );
     const [page] = await db.select().from(pages).where(eq(pages.key, "home"));
     expect(page!.sectionOrder).toEqual(order);
     expect(page!.hiddenSections).toEqual(["events"]);
+    expect(page!.heroSize).toBe("short");
     expect(visibleSections(page!.sectionOrder, page!.hiddenSections)).toEqual(
       order.filter((k) => k !== "events"),
     );
@@ -321,6 +323,27 @@ describe("causes", () => {
     });
     await updateCause(id, input(slug, { status: "active" }), actor());
     await expect(deleteCause(id, actor())).rejects.toBeInstanceOf(ContentError);
+  });
+
+  it("the cover photo size is saved, audited and shown on the cause; unknown sizes are refused", async () => {
+    const slug = `cause-${unique()}`;
+    expect(input(slug).coverSize).toBe("standard");
+    expect(CauseInput.safeParse({ ...input(slug), coverSize: "huge" }).success).toBe(false);
+    const id = await createCause(input(slug, { coverSize: "short" }), actor());
+    await updateCause(id, input(slug, { coverSize: "tall" }), actor());
+    const [row] = await db.select().from(causes).where(eq(causes.id, id));
+    expect(row!.coverSize).toBe("tall");
+    const [entry] = await db
+      .select({ before: auditLog.before, after: auditLog.after })
+      .from(auditLog)
+      .where(and(eq(auditLog.entityId, id), eq(auditLog.action, "cause.update")))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(1);
+    expect(entry).toMatchObject({ before: { coverSize: "short" }, after: { coverSize: "tall" } });
+    // The database refuses sizes the site doesn't know, whatever writes them.
+    await expect(db.update(causes).set({ coverSize: "huge" }).where(eq(causes.id, id))).rejects.toThrow();
+    await expect(db.update(pages).set({ heroSize: "huge" }).where(eq(pages.key, "about"))).rejects.toThrow();
+    await deleteCause(id, actor());
   });
 });
 

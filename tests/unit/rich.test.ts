@@ -89,3 +89,46 @@ describe("visual editor ↔ content blocks", () => {
     ]);
   });
 });
+
+describe("photo layout and size", () => {
+  it("round-trips a photo's position and size, and a slider's size", () => {
+    const blocks: Blocks = [
+      { type: "image", mediaId: ID1, caption: "Camp", size: "small", align: "left" },
+      { type: "image", mediaId: ID2, align: "right" },
+      { type: "image", mediaId: ID1, size: "large", align: "center" },
+      { type: "image", mediaId: ID2 },
+      { type: "slider", mediaIds: [ID1, ID2], size: "medium" },
+    ];
+    expect(docToBlocks(blocksToDoc(blocks))).toEqual(blocks);
+    const markup = blocksToMarkup(blocks);
+    expect(markup).toContain(`![Camp](media:${ID1}){small left}`);
+    expect(markup).toContain(`![](media:${ID2}){right}`);
+    expect(markup).toContain(`![](media:${ID2})\n`);
+    expect(markup).toContain(`!slider[](media:${ID1},${ID2}){medium}`);
+    expect(markupToBlocks(markup).blocks).toEqual(blocks);
+  });
+
+  it("a size alone centres the photo; words can come in any order", () => {
+    expect(markupToBlocks(`![](media:${ID1}){medium}`).blocks).toEqual([
+      { type: "image", mediaId: ID1, size: "medium", align: "center" },
+    ]);
+    expect(markupToBlocks(`![](media:${ID1}){LEFT large}`).blocks).toEqual([
+      { type: "image", mediaId: ID1, size: "large", align: "left" },
+    ]);
+  });
+
+  it("unknown layout words are a line error, not a silent change", () => {
+    expect(markupToBlocks(`![](media:${ID1}){huge left}`).errors[0]?.message).toMatch(/layout/);
+    expect(markupToBlocks(`!slider[](media:${ID1},${ID2}){small}`).errors[0]?.message).toMatch(
+      /medium.*large/,
+    );
+  });
+
+  it("the editor drops a size with no position (full width)", () => {
+    const doc = {
+      type: "doc",
+      content: [{ type: "photo", attrs: { mediaId: ID1, caption: "", size: "small", align: "" } }],
+    };
+    expect(docToBlocks(doc)).toEqual([{ type: "image", mediaId: ID1 }]);
+  });
+});

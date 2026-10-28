@@ -1,3 +1,4 @@
+import { COVER_SIZE_OPTIONS } from "@/components/content/photo-ratio";
 import Link from "next/link";
 import { routing, type Locale } from "@/i18n/routing";
 import { istDateTime } from "@/lib/admin/format";
@@ -115,6 +116,7 @@ type EventRow = {
   venuePostalCode: string | null;
   onlineUrl: string | null;
   coverImageId: string | null;
+  coverSize: string;
   photoIds: string[];
 };
 type NewsRow = {
@@ -123,6 +125,7 @@ type NewsRow = {
   publishedAt: Date | null;
   authorName: string | null;
   coverImageId: string | null;
+  coverSize: string;
   photoIds: string[];
 };
 
@@ -164,6 +167,14 @@ export function settingsSections(
         defaultValue: row?.coverImageId ?? "",
         photos: { library },
         span: "full",
+      },
+      {
+        name: "coverSize",
+        label: "Cover photo size",
+        type: "select",
+        defaultValue: row?.coverSize ?? "standard",
+        options: COVER_SIZE_OPTIONS,
+        hint: "How tall the cover is at the top of its own page. Cards on list pages keep one shape.",
       },
       {
         name: "photoIds",

@@ -116,7 +116,9 @@ function Field({
           className={control}
         />
       ) : f.type === "select" ? (
-        <select {...p} name={f.name} defaultValue={value} className={control}>
+        // Keyed by the saved value: React applies a select's defaultValue only when it mounts, so
+        // without a remount the form's reset after a save would show the value the page opened with.
+        <select key={value} {...p} name={f.name} defaultValue={value} className={control}>
           {(f.options ?? []).map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { pageHeroIds, pageSectionLayout, pageTranslationsFor } from "@/lib/admin/content";
+import { pageHero, pageSectionLayout, pageTranslationsFor } from "@/lib/admin/content";
+import { COVER_SIZE_OPTIONS } from "@/components/content/photo-ratio";
 import { contentPage, type ContentPageKey } from "@/lib/admin/content-pages";
 import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
@@ -37,10 +38,10 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const key = page.key as ContentPageKey;
   const q = await searchParams;
   const locale = pickLocale(q.lang);
-  const [rows, editor, heroIds, { library: englishLibrary }, layout] = await Promise.all([
+  const [rows, editor, hero, { library: englishLibrary }, layout] = await Promise.all([
     pageTranslationsFor(key),
     editorMedia(locale),
-    pageHeroIds(key),
+    pageHero(key),
     editorMedia("en"),
     key === "home" ? pageSectionLayout() : Promise.resolve({ order: [], hidden: [] }),
   ]);
@@ -270,8 +271,16 @@ export default async function EditPagePage({ params, searchParams }: Props) {
                 name: "heroMediaIds",
                 label: "Photos",
                 type: "photos",
-                defaultValue: heroIds.join(","),
+                defaultValue: hero.ids.join(","),
                 photos: { library: englishLibrary, max: 8 },
+              },
+              {
+                name: "heroSize",
+                label: "Header photo size",
+                type: "select",
+                defaultValue: hero.size,
+                options: COVER_SIZE_OPTIONS,
+                hint: "Short banner, standard (16:9) or tall. The same photo, shown taller or shorter.",
               },
             ],
           },

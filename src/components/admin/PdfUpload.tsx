@@ -44,14 +44,21 @@ export function PdfUpload({
       if (!s.ok) return setResult(s);
       let done: Done;
       if (s.url) {
+        // A missing CORS rule makes the browser block the request, so fetch throws, not a status.
         const put = await fetch(s.url, {
           method: "PUT",
           body: file,
           headers: { "content-type": "application/pdf" },
-        });
-        done = put.ok
-          ? await finish(s.key, file.name)
-          : { ok: false, message: `The upload was refused (${put.status}). Check the bucket's CORS rule.` };
+        }).catch(() => null);
+        done = !put
+          ? {
+              ok: false,
+              message:
+                "The storage didn't accept the upload. Check the media bucket's CORS rule (manual check M8c-6), or your connection.",
+            }
+          : put.ok
+            ? await finish(s.key, file.name)
+            : { ok: false, message: `The upload was refused (${put.status}). Check the bucket's CORS rule.` };
       } else {
         const form = new FormData();
         form.set("file", file);

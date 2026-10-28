@@ -164,9 +164,21 @@ test.describe("admin content", () => {
     await expect(page.locator("#cause-text-body")).toHaveValue(
       `## What we do\n\nMonthly camps.\n\n![](media:${photoId})`,
     );
+    // Layout: a small photo on the left, with the text that follows beside it.
+    await body.getByLabel("Position").selectOption({ label: "Left, text on the right" });
+    await body.getByLabel("Size").selectOption({ label: "Small (a third of the width)" });
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId}){small left}`,
+    );
     await page.getByLabel(/Reviewed by a person/).check();
     await page.getByRole("button", { name: "Save text" }).click();
     await expect(page.getByText(/Saved\. It shows in this language/)).toBeVisible();
+    // After saving, the editor keeps what was saved (the form's automatic reset must not undo it).
+    await expect(body.getByRole("button", { name: "Remove photo" })).toBeVisible();
+    await expect(page.locator("#cause-text-body")).toHaveValue(
+      `## What we do\n\nMonthly camps.\n\n![](media:${photoId}){small left}`,
+    );
+    await expect(body.getByLabel("Position")).toHaveValue("left");
     await expectAccessible(page);
 
     // Hindi can't be marked reviewed while the photo has no Hindi alt text.
@@ -183,6 +195,18 @@ test.describe("admin content", () => {
     const html = await res.text();
     expect(html).toContain(`media/${photoId}/${slug}-640.webp 640w`);
     expect(html).toContain('alt="Volunteers at an e2e health camp"');
+    // On a laptop the small photo floats left at a third of the text width.
+    await page.goto(`/en/causes/${slug}`);
+    const fig = page
+      .locator("main figure", { has: page.getByAltText("Volunteers at an e2e health camp") })
+      .last();
+    await expect(fig).toHaveCSS("float", "left");
+    const [figW, textW] = await Promise.all([
+      fig.evaluate((f) => f.getBoundingClientRect().width),
+      fig.evaluate((f) => f.parentElement!.getBoundingClientRect().width),
+    ]);
+    expect(figW / textW).toBeGreaterThan(0.3);
+    expect(figW / textW).toBeLessThan(0.36);
 
     // The card: the label on the photo, the icon beside the title, "Support this cause".
     await expect(async () => {
