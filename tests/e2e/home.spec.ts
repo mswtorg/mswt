@@ -61,6 +61,9 @@ test("Causes dropdown: mouse, keyboard and Esc", async ({ page, isMobile }) => {
   await expect(toggle).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  // "View all causes" comes first, then each cause.
+  await page.keyboard.press("Tab");
+  await expect(panel.getByRole("link", { name: "View all causes" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(panel.getByRole("link", { name: "School support for children" })).toBeFocused();
   await expectAccessible(page);
