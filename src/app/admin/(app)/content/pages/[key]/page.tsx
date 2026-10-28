@@ -105,7 +105,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
     ? [
         {
           title: "Sections",
-          description: "Headings and text for the causes, events, news and donate parts of the home page.",
+          description: "Headings and text for the other parts of the home page.",
           fields: HOME_SECTION_FIELDS.map(([k, label]) => ({
             name: `section_${k}`,
             label,
@@ -117,6 +117,47 @@ export default async function EditPagePage({ params, searchParams }: Props) {
         },
       ]
     : [];
+  const bodyField = {
+    name: "body",
+    label: key === "home" ? "Story" : "Text",
+    type: "blocks" as const,
+    lang: locale,
+    defaultValue: blocksToMarkup(row?.sections ?? draft?.sections ?? []),
+    editor,
+  };
+  const impact = extras?.success ? extras.data.impact : [];
+  const homeParts: FormSectionSpec[] =
+    key === "home"
+      ? [
+          {
+            title: "Impact in numbers",
+            description:
+              "Up to four figures, e.g. “1,200+” with “families helped”. Leave a row empty to drop it; with none filled the section is hidden.",
+            fields: ([1, 2, 3, 4] as const).flatMap((n) => [
+              {
+                name: `impact${n}Value`,
+                label: `Number ${n}`,
+                lang: locale,
+                maxLength: 20,
+                defaultValue: impact[n - 1]?.value ?? "",
+              },
+              {
+                name: `impact${n}Label`,
+                label: `Number ${n} label`,
+                lang: locale,
+                maxLength: 80,
+                defaultValue: impact[n - 1]?.label ?? "",
+              },
+            ]),
+          },
+          {
+            title: "Our story",
+            description:
+              "A short story of the Trust, shown on the home page with a “Read our story” link to About. Leave it empty to hide the section.",
+            fields: [bodyField],
+          },
+        ]
+      : [];
   const body: FormSectionSpec =
     key === "home"
       ? {
@@ -149,16 +190,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
               : ["causes", "events", "news", "gallery"].includes(key)
                 ? "Optional text shown above the list."
                 : "The page text. Write as in a document; use the toolbar for headings, lists, notes and photos.",
-          fields: [
-            {
-              name: "body",
-              label: "Text",
-              type: "blocks",
-              lang: locale,
-              defaultValue: blocksToMarkup(row?.sections ?? draft?.sections ?? []),
-              editor,
-            },
-          ],
+          fields: [bodyField],
         };
 
   return (
@@ -227,6 +259,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
           },
           heading,
           body,
+          ...homeParts,
           ...homeSections,
           {
             title: "Search engines",

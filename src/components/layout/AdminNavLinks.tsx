@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   Mail,
   Palette,
+  Quote,
   Search,
   Sparkles,
   UserCircle,
@@ -54,6 +55,7 @@ const ICONS: Record<string, LucideIcon> = {
   menus: MenuIcon,
   sample: Sparkles,
   messages: Inbox,
+  testimonials: Quote,
 };
 
 /**

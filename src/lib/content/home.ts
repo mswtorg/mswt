@@ -4,6 +4,7 @@ import { z } from "zod";
 import { routing, type Locale } from "@/i18n/routing";
 import { db } from "@/lib/db/client";
 import { pageTranslations } from "@/lib/db/schema";
+import type { Block } from "./blocks";
 import { CONTENT_SAFETY_REVALIDATE, CONTENT_TAG, isProduction } from "./source";
 
 /** Home-only fields stored in page_translations.extras (Content → Pages → Home). */
@@ -12,6 +13,11 @@ export const HomeExtras = z.object({
   points: z
     .array(z.object({ title: z.string().trim().min(1).max(80), text: z.string().trim().min(1).max(300) }))
     .length(3),
+  /** "Impact in numbers": up to four figures, e.g. { value: "1,200+", label: "families helped" }. */
+  impact: z
+    .array(z.object({ value: z.string().trim().min(1).max(20), label: z.string().trim().min(1).max(80) }))
+    .max(4)
+    .default([]),
   /** Section headings further down the home page (empty: the built-in text). */
   sections: z
     .object({
@@ -22,6 +28,9 @@ export const HomeExtras = z.object({
       newsH: z.string().trim().max(120),
       bandH: z.string().trim().max(120),
       bandP: z.string().trim().max(300),
+      impactH: z.string().trim().max(120),
+      storyH: z.string().trim().max(120),
+      testimonialsH: z.string().trim().max(120),
     })
     .partial()
     .default({}),
@@ -35,6 +44,9 @@ export const HOME_SECTION_FIELDS = [
   ["newsH", "News heading"],
   ["bandH", "Donate band heading"],
   ["bandP", "Donate band text"],
+  ["impactH", "Impact in numbers heading"],
+  ["storyH", "Our story heading"],
+  ["testimonialsH", "Testimonials heading"],
 ] as const;
 
 export type HomeContent = {
@@ -43,6 +55,9 @@ export type HomeContent = {
   intro: string | null;
   eyebrow: string;
   points: HomeExtras["points"];
+  impact: HomeExtras["impact"];
+  /** "Our story" text (the page body); empty hides the section. */
+  story: Block[];
   sections: HomeExtras["sections"];
   seoTitle: string | null;
   seoDescription: string | null;
@@ -69,6 +84,8 @@ export const getHomeContent = unstable_cache(
       intro: row.intro,
       eyebrow: extras.data.eyebrow,
       points: extras.data.points,
+      impact: extras.data.impact,
+      story: row.sections ?? [],
       sections: extras.data.sections,
       seoTitle: row.seoTitle,
       seoDescription: row.seoDescription,

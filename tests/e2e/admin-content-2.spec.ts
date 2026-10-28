@@ -29,6 +29,7 @@ test.describe("admin content 2", () => {
     await db`delete from gallery_albums where slug like ${run + "%"}`;
     await db`delete from reports where id in (select report_id from report_translations where title like ${run + "%"})`;
     await db`delete from menu_items`;
+    await db`delete from testimonials where id in (select testimonial_id from testimonial_translations where name like ${run + "%"})`;
     await db`delete from page_translations where page_key = 'home'`;
     await db`update pages set hero_media_ids = '{}' where key = 'home'`;
     await db.end();
@@ -252,6 +253,67 @@ test.describe("admin content 2", () => {
       await expect(slider).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15_000 });
     await expect(slider.getByRole("img").first()).toHaveAttribute("loading", "eager");
+  });
+
+  test("Home impact numbers, Our story and testimonials show on Home and About", async () => {
+    await page.goto("/admin/content/pages/home?lang=en");
+    await page.locator("#page-impact1Value").fill("1,200+");
+    await page.locator("#page-impact1Label").fill("families helped");
+    const story = page.getByRole("textbox", { name: "Story", exact: true });
+    await story.click();
+    await story.pressSequentially(`${run} began with one relief camp.`);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText(/Saved/)).toBeVisible();
+
+    await page.goto("/admin/content/testimonials");
+    await page.getByRole("link", { name: "New testimonial" }).click();
+    await page.locator("#testimonial-status").selectOption("published");
+    await pick("Photo", [photos[2]!.name]);
+    await expect(page.getByLabel("Show on the home page")).toBeChecked();
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Create testimonial" }).click();
+    await expect(page.getByText(/Testimonial created/)).toBeVisible();
+    await page.locator("#testimonial-text-quote").fill(`${run}: they kept every promise.`);
+    await page.locator("#testimonial-text-name").fill(`${run} Asha`);
+    await page.locator("#testimonial-text-role").fill("Parent, Pune");
+    await page.getByLabel(/Reviewed by a person/).check();
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Save text" }).click();
+    await expect(page.getByText(/^Saved\./)).toBeVisible();
+
+    const visitor = await newPage(page.context().browser()!);
+    await expect(async () => {
+      await visitor.goto("/en");
+      await expect(visitor.getByRole("region", { name: "What people say" })).toContainText(`${run} Asha`, {
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 15_000 });
+    const impact = visitor.getByRole("region", { name: "Our impact in numbers" });
+    await expect(impact.getByRole("definition")).toHaveText("1,200+");
+    await expect(impact.getByRole("term")).toHaveText("families helped");
+    const ourStory = visitor.getByRole("region", { name: "Our story" });
+    await expect(ourStory).toContainText(`${run} began with one relief camp.`);
+    await expect(ourStory.getByRole("link", { name: "Read our story" })).toHaveAttribute("href", "/en/about");
+    // The photo is decorative: the name is in the caption.
+    await expect(visitor.getByRole("region", { name: "What people say" }).locator("img")).toHaveAttribute(
+      "alt",
+      "",
+    );
+    await expectAccessible(visitor);
+    // No Review markup (Google's self-serving reviews policy).
+    expect(await visitor.locator('script[type="application/ld+json"]').textContent()).not.toContain("Review");
+
+    await expect(async () => {
+      await visitor.goto("/en/about");
+      await expect(visitor.getByRole("region", { name: "What people say" })).toContainText(
+        `${run}: they kept every promise.`,
+        { timeout: 1000 },
+      );
+    }).toPass({ timeout: 15_000 });
+    // Written only in English: not shown in Hindi.
+    await visitor.goto("/hi/about");
+    await expect(visitor.getByText(`${run} Asha`)).toHaveCount(0);
+    await visitor.context().close();
   });
 
   // One photo is a plain image rendered on the server (this path once broke the stage build).

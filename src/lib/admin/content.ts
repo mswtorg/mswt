@@ -85,10 +85,15 @@ export async function savePageTranslation(
   /** Header photo(s); the same in every language. Undefined leaves them unchanged. */
   heroIds?: string[],
 ): Promise<void> {
-  const sections = key === "home" ? [] : parseBody(input.body);
+  // Home's body is the "Our story" section.
+  const sections = parseBody(input.body);
   const home = key === "home" ? HomeExtras.safeParse(extras) : null;
-  if (home && !home.success)
+  if (home && !home.success) {
+    const path = home.error.issues[0]?.path ?? [];
+    if (path[0] === "impact" && typeof path[1] === "number")
+      throw new ContentError(`impact${path[1] + 1}Value`, "Fill in both the number and its label.");
     throw new ContentError("point1Title", "Fill in all three points (title and text).");
+  }
   if (input.reviewed) await assertAltText([...imageIds(sections), ...(heroIds ?? [])], locale);
   await withTx(async (tx) => {
     const [before] = await tx

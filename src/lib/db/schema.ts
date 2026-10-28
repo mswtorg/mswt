@@ -532,6 +532,43 @@ export const newsTranslations = pgTable(
   (t) => [primaryKey({ columns: [t.postId, t.locale] })],
 );
 
+/**
+ * Testimonials (Content → Testimonials): quotes from donors, volunteers and families, shown on
+ * Home (when `show_on_home`) and About. Published ones show in a language once its text is there
+ * (and reviewed, in production). Not marked up as reviews in JSON-LD (self-serving reviews).
+ */
+export const testimonials = pgTable(
+  "testimonials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: publishStatus("status").default("draft").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    showOnHome: boolean("show_on_home").default(true).notNull(),
+    photoId: uuid("photo_id").references(() => media.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("testimonials_sort_idx").on(t.sortOrder)],
+);
+
+export const testimonialTranslations = pgTable(
+  "testimonial_translations",
+  {
+    testimonialId: uuid("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    locale: locale("locale").notNull(),
+    quote: text("quote").notNull(),
+    name: text("name").notNull(),
+    /** Who they are: "Parent, Mumbai", "Volunteer since 2021"… */
+    role: text("role"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.testimonialId, t.locale] })],
+);
+
 /** Transparency documents. The PDF lives in R2 (Step 8); until then pdf_r2_key is null. */
 export const reports = pgTable(
   "reports",

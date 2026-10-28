@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
+import { TestimonialInput, TestimonialTextInput } from "@/lib/admin/testimonials";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
@@ -114,6 +115,43 @@ describe("home page fields", () => {
     expect(HomeExtras.safeParse({ eyebrow: "", points: [point, point, point] }).success).toBe(true);
     expect(HomeExtras.safeParse({ points: [point, point] }).success).toBe(false);
     expect(HomeExtras.safeParse({ points: [point, point, { title: "", text: "x" }] }).success).toBe(false);
+  });
+
+  it("takes up to four impact numbers, each with a value and a label", () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    const n = { value: "1,200+", label: "families helped" };
+    const parse = (impact: unknown) => HomeExtras.safeParse({ points: [point, point, point], impact });
+    expect(HomeExtras.parse({ points: [point, point, point] }).impact).toEqual([]);
+    expect(parse([n, n, n, n]).success).toBe(true);
+    expect(parse([n, n, n, n, n]).success).toBe(false);
+    expect(parse([{ value: "12", label: "" }]).success).toBe(false);
+    expect(parse([{ value: "x".repeat(21), label: "y" }]).success).toBe(false);
+  });
+});
+
+describe("testimonial fields", () => {
+  it("settings: status, order and an optional photo", () => {
+    const ok = TestimonialInput.parse({ status: "published", sortOrder: "3", showOnHome: true, photoId: "" });
+    expect(ok).toEqual({ status: "published", sortOrder: 3, showOnHome: true, photoId: null });
+    expect(
+      TestimonialInput.safeParse({ status: "live", sortOrder: "0", showOnHome: true, photoId: "" }).success,
+    ).toBe(false);
+    expect(
+      TestimonialInput.safeParse({ status: "draft", sortOrder: "-1", showOnHome: true, photoId: "" }).success,
+    ).toBe(false);
+    expect(TestimonialInput.safeParse({ status: "draft", sortOrder: "0", photoId: "x" }).success).toBe(false);
+  });
+
+  it("text: a quote and a name are required; role is optional", () => {
+    const ok = TestimonialTextInput.parse({ quote: " Thank you ", name: "Asha", role: "", reviewed: true });
+    expect(ok).toEqual({ quote: "Thank you", name: "Asha", role: null, reviewed: true });
+    expect(TestimonialTextInput.safeParse({ quote: "", name: "A", role: "", reviewed: false }).success).toBe(
+      false,
+    );
+    expect(
+      TestimonialTextInput.safeParse({ quote: "x".repeat(601), name: "A", role: "", reviewed: false })
+        .success,
+    ).toBe(false);
   });
 });
 
