@@ -148,7 +148,7 @@ export default async function OrganizationSettingsPage() {
       : []),
     {
       title: "Reach",
-      description: "Where the Trust works and its official profiles.",
+      description: "Where the Trust works and its official social media profiles.",
       fields: [
         {
           name: "areaServed",
@@ -163,7 +163,7 @@ export default async function OrganizationSettingsPage() {
           label: "Official profiles",
           type: "textarea",
           rows: 2,
-          hint: "Full URLs, one per line",
+          hint: "Full https:// addresses, one per line: Facebook, Instagram, YouTube, X, WhatsApp, LinkedIn… Shown as icons in the footer and given to search engines as the Trust's profiles.",
           defaultValue: (o?.sameAs ?? []).join("\n"),
         },
       ],

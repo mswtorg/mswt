@@ -126,6 +126,7 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **MH-4 Header.** It stays at the top while scrolling with a light shadow. Causes dropdown with the mouse, with the keyboard (Tab to the arrow, Enter, Tab through, Esc) and with VoiceOver/TalkBack (announced as "Causes: more links, collapsed/expanded").
 - [ ] **MH-5 Header dropdowns from the admin.** Stage → Admin → Content → Menus → Header: give About **Pick by hand** sub-links and News **Automatic: latest news**, save. On a laptop both open from the arrow or on hover; on a phone (Menu) the sub-links stay folded until the arrow is tapped, and tapping the link itself opens its page. Check Hindi too (untranslated sub-links don't show). Put the menu back afterwards.
 - [ ] **MH-6 Site name in Google (after go-live).** Search Console → URL inspection → `https://mswelfaretrust.org/en` → Test live URL: the WebSite item shows name "MS Welfare Trust" and the other names. Google picks the site name and sitelinks itself over the following weeks; neither can be forced.
+- [ ] **MH-7 Footer social icons.** Stage → Admin → Settings → Organization → Official profiles: add the Trust's real Facebook, Instagram and YouTube addresses (one per line, https://), Save. Every page's footer shows "Follow us" icons that open the right profiles; VoiceOver reads each as the platform name.
 
 ## Workflow setup (stage → main)
 

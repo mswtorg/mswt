@@ -86,12 +86,23 @@ test.describe("admin flows", () => {
     await expect(page.getByLabel("Trust PAN")).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByLabel("City")).toHaveValue(city); // nothing typed is lost
     await page.getByLabel("Trust PAN").fill("");
+    await page
+      .getByLabel("Official profiles")
+      .fill("https://www.facebook.com/mswt\nhttps://instagram.com/mswt");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status")).toContainText("Saved");
 
     const contact = await newPage(page.context().browser()!);
     await contact.goto("/en/contact");
     await expect(contact.getByText(city)).toBeVisible();
+    // Official profiles show as icon links in the footer.
+    const follow = contact.getByRole("contentinfo").getByRole("navigation", { name: "Follow us" });
+    await expect(follow.getByRole("link", { name: "Facebook" })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/mswt",
+    );
+    await expect(follow.getByRole("link", { name: "Instagram" })).toBeVisible();
+    await expectAccessible(contact);
 
     await page.goto("/admin/audit-log?entity=organization_settings");
     await expect(page.getByRole("cell", { name: "settings.organization.update" }).first()).toBeVisible();
