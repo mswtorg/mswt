@@ -1,11 +1,29 @@
 import type { Locale } from "@/i18n/routing";
 import { getMediaViews } from "@/lib/content/media";
 import type { Testimonial } from "@/lib/content/testimonials";
+import { formatDate, istDay } from "@/lib/dates/format";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ResponsiveImage } from "./ResponsiveImage";
 
-/** Testimonial quotes as cards. The photo is decorative: the person's name is in the caption. */
-export async function TestimonialList({ items, locale }: { items: Testimonial[]; locale: Locale }) {
+/** The story's date: "14 March 2026" in the page's language. */
+export function StoryDate({ day, locale }: { day: string; locale: Locale }) {
+  return <time dateTime={day}>{formatDate(locale, istDay(day))}</time>;
+}
+
+/**
+ * Testimonial cards: date, heading (links to the story), summary, and who it's from.
+ * The photo is decorative: the person's name is right beside it.
+ */
+export async function TestimonialList({
+  items,
+  locale,
+  headingLevel = 3,
+}: {
+  items: Testimonial[];
+  locale: Locale;
+  headingLevel?: 2 | 3;
+}) {
+  const H = `h${headingLevel}` as "h2" | "h3";
   const ids = items.flatMap((t) => (t.photoId ? [t.photoId] : []));
   const views = ids.length > 0 ? await getMediaViews(ids, locale) : {};
   return (
@@ -16,25 +34,32 @@ export async function TestimonialList({ items, locale }: { items: Testimonial[];
           <li key={t.id} className="grid">
             <Card>
               <CardBody>
-                <figure className="m-0 flex h-full flex-col gap-6">
-                  <blockquote className="m-0 border-l-2 border-border-rule pl-4 text-lg">
-                    <p className="whitespace-pre-line">{t.quote}</p>
-                  </blockquote>
-                  <figcaption className="mt-auto flex items-center gap-3">
-                    {image?.src ? (
-                      <ResponsiveImage
-                        image={image}
-                        alt=""
-                        sizes="48px"
-                        className="aspect-square w-12 shrink-0 rounded-full"
-                      />
-                    ) : null}
-                    <span>
-                      <span className="block font-semibold text-fg-strong">{t.name}</span>
-                      {t.role ? <span className="block text-sm text-fg-muted">{t.role}</span> : null}
-                    </span>
-                  </figcaption>
-                </figure>
+                <p className="text-sm text-fg-muted">
+                  <StoryDate day={t.storyDate} locale={locale} />
+                </p>
+                <H className="text-xl">
+                  <a
+                    href={`/${locale}/testimonials/${t.slug}`}
+                    className="text-fg-strong no-underline hover:underline"
+                  >
+                    {t.title}
+                  </a>
+                </H>
+                {t.summary ? <p className="text-fg-muted">{t.summary}</p> : null}
+                <p className="mt-auto flex items-center gap-3 pt-2">
+                  {image?.src ? (
+                    <ResponsiveImage
+                      image={image}
+                      alt=""
+                      sizes="48px"
+                      className="aspect-square w-12 shrink-0 rounded-full"
+                    />
+                  ) : null}
+                  <span>
+                    <span className="block font-semibold text-fg-strong">{t.name}</span>
+                    {t.role ? <span className="block text-sm text-fg-muted">{t.role}</span> : null}
+                  </span>
+                </p>
               </CardBody>
             </Card>
           </li>

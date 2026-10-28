@@ -19,6 +19,8 @@ import { formValues, issuesToErrors, type FormState } from "@/components/admin/f
 
 const settingsInput = (v: Record<string, string>) =>
   TestimonialInput.safeParse({
+    slug: v.slug ?? "",
+    storyDate: v.storyDate ?? "",
     status: v.status,
     sortOrder: v.sortOrder || "0",
     showOnHome: v.showOnHome === "on",
@@ -73,7 +75,9 @@ export async function saveTestimonialTextAction(
   const { actor } = await actorFor("cms.write");
   const v = formValues(form);
   const parsed = TestimonialTextInput.safeParse({
-    quote: v.quote ?? "",
+    title: v.title ?? "",
+    body: v.body ?? "",
+    summary: v.summary ?? "",
     name: v.name ?? "",
     role: v.role ?? "",
     reviewed: v.reviewed === "on",

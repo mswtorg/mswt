@@ -85,6 +85,20 @@
       "when": 1793181335498,
       "tag": "0011_testimonials",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793187070785,
+      "tag": "0012_testimonial_stories",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793187083183,
+      "tag": "0013_testimonial_quote_drop",
+      "breakpoints": true
     }
   ]
 }

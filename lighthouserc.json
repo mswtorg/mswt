@@ -9,7 +9,8 @@
         "http://localhost:3000/mr",
         "http://localhost:3000/en/causes",
         "http://localhost:3000/en/contact",
-        "http://localhost:3000/en/donate"
+        "http://localhost:3000/en/donate",
+        "http://localhost:3000/en/testimonials"
       ],
       "numberOfRuns": 3,
       "settings": {

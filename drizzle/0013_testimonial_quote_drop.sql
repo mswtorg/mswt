@@ -1,0 +1,1 @@
+ALTER TABLE "testimonial_translations" DROP COLUMN "quote";

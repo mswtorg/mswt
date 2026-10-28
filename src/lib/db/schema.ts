@@ -267,6 +267,7 @@ export const pageKey = pgEnum("page_key", [
   "gallery",
   "events",
   "news",
+  "testimonials",
 ]);
 export const eventStatus = pgEnum("event_status", [
   "scheduled",
@@ -541,14 +542,18 @@ export const testimonials = pgTable(
   "testimonials",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** Public address: /{locale}/testimonials/{slug}. */
+    slug: slugCol(),
     status: publishStatus("status").default("draft").notNull(),
+    /** The date of the story, shown with it (the same in every language). */
+    storyDate: date("story_date", { mode: "string" }).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     showOnHome: boolean("show_on_home").default(true).notNull(),
     photoId: uuid("photo_id").references(() => media.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("testimonials_sort_idx").on(t.sortOrder)],
+  (t) => [index("testimonials_sort_idx").on(t.sortOrder), uniqueIndex("testimonials_slug_idx").on(t.slug)],
 );
 
 export const testimonialTranslations = pgTable(
@@ -558,7 +563,11 @@ export const testimonialTranslations = pgTable(
       .notNull()
       .references(() => testimonials.id, { onDelete: "cascade" }),
     locale: locale("locale").notNull(),
-    quote: text("quote").notNull(),
+    title: text("title").notNull(),
+    /** The whole story (typed blocks, edited in the visual editor). */
+    body: blocks("body"),
+    /** Short text for cards and search results; empty: the story's first lines. */
+    summary: text("summary"),
     name: text("name").notNull(),
     /** Who they are: "Parent, Mumbai", "Volunteer since 2021"… */
     role: text("role"),

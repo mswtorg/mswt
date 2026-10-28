@@ -165,6 +165,7 @@ test.describe("admin flows", () => {
         "Events (list)",
         "News (list)",
         "Gallery (list)",
+        "Testimonials (list)",
         "Transparency",
         "Privacy policy",
         "Terms",

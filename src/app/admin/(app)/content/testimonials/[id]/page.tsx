@@ -9,6 +9,8 @@ import { AdminForm } from "@/components/admin/AdminForm";
 import { LanguageTabs, pickLocale, translationState } from "@/components/admin/LanguageTabs";
 import { Card, PageHeader, Section } from "@/components/admin/ui";
 import { Alert } from "@/components/ui/Alert";
+import { ButtonLink } from "@/components/ui/Button";
+import { blocksToMarkup } from "@/lib/content/markup";
 import {
   deleteTestimonialAction,
   deleteTestimonialTextAction,
@@ -26,7 +28,11 @@ export default async function TestimonialPage({ params, searchParams }: Props) {
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const q = await searchParams;
   const locale: Locale = pickLocale(q.lang);
-  const [data, { library }] = await Promise.all([getTestimonialForEdit(id), editorMedia("en")]);
+  const [data, { library }, editor] = await Promise.all([
+    getTestimonialForEdit(id),
+    editorMedia("en"),
+    editorMedia(locale),
+  ]);
   if (!data) notFound();
   const { testimonial, translations } = data;
   const row = translations.find((t) => t.locale === locale);
@@ -37,12 +43,19 @@ export default async function TestimonialPage({ params, searchParams }: Props) {
     <>
       <PageHeader
         back={{ href: "/admin/content/testimonials", label: "Testimonials" }}
-        title={en?.name ?? row?.name ?? "Testimonial"}
+        title={en?.title ?? row?.title ?? "Testimonial"}
         description={testimonial.status === "published" ? "Published" : "Draft: not on the site yet"}
+        actions={
+          testimonial.status === "published" && row ? (
+            <ButtonLink variant="secondary" href={`/${locale}/testimonials/${testimonial.slug}`}>
+              View page
+            </ButtonLink>
+          ) : null
+        }
       />
       {q.created ? (
         <Alert tone="success" live="polite">
-          <p>Testimonial created. Now write the quote in each language.</p>
+          <p>Testimonial created. Now write the story in each language.</p>
         </Alert>
       ) : null}
       <AdminForm
@@ -86,19 +99,40 @@ export default async function TestimonialPage({ params, searchParams }: Props) {
           sticky
           sections={[
             {
-              title: "Quote",
-              description: "In the person's own words; shorter quotes read best (two to four sentences).",
+              title: "Story",
               fields: [
                 {
-                  name: "quote",
-                  label: "Quote",
-                  type: "textarea",
-                  rows: 4,
+                  name: "title",
+                  label: "Heading",
                   required: true,
                   lang: locale,
-                  maxLength: 600,
-                  defaultValue: row?.quote ?? "",
+                  maxLength: 160,
+                  defaultValue: row?.title ?? "",
+                  hint: "The title of the story, e.g. “Back to school after the floods”.",
                 },
+                {
+                  name: "body",
+                  label: "Story",
+                  type: "blocks",
+                  lang: locale,
+                  defaultValue: blocksToMarkup(row?.body ?? []),
+                  editor,
+                },
+                {
+                  name: "summary",
+                  label: "Short summary",
+                  type: "textarea",
+                  rows: 2,
+                  lang: locale,
+                  maxLength: 300,
+                  defaultValue: row?.summary ?? "",
+                  hint: "Optional: one or two sentences for the cards on Home and About and for search results. Empty: the story's first lines.",
+                },
+              ],
+            },
+            {
+              title: "Who it's from",
+              fields: [
                 {
                   name: "name",
                   label: "Name",

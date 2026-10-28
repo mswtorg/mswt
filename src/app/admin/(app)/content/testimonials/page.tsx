@@ -3,6 +3,7 @@ import Link from "next/link";
 import { routing } from "@/i18n/routing";
 import { requireCapability } from "@/lib/admin/guard";
 import { listTestimonials } from "@/lib/admin/testimonials";
+import { formatDate, istDay } from "@/lib/dates/format";
 import { DataTable, PageHeader, Td, Th, Tr } from "@/components/admin/ui";
 import { Alert, Badge } from "@/components/ui/Alert";
 import { ButtonLink } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ export default async function TestimonialsPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Testimonials"
-        description="Quotes from donors, volunteers and families. Published ones show on About, and the first 6 marked for Home on the home page, in each language they're written in."
+        description="Stories from donors, volunteers and families. Each has its own page under /testimonials; Home and About show cards that link to it, in each language it's written in."
         actions={<ButtonLink href="/admin/content/testimonials/new">New testimonial</ButtonLink>}
       />
       {q.deleted ? (
@@ -28,8 +29,9 @@ export default async function TestimonialsPage({ searchParams }: Props) {
       <DataTable caption="Testimonials">
         <thead>
           <tr>
+            <Th>Heading</Th>
             <Th>Who</Th>
-            <Th>Quote</Th>
+            <Th>Date</Th>
             <Th>Status</Th>
             <Th>Home</Th>
             <Th>Languages</Th>
@@ -39,7 +41,7 @@ export default async function TestimonialsPage({ searchParams }: Props) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-fg-muted">
+              <td colSpan={7} className="px-4 py-8 text-center text-fg-muted">
                 No testimonials yet.
               </td>
             </tr>
@@ -53,12 +55,11 @@ export default async function TestimonialsPage({ searchParams }: Props) {
                       href={`/admin/content/testimonials/${t.id}`}
                       className="text-link-default underline underline-offset-4"
                     >
-                      {shown?.name ?? "No text yet"}
+                      {shown?.title ?? t.slug}
                     </Link>
                   </Td>
-                  <Td>
-                    <span className="line-clamp-2 max-w-md text-sm text-fg-muted">{shown?.quote ?? ""}</span>
-                  </Td>
+                  <Td>{shown?.name ?? ""}</Td>
+                  <Td>{formatDate("en", istDay(t.storyDate))}</Td>
                   <Td>
                     <Badge tone={t.status === "published" ? "success" : "neutral"}>
                       {t.status === "published" ? "Published" : "Draft"}

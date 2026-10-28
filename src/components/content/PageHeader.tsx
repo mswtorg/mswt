@@ -22,7 +22,7 @@ export function PageHeader({
       <HeadingRule as="h1" className="text-4xl">
         {title}
       </HeadingRule>
-      {lead ? <p className="mt-4 max-w-2xl text-xl text-fg-muted">{lead}</p> : null}
+      {lead ? <p className="mt-4 text-xl text-fg-muted">{lead}</p> : null}
       {children}
     </header>
   );
