@@ -1,4 +1,5 @@
 import { CAUSE_STATUSES } from "@/lib/admin/causes";
+import { CARD_ICONS } from "@/lib/content/card-icons";
 import type { FieldSpec } from "@/components/admin/form-state";
 import type { LibraryItem } from "@/components/admin/PhotoPicker";
 
@@ -7,6 +8,7 @@ type CauseDefaults = {
   status?: string;
   goalPaise?: number | null;
   is80gEligible?: boolean;
+  icon?: string | null;
   sortOrder?: number;
   coverImageId?: string | null;
   photoIds?: string[];
@@ -44,6 +46,14 @@ export function causeFields(c: CauseDefaults, library: LibraryItem[], published:
       inputMode: "numeric",
       defaultValue: c.goalPaise ? String(c.goalPaise / 100) : "",
       hint: "Optional. The amount raised comes from donations.",
+    },
+    {
+      name: "icon",
+      label: "Card icon",
+      type: "select",
+      defaultValue: c.icon ?? "",
+      options: [{ value: "", label: "No icon" }, ...CARD_ICONS.map(([value, label]) => ({ value, label }))],
+      hint: "Shown beside the title on the cause's card.",
     },
     {
       name: "sortOrder",

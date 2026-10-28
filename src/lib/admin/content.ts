@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Locale } from "@/i18n/routing";
 import { recordAudit, type Actor } from "@/lib/audit";
-import { HomeExtras } from "@/lib/content/home";
+import { HomeExtras, type HomeSectionKey } from "@/lib/content/home";
 import { imageIds, markupToBlocks } from "@/lib/content/markup";
 import { db } from "@/lib/db/client";
 import { pages, pageTranslations } from "@/lib/db/schema";
@@ -71,6 +71,12 @@ export async function pageHeroIds(key: ContentPageKey): Promise<string[]> {
   return row?.ids ?? [];
 }
 
+/** Home's saved section order (uncached, for the admin form); empty: the default. */
+export async function pageSectionOrder(): Promise<string[]> {
+  const [row] = await db.select({ order: pages.sectionOrder }).from(pages).where(eq(pages.key, "home"));
+  return row?.order ?? [];
+}
+
 export async function pageTranslationsFor(key: ContentPageKey) {
   return db.select().from(pageTranslations).where(eq(pageTranslations.pageKey, key));
 }
@@ -84,6 +90,8 @@ export async function savePageTranslation(
   actor: Actor,
   /** Header photo(s); the same in every language. Undefined leaves them unchanged. */
   heroIds?: string[],
+  /** Home only: the order of its sections; the same in every language. Undefined leaves it unchanged. */
+  sectionOrder?: HomeSectionKey[],
 ): Promise<void> {
   // Home's body is the "Our story" section.
   const sections = parseBody(input.body);
@@ -113,13 +121,19 @@ export async function savePageTranslation(
       reviewedBy: input.reviewed ? actor.userId : null,
       updatedAt: now,
     };
+    await tx.insert(pages);
+    const pageSet = {
+      ...(heroIds ? { heroMediaIds: heroIds } : {}),
+      ...(key === "home" && sectionOrder ? { sectionOrder } : {}),
+    };
+    const [pageBefore] = await tx
+      .select({ sectionOrder: pages.sectionOrder })
+      .from(pages)
+      .where(eq(pages.key, key));
     await tx
       .insert(pages)
-      .values({ key, ...(heroIds ? { heroMediaIds: heroIds } : {}) })
-      .onConflictDoUpdate({
-        target: pages.key,
-        set: { updatedAt: now, ...(heroIds ? { heroMediaIds: heroIds } : {}) },
-      });
+      .values({ key, ...pageSet })
+      .onConflictDoUpdate({ target: pages.key, set: { updatedAt: now, ...pageSet } });
     await tx
       .insert(pageTranslations)
       .values({ pageKey: key, locale, ...values })
@@ -128,7 +142,15 @@ export async function savePageTranslation(
       action: "content.page.update",
       entityType: "page",
       entityId: null,
-      before: before ? { key, locale, title: before.title, reviewed: Boolean(before.reviewedAt) } : null,
+      before: before
+        ? {
+            key,
+            locale,
+            title: before.title,
+            reviewed: Boolean(before.reviewedAt),
+            ...(pageSet.sectionOrder ? { sectionOrder: pageBefore?.sectionOrder ?? [] } : {}),
+          }
+        : null,
       after: {
         key,
         locale,
@@ -136,6 +158,7 @@ export async function savePageTranslation(
         reviewed: input.reviewed,
         blocks: sections.length,
         ...(heroIds ? { headerPhotos: heroIds.length } : {}),
+        ...(pageSet.sectionOrder ? { sectionOrder: pageSet.sectionOrder } : {}),
       },
     });
   });

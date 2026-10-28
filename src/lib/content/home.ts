@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { routing, type Locale } from "@/i18n/routing";
 import { db } from "@/lib/db/client";
-import { pageTranslations } from "@/lib/db/schema";
+import { pages, pageTranslations } from "@/lib/db/schema";
 import type { Block } from "./blocks";
 import { CONTENT_SAFETY_REVALIDATE, CONTENT_TAG, isProduction } from "./source";
 
@@ -48,6 +48,41 @@ export const HOME_SECTION_FIELDS = [
   ["storyH", "Our story heading"],
   ["testimonialsH", "Testimonials heading"],
 ] as const;
+
+/** Home sections under the headline, in their default order (Content → Pages → Home → Section order). */
+export const HOME_SECTIONS = [
+  ["impact", "Impact in numbers"],
+  ["why", "Why give (three points)"],
+  ["story", "Our story"],
+  ["causes", "Causes"],
+  ["events", "Events"],
+  ["news", "News"],
+  ["testimonials", "Testimonials"],
+  ["band", "Donate band"],
+] as const;
+export type HomeSectionKey = (typeof HOME_SECTIONS)[number][0];
+const SECTION_KEYS: readonly string[] = HOME_SECTIONS.map(([k]) => k);
+
+/** Saved order → every section once: unknown keys dropped, sections added later appended. */
+export function normalizeSectionOrder(saved: readonly string[]): HomeSectionKey[] {
+  const known = [...new Set(saved.filter((k) => SECTION_KEYS.includes(k)))] as HomeSectionKey[];
+  return [...known, ...HOME_SECTIONS.map(([k]) => k).filter((k) => !known.includes(k))];
+}
+
+/** A section order typed in the admin: known keys, each once. */
+export const SectionOrderInput = z
+  .array(z.enum(HOME_SECTIONS.map(([k]) => k) as [HomeSectionKey, ...HomeSectionKey[]]))
+  .refine((a) => new Set(a).size === a.length, "Each section can appear only once");
+
+/** The home sections in their saved order (the same in every language). */
+export const getHomeSectionOrder = unstable_cache(
+  async (): Promise<HomeSectionKey[]> => {
+    const [row] = await db.select({ order: pages.sectionOrder }).from(pages).where(eq(pages.key, "home"));
+    return normalizeSectionOrder(row?.order ?? []);
+  },
+  ["home-section-order"],
+  { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
+);
 
 export type HomeContent = {
   title: string;

@@ -27,12 +27,16 @@ export const ContentFileSchema = z.object({
         raisedPaise: z.number().int().nonnegative().default(0),
         sortOrder: z.number().int().default(0),
         is80gEligible: z.boolean().default(true),
+        /** Card icon (src/lib/content/card-icons.ts); unknown names show no icon. */
+        icon: z.string().nullable().default(null),
         coverImageId: z.uuid().nullable().default(null),
         photoIds: z.array(z.uuid()).default([]),
         translations: per(
           z.object({
             title: z.string().min(1),
             summary: z.string().min(1),
+            /** Short label on the card photo, e.g. "Education". */
+            tag: z.string().nullable().default(null),
             body: BlocksSchema.default([]),
             ...reviewed,
           }),

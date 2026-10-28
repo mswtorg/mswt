@@ -29,7 +29,7 @@ async function readContentFile(path: string): Promise<ContentFile> {
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 /** Everything in the database, in the same shape as the content files. */
-async function databaseContent(): Promise<ContentFile> {
+export async function databaseContent(): Promise<ContentFile> {
   const [
     causes,
     causeTr,
@@ -82,11 +82,13 @@ async function databaseContent(): Promise<ContentFile> {
         raisedPaise: c.raisedPaise,
         sortOrder: c.sortOrder,
         is80gEligible: c.is80gEligible,
+        icon: c.icon,
         coverImageId: c.coverImageId,
         photoIds: c.photoIds,
         translations: map(by(causeTr, "causeId", c.id), (r) => ({
           title: r.title,
           summary: r.summary,
+          tag: r.tag,
           body: r.body,
           ...rev(r),
         })),

@@ -32,7 +32,7 @@ export function CollapsibleNav({
       <div
         id={id}
         className={cn(
-          "w-full flex-col gap-4 pb-4 max-lg:max-h-[calc(100dvh-5rem)] max-lg:overflow-y-auto lg:ml-auto lg:flex lg:w-auto lg:flex-row lg:items-center lg:gap-6 lg:pb-0",
+          "w-full flex-col gap-4 pb-4 max-lg:max-h-[calc(100dvh-5rem)] max-lg:overflow-y-auto lg:flex lg:w-auto lg:flex-1 lg:flex-row lg:items-center lg:gap-6 lg:pb-0",
           open ? "flex" : "hidden",
         )}
       >

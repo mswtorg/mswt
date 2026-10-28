@@ -40,8 +40,9 @@ export async function SiteHeader({ locale, current }: { locale: Locale; current?
         </a>
         <CollapsibleNav id="site-nav" menuLabel={t("menu")}>
           {items.length > 0 ? (
-            <nav aria-label={t("label")}>
-              <ul className="m-0 flex list-none flex-col p-0 lg:flex-row lg:gap-5">
+            // Large screens: the menu centred between the logo and language + Donate, one even gap.
+            <nav aria-label={t("label")} className="lg:flex lg:flex-1 lg:justify-center">
+              <ul className="m-0 flex list-none flex-col p-0 lg:flex-row lg:items-center lg:gap-6">
                 {items.map((item, i) => (
                   <li key={item.key}>
                     {/* A link with sub-links (Admin → Menus): a dropdown, collapsed until opened. */}
@@ -69,7 +70,7 @@ export async function SiteHeader({ locale, current }: { locale: Locale; current?
               </ul>
             </nav>
           ) : null}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4 lg:flex-none">
             <LanguageSwitcher locale={locale} label={tl("language")} />
             {PAGES.donate.ready ? (
               <ButtonLink href={pageHref(locale, "donate")}>{t("donate")}</ButtonLink>

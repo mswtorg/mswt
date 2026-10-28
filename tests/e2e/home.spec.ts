@@ -107,3 +107,52 @@ test("Home WebSite JSON-LD names the site and its other names", async ({ request
   expect(site.alternateName).toContain(ngo!.legalName);
   expect(site.alternateName).not.toContain(site.name);
 });
+
+test("header: menu centred, even gaps, plain language button, Donate last", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the large-screen layout");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/en/about");
+  const nav = page.getByRole("navigation", { name: "Main" });
+  const items = await nav.locator(":scope > ul > li").evaluateAll((lis) =>
+    lis.map((li) => {
+      const r = li.getBoundingClientRect();
+      return { left: r.left, right: r.right };
+    }),
+  );
+  // Even gaps between items, whether or not they have a dropdown arrow.
+  const gaps = items.slice(1).map((r, i) => r.left - items[i]!.right);
+  expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThanOrEqual(1);
+  // The menu sits in the middle of the space between the logo and language + Donate.
+  const logo = (await page.locator("#site-header a").first().boundingBox())!;
+  const lang = (await page.locator("#site-header summary").boundingBox())!;
+  const menuMid = (items[0]!.left + items.at(-1)!.right) / 2;
+  const spaceMid = (logo.x + logo.width + lang.x) / 2;
+  expect(Math.abs(menuMid - spaceMid)).toBeLessThan(24);
+  // Only Donate is a filled button: the language button has no border or fill.
+  const summary = page.locator("#site-header summary");
+  await expect(summary).toHaveCSS("border-top-width", "0px");
+  await expect(summary).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  const donate = page
+    .locator("#site-header")
+    .getByRole("link", { name: "Donate" })
+    .or(page.locator("#site-header").getByRole("button", { name: /Donate/ }));
+  expect((await donate.boundingBox())!.x).toBeGreaterThan(lang.x);
+});
+
+test("cards: rounded tiles, the whole card opens the page, one link each", async ({ page }) => {
+  await page.goto("/en/causes");
+  const card = page.locator("main article").first();
+  await expect(card).toHaveCSS("border-top-left-radius", "16px");
+  // The call to action is text, not a second link: one link per card for screen readers.
+  await expect(card.getByRole("link")).toHaveCount(1);
+  await expect(card).toContainText("Support this cause");
+  const href = await card.getByRole("link").getAttribute("href");
+  // Click the arrow: it sits above the stretched title link, so it must let clicks through.
+  const cta = card.getByText("Support this cause");
+  await cta.scrollIntoViewIfNeeded();
+  const box = (await cta.locator("svg").boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
+  await page.goto("/en/causes");
+  await expectAccessible(page);
+});

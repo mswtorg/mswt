@@ -137,11 +137,13 @@ test.describe("admin content", () => {
       .getByRole("button", { name: new RegExp(`${slug}\\.webp`) })
       .click();
     await expect(page.locator("#cause-coverImageId")).toHaveValue(photoId);
+    await page.locator("#cause-icon").selectOption("health");
     await page.getByRole("button", { name: "Create cause" }).click();
     await expect(page.getByText(/Cause created as active/)).toBeVisible();
 
     await page.locator("#cause-text-title").fill("E2E health camps");
     await page.locator("#cause-text-summary").fill("Free health camps, tested end to end.");
+    await page.locator("#cause-text-tag").fill("Health");
     const body = page.getByRole("textbox", { name: "Text" });
     await body.click();
     await page.keyboard.type("What we do");
@@ -181,6 +183,15 @@ test.describe("admin content", () => {
     const html = await res.text();
     expect(html).toContain(`media/${photoId}/${slug}-640.webp 640w`);
     expect(html).toContain('alt="Volunteers at an e2e health camp"');
+
+    // The card: the label on the photo, the icon beside the title, "Support this cause".
+    await expect(async () => {
+      await page.goto("/en/causes");
+      const card = page.locator("main article", { hasText: "E2E health camps" });
+      await expect(card).toContainText("Health", { timeout: 1000 });
+      await expect(card.locator("span[aria-hidden] svg").first()).toBeAttached();
+      await expect(card).toContainText("Support this cause");
+    }).toPass({ timeout: 15_000 });
   });
 
   test("a used photo can't be deleted", async () => {

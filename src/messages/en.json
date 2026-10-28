@@ -104,7 +104,8 @@
     "donateSoon": "Online donations are coming soon.",
     "eligible80g": "80G tax receipt available. Indian citizens only.",
     "empty": "No causes are published yet. Please check back soon.",
-    "donateTo": "Donate to {title}"
+    "donateTo": "Donate to {title}",
+    "readMore": "Read more"
   },
   "Events": {
     "title": "Events",
@@ -124,21 +125,25 @@
       "postponed": "Postponed",
       "rescheduled": "Rescheduled",
       "moved_online": "Moved online"
-    }
+    },
+    "view": "View event"
   },
   "News": {
     "title": "News and updates",
     "description": "News and updates from MS Welfare Trust.",
     "empty": "No news yet.",
     "published": "Published {date}",
-    "by": "By {name}"
+    "by": "By {name}",
+    "badge": "News",
+    "readMore": "Read more"
   },
   "Gallery": {
     "title": "Gallery",
     "description": "Photos from MS Welfare Trust's work and events.",
     "empty": "No albums yet.",
     "photos": "{count, plural, one {# photo} other {# photos}}",
-    "photoPending": "Photo coming soon"
+    "photoPending": "Photo coming soon",
+    "view": "View album"
   },
   "Transparency": {
     "title": "Transparency",

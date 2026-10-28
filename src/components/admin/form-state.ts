@@ -32,7 +32,9 @@ export type FieldSpec = {
     | "blocks"
     /** One library photo (cover) or an ordered list (slider/album); needs `photos`. */
     | "photo"
-    | "photos";
+    | "photos"
+    /** A fixed set of items put in order with ↑ ↓ (posted comma-separated); needs `items`. */
+    | "order";
   hint?: string;
   required?: boolean;
   defaultValue?: string;
@@ -49,6 +51,8 @@ export type FieldSpec = {
   editor?: { media: Record<string, ImageView>; library: LibraryItem[] };
   /** For type "photo"/"photos": the library to choose from, and the most photos allowed. */
   photos?: { library: LibraryItem[]; max?: number };
+  /** For type "order": the items, in their default order. */
+  items?: { value: string; label: string }[];
 };
 
 /** Everything a form posted, as strings (checkboxes "on"). */

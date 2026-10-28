@@ -99,6 +99,13 @@
       "when": 1793187083183,
       "tag": "0013_testimonial_quote_drop",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793188107112,
+      "tag": "0014_home_design",
+      "breakpoints": true
     }
   ]
 }

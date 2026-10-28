@@ -4,6 +4,9 @@ import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
 import { TestimonialInput, TestimonialTextInput } from "@/lib/admin/testimonials";
 import { storySummary } from "@/lib/content/testimonials";
+import { normalizeSectionOrder, SectionOrderInput } from "@/lib/content/home";
+import { CauseInput, CauseTextInput } from "@/lib/admin/causes";
+import { formatCount, parseCount } from "@/components/content/CountUp";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
@@ -259,5 +262,52 @@ describe("built-in page texts (ensure defaults)", () => {
       }
       expect(HomeExtras.safeParse(pages.home!.extras).success).toBe(true);
     }
+  });
+});
+
+describe("home design", () => {
+  it("count-up keeps the text around the number", () => {
+    expect(parseCount("1,200+ Families")).toMatchObject({ prefix: "", value: 1200, suffix: "+ Families" });
+    expect(parseCount("₹5.5 lakh")).toMatchObject({ prefix: "₹", value: 5.5, decimals: 1, suffix: " lakh" });
+    expect(parseCount("Hundreds")).toBeNull();
+    const p = parseCount("1,20,000 meals")!;
+    expect(formatCount(p, 0)).toBe("0 meals");
+    expect(formatCount(p, 120000)).toBe("1,20,000 meals");
+    expect(formatCount(parseCount("45 Relief Kits")!, 7)).toBe("7 Relief Kits");
+  });
+
+  it("section order: unknown keys dropped, missing ones appended; duplicates rejected", () => {
+    expect(normalizeSectionOrder(["news", "old", "impact"])).toEqual([
+      "news",
+      "impact",
+      "why",
+      "story",
+      "causes",
+      "events",
+      "testimonials",
+      "band",
+    ]);
+    expect(normalizeSectionOrder([])[0]).toBe("impact");
+    expect(SectionOrderInput.safeParse(["news", "news"]).success).toBe(false);
+    expect(SectionOrderInput.safeParse(["news", "nope"]).success).toBe(false);
+    expect(SectionOrderInput.safeParse(["band", "news"]).success).toBe(true);
+  });
+
+  it("cause card icon from the list, and a short card label", () => {
+    const base = {
+      slug: "school-kits",
+      status: "draft",
+      goal: "",
+      is80gEligible: true,
+      sortOrder: "0",
+      coverImageId: "",
+    };
+    expect(CauseInput.parse({ ...base, icon: "education" }).icon).toBe("education");
+    expect(CauseInput.parse({ ...base, icon: "" }).icon).toBeNull();
+    expect(CauseInput.safeParse({ ...base, icon: "rocket" }).success).toBe(false);
+    const text = { title: "T", summary: "S", body: "", seoTitle: "", seoDescription: "", reviewed: false };
+    expect(CauseTextInput.parse({ ...text, tag: " Education " }).tag).toBe("Education");
+    expect(CauseTextInput.parse({ ...text, tag: "" }).tag).toBeNull();
+    expect(CauseTextInput.safeParse({ ...text, tag: "x".repeat(25) }).success).toBe(false);
   });
 });
