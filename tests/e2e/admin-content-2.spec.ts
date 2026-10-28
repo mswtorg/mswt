@@ -82,6 +82,8 @@ test.describe("admin content 2", () => {
 
     await page.locator("#item-text-title").fill("E2E health camp");
     await page.locator("#item-text-summary").fill("Free check-ups for families.");
+    // The Text view takes the text format directly.
+    await page.getByRole("button", { name: "Text", exact: true }).click();
     await page.locator("#item-text-body").fill("## What happens\n\nDoctors and volunteers.");
     await page.getByLabel(/Reviewed by a person/).check();
     await page.getByRole("button", { name: "Save text" }).click();

@@ -28,7 +28,7 @@ export type FieldSpec = {
     | "checkbox"
     | "url"
     | "tel"
-    /** Content text with toolbar and preview (BlocksEditor); needs `editor`. */
+    /** Rich content: visual editor or text with preview (RichEditor); needs `editor`. */
     | "blocks"
     /** One library photo (cover) or an ordered list (slider/album); needs `photos`. */
     | "photo"

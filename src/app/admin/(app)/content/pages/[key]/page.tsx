@@ -148,7 +148,7 @@ export default async function EditPagePage({ params, searchParams }: Props) {
               ? "Optional text shown above the form or the documents list."
               : ["causes", "events", "news", "gallery"].includes(key)
                 ? "Optional text shown above the list."
-                : "The page text. Use the toolbar or the marks shown under the box.",
+                : "The page text. Write as in a document; use the toolbar for headings, lists, notes and photos.",
           fields: [
             {
               name: "body",

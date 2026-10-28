@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from "rea
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
-import { BlocksEditor } from "./BlocksEditor";
+import { RichEditor } from "./RichEditor";
 import { PhotoListField } from "./PhotoListField";
 import { compactControl } from "./ui";
 import type { FieldSpec, FormSectionSpec, FormState } from "./form-state";
@@ -48,7 +48,7 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
   );
   return (
     <div className={cn("grid content-start gap-1.5", full && "sm:col-span-2")}>
-      <label htmlFor={id} className="text-sm font-medium text-fg-strong">
+      <label id={`${id}-label`} htmlFor={id} className="text-sm font-medium text-fg-strong">
         {f.label}
         {f.required ? <span className="ml-1 text-xs font-normal text-fg-muted">(required)</span> : null}
       </label>
@@ -64,8 +64,9 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
           describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
         />
       ) : f.type === "blocks" ? (
-        <BlocksEditor
+        <RichEditor
           id={id}
+          labelId={`${id}-label`}
           name={f.name}
           defaultValue={value}
           lang={f.lang}
