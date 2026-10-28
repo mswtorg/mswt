@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
 import { RichEditor } from "./RichEditor";
+import { OrderListField } from "./OrderListField";
 import { PhotoListField } from "./PhotoListField";
 import { compactControl } from "./ui";
 import type { FieldSpec, FormSectionSpec, FormState } from "./form-state";
@@ -18,7 +19,12 @@ const secondaryButton =
 
 function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; error?: string; value: string }) {
   const id = fieldId(formId, f.name);
-  const full = f.span === "full" || f.type === "textarea" || f.type === "blocks" || f.type === "photos";
+  const full =
+    f.span === "full" ||
+    f.type === "textarea" ||
+    f.type === "blocks" ||
+    f.type === "photos" ||
+    f.type === "order";
   if (f.type === "checkbox")
     return (
       <div className={cn("grid gap-1", full && "sm:col-span-2")}>
@@ -52,7 +58,16 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
         {f.label}
         {f.required ? <span className="ml-1 text-xs font-normal text-fg-muted">(required)</span> : null}
       </label>
-      {f.type === "photo" || f.type === "photos" ? (
+      {f.type === "order" ? (
+        <OrderListField
+          id={id}
+          name={f.name}
+          label={f.label}
+          defaultValue={value}
+          items={f.items ?? []}
+          describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
+        />
+      ) : f.type === "photo" || f.type === "photos" ? (
         <PhotoListField
           label={f.label}
           id={id}

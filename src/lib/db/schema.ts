@@ -341,6 +341,8 @@ export const causes = pgTable(
       .default(sql`'{}'::uuid[]`)
       .notNull(),
     is80gEligible: boolean("is_80g_eligible").default(true).notNull(),
+    /** Icon beside the title on the cause card (one of CARD_ICONS); null: no icon. */
+    icon: text("icon"),
     /** Created by "Load sample content" (Content → Sample content); removable as a group. */
     isSample: boolean("is_sample").default(false).notNull(),
     createdAt: createdAt(),
@@ -362,6 +364,8 @@ export const causeTranslations = pgTable(
       .references(() => causes.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     summary: text("summary").notNull(),
+    /** Short label on the card photo, e.g. "Education" (per language); null: no label. */
+    tag: text("tag"),
     body: blocks("body"),
     ...translationCols(),
   },
@@ -375,6 +379,11 @@ export const pages = pgTable("pages", {
   heroMediaIds: uuid("hero_media_ids")
     .array()
     .default(sql`'{}'::uuid[]`)
+    .notNull(),
+  /** Home only: the order of the sections under the headline (HOME_SECTIONS keys); empty: default. */
+  sectionOrder: text("section_order")
+    .array()
+    .default(sql`'{}'::text[]`)
     .notNull(),
   updatedAt: updatedAt(),
 });

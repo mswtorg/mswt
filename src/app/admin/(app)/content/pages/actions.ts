@@ -6,7 +6,7 @@ import type { Locale } from "@/i18n/routing";
 import { actorFor } from "@/lib/admin/actor";
 import { ContentError, deletePageTranslation, PageInput, savePageTranslation } from "@/lib/admin/content";
 import type { ContentPageKey } from "@/lib/admin/content-pages";
-import { HOME_SECTION_FIELDS } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, SectionOrderInput } from "@/lib/content/home";
 import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import { CONTENT_TAG } from "@/lib/content/source";
 import { formValues, issuesToErrors, type FormState } from "@/components/admin/form-state";
@@ -43,8 +43,23 @@ export async function savePageAction(
           sections: Object.fromEntries(HOME_SECTION_FIELDS.map(([k]) => [k, v[`section_${k}`] ?? ""])),
         }
       : null;
+  // Home: the section order (the same in every language).
+  const order =
+    key === "home" && v.sectionOrder !== undefined
+      ? SectionOrderInput.safeParse(v.sectionOrder.split(",").filter(Boolean))
+      : null;
+  if (order && !order.success)
+    return { status: "error", errors: { sectionOrder: order.error.issues[0]!.message }, values: v };
   try {
-    await savePageTranslation(key, locale, parsed.data, extras, actor, parsePhotoIds(v.heroMediaIds, 8));
+    await savePageTranslation(
+      key,
+      locale,
+      parsed.data,
+      extras,
+      actor,
+      parsePhotoIds(v.heroMediaIds, 8),
+      order?.data,
+    );
   } catch (error) {
     if (error instanceof ContentError)
       return { status: "error", errors: { [error.field]: error.message }, values: v };

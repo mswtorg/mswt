@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CauseInput, createCause, deleteCause, saveCauseTranslation, updateCause } from "@/lib/admin/causes";
@@ -15,10 +15,13 @@ import {
   causeTranslations,
   media,
   messages,
+  pages,
   pageTranslations,
   users,
 } from "@/lib/db/schema";
 import { MediaError } from "@/lib/media/process";
+import { causesFrom } from "@/lib/content/queries";
+import { databaseContent } from "@/lib/content/source";
 import { LOCAL_MEDIA_DIR } from "@/lib/storage/media";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -193,6 +196,38 @@ describe("pages", () => {
     await deletePageTranslation("home", "hi", actor());
   });
 
+  it("home keeps its section order (one for every language) and audits it", async () => {
+    const point = { title: "80G", text: "Tax benefit" };
+    const extras = { points: [point, point, point] };
+    const order = ["news", "impact", "why", "story", "causes", "events", "testimonials", "band"] as const;
+    await savePageTranslation(
+      "home",
+      "gu",
+      { ...base, body: "", reviewed: false },
+      extras,
+      actor(),
+      undefined,
+      [...order],
+    );
+    const [page] = await db.select().from(pages).where(eq(pages.key, "home"));
+    expect(page!.sectionOrder).toEqual(order);
+    // Saving another language without an order leaves it as it is.
+    await savePageTranslation("home", "mr", { ...base, body: "", reviewed: false }, extras, actor());
+    const [after] = await db.select().from(pages).where(eq(pages.key, "home"));
+    expect(after!.sectionOrder).toEqual(order);
+    const [entry] = await db
+      .select({ after: auditLog.after })
+      .from(auditLog)
+      .where(eq(auditLog.action, "content.page.update"))
+      .orderBy(desc(auditLog.createdAt))
+      .offset(1)
+      .limit(1);
+    expect(entry!.after).toMatchObject({ key: "home", locale: "gu", sectionOrder: order });
+    await db.update(pages).set({ sectionOrder: [] }).where(eq(pages.key, "home"));
+    await deletePageTranslation("home", "gu", actor());
+    await deletePageTranslation("home", "mr", actor());
+  });
+
   it("home keeps its impact numbers and its body as Our story", async () => {
     const point = { title: "80G", text: "Tax benefit" };
     await expect(
@@ -253,6 +288,7 @@ describe("causes", () => {
       {
         title: "शिविर",
         summary: "सारांश",
+        tag: "शिक्षा",
         body: "पाठ",
         seoTitle: null,
         seoDescription: null,
@@ -262,6 +298,16 @@ describe("causes", () => {
     );
     const [tr] = await db.select().from(causeTranslations).where(eq(causeTranslations.causeId, id));
     expect(tr!.reviewedAt).not.toBeNull();
+    expect(tr!.tag).toBe("शिक्षा");
+    // The card icon is one setting for every language; the label is per language.
+    await updateCause(id, input(slug, { icon: "education", status: "active" }), actor());
+    const [withIcon] = await db.select().from(causes).where(eq(causes.id, id));
+    expect(withIcon!.icon).toBe("education");
+    const content = { ...(await databaseContent()), sampleParts: [] };
+    expect(causesFrom(content, "hi").find((c) => c.slug === slug)).toMatchObject({
+      icon: "education",
+      tag: "शिक्षा",
+    });
     await updateCause(id, input(slug, { status: "active" }), actor());
     await expect(deleteCause(id, actor())).rejects.toBeInstanceOf(ContentError);
   });

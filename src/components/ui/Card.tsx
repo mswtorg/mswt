@@ -5,7 +5,8 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
     <article
       className={cn(
-        "flex flex-col overflow-hidden rounded-lg border border-border-decorative bg-bg-canvas transition-shadow duration-(--duration-base) ease-standard hover:shadow-sm",
+        // Rounded tile with a lift on hover; a title link with `cardLink` stretches over it.
+        "group relative flex flex-col overflow-hidden rounded-xl border border-border-decorative bg-bg-canvas transition-shadow duration-(--duration-base) ease-standard hover:shadow-md",
         className,
       )}
       {...props}
@@ -14,7 +15,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLElement>) {
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-1 flex-col gap-3 p-5", className)} {...props} />;
+  return <div className={cn("flex flex-1 flex-col gap-3 p-6", className)} {...props} />;
 }
 
 export function Panel({

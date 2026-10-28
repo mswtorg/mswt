@@ -37,10 +37,12 @@ export type CauseView = Meta & {
   goalPaise: number | null;
   raisedPaise: number;
   is80gEligible: boolean;
+  icon: string | null;
   coverImageId: string | null;
   photoIds: string[];
   title: string;
   summary: string;
+  tag: string | null;
   body: Blocks;
 };
 
@@ -120,10 +122,12 @@ export function causesFrom(c: SiteContent, locale: Locale): CauseView[] {
         goalPaise: x.goalPaise,
         raisedPaise: x.raisedPaise,
         is80gEligible: x.is80gEligible,
+        icon: x.icon,
         coverImageId: x.coverImageId,
         photoIds: x.photoIds,
         title: tr.title,
         summary: tr.summary,
+        tag: tr.tag,
         body: tr.body,
       },
     ];

@@ -262,6 +262,12 @@ test.describe("admin content 2", () => {
     const story = page.getByRole("textbox", { name: "Story", exact: true });
     await story.click();
     await story.pressSequentially(`${run} began with one relief camp.`);
+    // Section order: News moved above Causes (twice up from after Events).
+    const order = page.getByRole("group", { name: "Sections" });
+    await order.getByRole("button", { name: "Move News up" }).click();
+    await order.getByRole("button", { name: "Move News up" }).click();
+    await expect(order.getByRole("listitem").nth(3)).toContainText("News");
+    await expectAccessible(page);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(/Saved/)).toBeVisible();
 
@@ -306,8 +312,25 @@ test.describe("admin content 2", () => {
       "/en/testimonials",
     );
     const impact = visitor.getByRole("region", { name: "Our impact in numbers" });
-    await expect(impact.getByRole("definition")).toHaveText("1,200+");
-    await expect(impact.getByRole("term")).toHaveText("families helped");
+    // The figure counts up to its value once in view; screen readers get the value itself.
+    await impact.scrollIntoViewIfNeeded();
+    await expect(impact.locator("[data-count-up]")).toHaveText("1,200+", { timeout: 5000 });
+    await expect(impact.locator(".sr-only")).toHaveText("1,200+");
+    await expect(impact).toContainText("families helped");
+    // Impact comes first under the headline, and News now comes before Causes.
+    const ids = await visitor
+      .locator("main section[aria-labelledby]")
+      .evaluateAll((s) => s.map((x) => x.getAttribute("aria-labelledby")))
+      // The header's donate box always comes before the sortable sections.
+      .then((all) => all.filter((id) => id !== "quick-donate-h"));
+    expect(ids[0]).toBe("impact-h");
+    expect(ids.indexOf("news-h")).toBeLessThan(ids.indexOf("causes-h"));
+    // With "reduce motion" the value shows straight away, with no counting.
+    const still = await page.context().browser()!.newContext({ reducedMotion: "reduce" });
+    const stillPage = await still.newPage();
+    await stillPage.goto("/en");
+    await expect(stillPage.locator("[data-count-up]").first()).toHaveText("1,200+", { timeout: 300 });
+    await still.close();
     const ourStory = visitor.getByRole("region", { name: "Our story" });
     await expect(ourStory).toContainText(`${run} began with one relief camp.`);
     await expect(ourStory.getByRole("link", { name: "Read our story" })).toHaveAttribute("href", "/en/about");

@@ -175,7 +175,8 @@ Super Admins can change the site font in **Settings → Appearance** without a r
 - **Targets and focus:** minimum 24px (WCAG 2.5.8); 44px for primary buttons, nav and mobile controls. Focus ring is 3px with a 2px offset, `focus.ring`.
 - **Breakpoints:** sm 40rem · md 48rem · lg 64rem · xl 80rem. Max container width 80rem.
 - **Motion:** fast 120ms · base 200ms · slow 320ms, with the standard easing `cubic-bezier(0.2,0,0,1)`. All non-essential motion is turned off under `prefers-reduced-motion: reduce`. No autoplay carousels.
-- **Imagery:** real photos of the Trust's work, natural light and colour, people shown with dignity and consent (A7). No stock clichés, no heavy filters, no duotone. Rectangular crops with `radius.lg` at most.
+- **Imagery:** real photos of the Trust's work, natural light and colour, people shown with dignity and consent (A7). No stock clichés, no heavy filters, no duotone. Rectangular crops with `radius.lg` at most; photos at the top of a public tile follow the tile's `radius.xl` corners.
+- **Tiles (Oct 2026, owner's choice):** public cards (causes, events, news, albums, testimonials, impact numbers) use `radius.xl` (16px), a hairline border, a soft shadow on hover, an optional label badge on the photo (white on brand green, `radius.full`), an icon in a brand-subtle square beside the title, and a "… →" call to action. Only brand colours; the whole card is clickable through its title link.
 
 ## 5. Logo usage
 

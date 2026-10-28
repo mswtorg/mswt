@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { pageHeroIds, pageTranslationsFor } from "@/lib/admin/content";
+import { pageHeroIds, pageSectionOrder, pageTranslationsFor } from "@/lib/admin/content";
 import { contentPage, type ContentPageKey } from "@/lib/admin/content-pages";
 import { pageDraft } from "@/lib/admin/drafts";
 import { requireCapability } from "@/lib/admin/guard";
 import { LANGUAGES } from "@/lib/admin/languages";
 import { editorMedia } from "@/lib/admin/media";
-import { HOME_SECTION_FIELDS, HomeExtras } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HOME_SECTIONS, HomeExtras, normalizeSectionOrder } from "@/lib/content/home";
 import { blocksToMarkup } from "@/lib/content/markup";
 import { AdminForm } from "@/components/admin/AdminForm";
 import type { FormSectionSpec } from "@/components/admin/form-state";
@@ -37,12 +37,14 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const key = page.key as ContentPageKey;
   const q = await searchParams;
   const locale = pickLocale(q.lang);
-  const [rows, editor, heroIds, { library: englishLibrary }] = await Promise.all([
+  const [rows, editor, heroIds, { library: englishLibrary }, savedOrder] = await Promise.all([
     pageTranslationsFor(key),
     editorMedia(locale),
     pageHeroIds(key),
     editorMedia("en"),
+    key === "home" ? pageSectionOrder() : Promise.resolve([]),
   ]);
+  const sectionOrder = normalizeSectionOrder(savedOrder);
   const row = rows.find((r) => r.locale === locale);
   const draft = row ? null : pageDraft(key, locale);
   // Home: the built-in text (src/messages) is the starting point in each language.
@@ -129,6 +131,20 @@ export default async function EditPagePage({ params, searchParams }: Props) {
   const homeParts: FormSectionSpec[] =
     key === "home"
       ? [
+          {
+            title: "Section order",
+            description:
+              "The order of the sections under the headline and donate box, the same in every language. Sections with nothing to show are skipped.",
+            fields: [
+              {
+                name: "sectionOrder",
+                label: "Sections",
+                type: "order",
+                defaultValue: sectionOrder.join(","),
+                items: HOME_SECTIONS.map(([value, label]) => ({ value, label })),
+              },
+            ],
+          },
           {
             title: "Impact in numbers",
             description:

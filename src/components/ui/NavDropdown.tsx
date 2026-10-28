@@ -87,7 +87,9 @@ export function NavDropdown({
           aria-controls={id}
           aria-label={toggleLabel}
           onClick={() => setOpen((o) => (o === "click" ? false : "click"))}
-          className="grid size-(--size-target-comfortable) place-items-center rounded-sm text-fg-default hover:text-link-hover"
+          // Slim (the 24px minimum target wide, full height) so a link with a dropdown takes about
+          // the same room as one without and the gaps in the menu stay even.
+          className="grid h-(--size-target-comfortable) w-(--size-target-min) place-items-center rounded-sm text-fg-default hover:text-link-hover"
         >
           <svg
             viewBox="0 0 24 24"
