@@ -13,6 +13,7 @@ test.describe("admin content", () => {
 
   let page: Page;
   let photoId = "";
+  const pastedIds: string[] = [];
   const slug = `e2e-camp-${Date.now()}`;
   // The photo's file name becomes "<slug>.webp", unique per run.
 
@@ -25,6 +26,7 @@ test.describe("admin content", () => {
     const db = postgres(process.env.DATABASE_URL!);
     await db`delete from causes where slug = ${slug}`;
     if (photoId) await db`delete from media where id = ${photoId}`;
+    if (pastedIds.length) await db`delete from media where id = any(${pastedIds})`;
     await db`delete from page_translations where page_key = 'terms' and locale = 'hi'`;
     await db`delete from messages where subject = 'E2E volunteering'`;
     await db.end();
@@ -222,6 +224,77 @@ test.describe("admin content", () => {
     await page.goto(`/admin/content/media/${photoId}`);
     await expect(page.getByRole("link", { name: `Cause: ${slug}` })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete photo" })).toHaveCount(0);
+  });
+
+  test("a photo pasted into the text or dropped on the cover is uploaded and placed there", async () => {
+    const db = postgres(process.env.DATABASE_URL!);
+    const [cause] = await db<{ id: string }[]>`select id from causes where slug = ${slug}`;
+    await db.end();
+    const png = await sharp({ create: { width: 900, height: 600, channels: 3, background: "#a63" } })
+      .png()
+      .toBuffer();
+    // What the browser hands the page when a copied image is pasted or an image file dropped.
+    const send = (target: ReturnType<Page["locator"]>, kind: "paste" | "drop") =>
+      target.evaluate(
+        (el, [b64, k]) => {
+          const bytes = Uint8Array.from(atob(b64!), (c) => c.charCodeAt(0));
+          const data = new DataTransfer();
+          data.items.add(new File([bytes], "image.png", { type: "image/png" }));
+          const init = { bubbles: true, cancelable: true };
+          el.dispatchEvent(
+            k === "paste"
+              ? new ClipboardEvent("paste", { ...init, clipboardData: data })
+              : new DragEvent("drop", { ...init, dataTransfer: data }),
+          );
+        },
+        [png.toString("base64"), kind],
+      );
+    const describe = page.getByRole("dialog", { name: "Describe this photo" });
+
+    await page.goto(`/admin/content/causes/${cause!.id}`);
+    const body = page.getByRole("textbox", { name: "Text" });
+    await body.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Pasted below.");
+    await send(body, "paste");
+    await expect(describe).toBeVisible();
+    // Alt text is required, as for any library photo.
+    await describe.getByRole("button", { name: "Upload and insert" }).click();
+    await expect(describe.getByText("Describe the photo in a few words")).toBeVisible();
+    await expectAccessible(page);
+    await describe.getByLabel("Alt text (English)").fill("A photo pasted end to end");
+    await describe.getByRole("button", { name: "Upload and insert" }).click();
+    await expect(describe).toBeHidden();
+    const markup = page.locator("#cause-text-body");
+    await expect(markup).toHaveValue(/Pasted below\.\n\n!\[\]\(media:[0-9a-f-]{36}\)$/);
+    const textPhoto = (await markup.inputValue()).match(/media:([0-9a-f-]{36})\)$/)![1]!;
+    pastedIds.push(textPhoto);
+    await expect(body.getByRole("button", { name: "Remove photo" })).toHaveCount(2);
+    await page.getByLabel(/Reviewed by a person/).check();
+    await page.getByRole("button", { name: "Save text" }).click();
+    await expect(page.getByText(/Saved\. It shows in this language/)).toBeVisible();
+    const html = await (await page.request.get(`/en/causes/${slug}`)).text();
+    expect(html).toContain(`media/${textPhoto}/`);
+    expect(html).toContain('alt="A photo pasted end to end"');
+
+    // Dropped on the cover photo field: it replaces the cover.
+    await send(
+      page.getByRole("group", { name: "Cover photo" }).getByRole("button", { name: "Upload new" }),
+      "drop",
+    );
+    await describe.getByLabel("Alt text (English)").fill("A cover dropped end to end");
+    await describe.getByRole("button", { name: "Upload and insert" }).click();
+    await expect(describe).toBeHidden();
+    const cover = page.locator("#cause-coverImageId");
+    await expect(cover).not.toHaveValue(photoId);
+    pastedIds.push(await cover.inputValue());
+    await expect(page.getByRole("group", { name: "Cover photo" })).toContainText(
+      "A cover dropped end to end",
+    );
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.getByText("Cause settings saved.")).toBeVisible();
+    await expect(cover).toHaveValue(pastedIds[1]!);
   });
 
   test("messages: new ones are counted, opened, assigned and marked replied", async () => {

@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 import { useDragSort } from "./useDragSort";
 import { moveItem } from "@/lib/admin/order";
+import { imagesFrom } from "@/lib/media/shrink";
+import { cn } from "@/lib/cn";
+import { usePastePhoto } from "./PastePhotoDialog";
 import { PhotoPicker, type LibraryItem, type PhotoPickerHandle } from "./PhotoPicker";
 
 const small =
@@ -11,6 +14,7 @@ const small =
 /**
  * One photo (a cover) or an ordered list of photos (a slider/album) from the media library.
  * Posted as a hidden input of comma-separated ids; reorder by dragging the grip, or with ↑ ↓.
+ * A new photo can also be uploaded, pasted or dropped here: it goes into the library first.
  */
 export function PhotoListField({
   id,
@@ -34,12 +38,28 @@ export function PhotoListField({
   const [ids, setIds] = useState<string[]>(defaultValue.split(",").filter(Boolean));
   const hidden = useRef<HTMLInputElement>(null);
   const picker = useRef<PhotoPickerHandle>(null);
-  const byId = new Map(library.map((m) => [m.id, m]));
+  const [added, setAdded] = useState<LibraryItem[]>([]);
+  const byId = new Map([...added, ...library].map((m) => [m.id, m]));
+  const pasted = usePastePhoto(`${id}-paste`);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Tell the surrounding form something changed ("You have unsaved changes").
   const update = (next: string[]) => {
     setIds(next);
     queueMicrotask(() => hidden.current?.dispatchEvent(new Event("change", { bubbles: true })));
+  };
+  const room = single ? 1 : Math.max(0, max - ids.length);
+  // Uploaded one by one (alt text first): a single photo replaces the current one, others are added.
+  const addNew = (files: File[]) => {
+    if (!files.length || !room) return;
+    pasted.paste(files.slice(0, room), (item) => {
+      setAdded((a) => [item, ...a]);
+      setIds((list) =>
+        single ? [item.id] : list.includes(item.id) ? list : [...list, item.id].slice(0, max),
+      );
+      queueMicrotask(() => hidden.current?.dispatchEvent(new Event("change", { bubbles: true })));
+    });
   };
   const move = (i: number, d: number) => update(moveItem(ids, i, i + d));
   const listRef = useRef<HTMLOListElement>(null);
@@ -122,7 +142,7 @@ export function PhotoListField({
       <p aria-live="polite" className="sr-only">
         {dnd.status}
       </p>
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           className={small}
@@ -131,16 +151,66 @@ export function PhotoListField({
         >
           {single ? (ids.length ? "Change photo" : "Choose photo") : "Add photos"}
         </button>
+        <button
+          type="button"
+          disabled={!room}
+          aria-describedby={`${id}-paste-hint`}
+          className={cn(
+            small,
+            "border-dashed",
+            dragging && "border-2 border-solid border-action-primary-bg bg-bg-subtle",
+          )}
+          onClick={() => fileInput.current?.click()}
+          onPaste={(e) => {
+            const files = imagesFrom(e.clipboardData);
+            if (!files.length) return;
+            e.preventDefault();
+            addNew(files);
+          }}
+          onDragOver={(e) => {
+            if (!room || !Array.from(e.dataTransfer.types).includes("Files")) return;
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            setDragging(false);
+            const files = imagesFrom(e.dataTransfer);
+            if (!files.length) return;
+            e.preventDefault();
+            addNew(files);
+          }}
+        >
+          Upload new
+        </button>
+        <span id={`${id}-paste-hint`} className="text-xs text-fg-muted">
+          or paste (Ctrl/⌘+V on this button) or drop a photo on it
+        </span>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple={!single}
+          hidden
+          tabIndex={-1}
+          aria-hidden="true"
+          form={`${id}-no-form`}
+          onChange={(e) => {
+            addNew(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
       </div>
       <PhotoPicker
         ref={picker}
         id={`${id}-picker`}
-        library={library.filter((m) => !ids.includes(m.id) || single)}
+        library={[...added, ...library].filter((m) => !ids.includes(m.id) || single)}
         mode={single ? "single" : "multi"}
         max={Math.max(1, max - ids.length)}
         title={single ? "Choose a photo" : "Add photos"}
         onPick={(picked) => update(single ? picked.slice(0, 1) : [...ids, ...picked].slice(0, max))}
       />
+      {pasted.dialog}
     </div>
   );
 }

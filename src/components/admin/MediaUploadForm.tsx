@@ -1,32 +1,12 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
 import type { FormState } from "./form-state";
 import { compactControl } from "./ui";
-
-const MAX_SIDE = 2560;
-const KEEP_AS_IS = 3 * 1024 * 1024;
-
-/**
- * Photos straight from a phone are often 5–12 MB; Vercel accepts at most 4.5 MB per request. The
- * browser scales them to 2560 px (applying the camera's rotation) before upload; the server then
- * checks the file again and makes the web copies.
- */
-async function shrink(file: File): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
-  if (!bitmap) return file;
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  if (scale === 1 && file.size <= KEEP_AS_IS) return file;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
-  return blob ? new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
-}
+import { cn } from "@/lib/cn";
+import { imagesFrom, shrink } from "@/lib/media/shrink";
 
 export function MediaUploadForm({
   action,
@@ -40,15 +20,43 @@ export function MediaUploadForm({
   const errors = state.errors ?? {};
   const values = state.values ?? {};
   const busy = pending || preparing;
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [pasted, setPasted] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  // A photo pasted (Ctrl/⌘+V) or dropped anywhere on the form goes into the file field.
+  const take = (data: DataTransfer | null) => {
+    const [file] = imagesFrom(data);
+    if (!file || !fileInput.current) return false;
+    const list = new DataTransfer();
+    list.items.add(file.name ? file : new File([file], "pasted-photo.png", { type: file.type }));
+    fileInput.current.files = list.files;
+    setPasted(fileInput.current.files[0]?.name ?? null);
+    return true;
+  };
 
   useEffect(() => {
     if (state.status === "error") document.getElementById("upload-summary")?.focus();
   }, [state]);
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- listens for a pasted or dropped photo only
     <form
       noValidate
-      className="grid gap-5"
+      className={cn("grid gap-5 rounded-md", dragging && "outline-2 outline-offset-4 outline-focus-ring")}
+      onPaste={(e) => {
+        if (take(e.clipboardData)) e.preventDefault();
+      }}
+      onDragOver={(e) => {
+        if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        setDragging(false);
+        if (take(e.dataTransfer)) e.preventDefault();
+      }}
       onSubmit={async (e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
@@ -81,8 +89,10 @@ export function MediaUploadForm({
           </label>
           <input
             {...fieldControlProps("upload-file", { hint: "x", error: errors.file, required: true })}
+            ref={fileInput}
             name="file"
             type="file"
+            onChange={() => setPasted(null)}
             accept="image/jpeg,image/png,image/webp"
             className={compactControl}
           />
@@ -90,9 +100,15 @@ export function MediaUploadForm({
             <FieldError id="upload-file-error">{errors.file}</FieldError>
           ) : (
             <Hint id="upload-file-hint">
-              JPEG, PNG or WebP. Location and camera details are removed; web copies are made at 3 sizes.
+              JPEG, PNG or WebP. You can also paste a photo (Ctrl/⌘+V) or drop one on this form. Location and
+              camera details are removed; web copies are made at 3 sizes.
             </Hint>
           )}
+          {pasted ? (
+            <p role="status" className="m-0 text-sm text-fg-muted">
+              Pasted photo ready: {pasted}
+            </p>
+          ) : null}
         </div>
         <div className="grid content-start gap-1.5">
           <label htmlFor="upload-alt" className="text-sm font-medium text-fg-strong">
