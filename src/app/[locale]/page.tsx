@@ -8,7 +8,7 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { ngo, pageGraph, webPage, website } from "@/lib/seo/jsonld";
 import { getOrganizationSettings } from "@/lib/settings";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { getHomeContent, getHomeSectionOrder, type HomeSectionKey } from "@/lib/content/home";
+import { getHomeContent, getHomeSections, type HomeSectionKey } from "@/lib/content/home";
 import { getTestimonials } from "@/lib/content/testimonials";
 import { ContentBody } from "@/components/content/ContentBody";
 import { TestimonialList } from "@/components/content/Testimonials";
@@ -66,7 +66,7 @@ export default async function HomePage({ params }: Props) {
       getPaymentSettings(),
       donatableCauses(locale as Locale),
       getTestimonials(locale as Locale),
-      getHomeSectionOrder(),
+      getHomeSections(),
     ]);
   const quotes = testimonials.filter((q) => q.showOnHome).slice(0, 6);
   const tt = await getTranslations("Testimonials");

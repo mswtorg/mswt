@@ -74,13 +74,24 @@ export const SectionOrderInput = z
   .array(z.enum(HOME_SECTIONS.map(([k]) => k) as [HomeSectionKey, ...HomeSectionKey[]]))
   .refine((a) => new Set(a).size === a.length, "Each section can appear only once");
 
-/** The home sections in their saved order (the same in every language). */
-export const getHomeSectionOrder = unstable_cache(
+/** The sections switched off in the admin, as typed: known keys, each once. */
+export const HiddenSectionsInput = SectionOrderInput;
+
+/** The order with the switched-off sections left out. */
+export function visibleSections(saved: readonly string[], hidden: readonly string[]): HomeSectionKey[] {
+  return normalizeSectionOrder(saved).filter((k) => !hidden.includes(k));
+}
+
+/** The home sections to show, in their saved order (the same in every language). */
+export const getHomeSections = unstable_cache(
   async (): Promise<HomeSectionKey[]> => {
-    const [row] = await db.select({ order: pages.sectionOrder }).from(pages).where(eq(pages.key, "home"));
-    return normalizeSectionOrder(row?.order ?? []);
+    const [row] = await db
+      .select({ order: pages.sectionOrder, hidden: pages.hiddenSections })
+      .from(pages)
+      .where(eq(pages.key, "home"));
+    return visibleSections(row?.order ?? [], row?.hidden ?? []);
   },
-  ["home-section-order"],
+  ["home-sections"],
   { tags: [CONTENT_TAG], revalidate: CONTENT_SAFETY_REVALIDATE },
 );
 

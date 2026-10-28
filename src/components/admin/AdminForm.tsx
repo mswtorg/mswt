@@ -17,7 +17,19 @@ const primaryButton =
 const secondaryButton =
   "inline-flex min-h-10 items-center justify-center rounded-md border border-border-input bg-bg-canvas px-4 text-sm font-semibold text-fg-default hover:bg-bg-subtle";
 
-function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; error?: string; value: string }) {
+function Field({
+  f,
+  formId,
+  error,
+  value,
+  hiddenValue,
+}: {
+  f: FieldSpec;
+  formId: string;
+  error?: string;
+  value: string;
+  hiddenValue?: string;
+}) {
   const id = fieldId(formId, f.name);
   const full =
     f.span === "full" ||
@@ -65,6 +77,8 @@ function Field({ f, formId, error, value }: { f: FieldSpec; formId: string; erro
           label={f.label}
           defaultValue={value}
           items={f.items ?? []}
+          hiddenName={f.hiddenName}
+          hiddenDefault={hiddenValue}
           describedBy={error ? `${id}-error` : f.hint ? `${id}-hint` : undefined}
         />
       ) : f.type === "photo" || f.type === "photos" ? (
@@ -193,6 +207,7 @@ export function AdminForm({
             formId={id}
             error={errors[f.name]}
             value={values[f.name] ?? f.defaultValue ?? ""}
+            hiddenValue={f.hiddenName ? (values[f.hiddenName] ?? f.hiddenDefault ?? "") : undefined}
           />
         ))}
       </div>

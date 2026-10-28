@@ -6,7 +6,7 @@ import type { Locale } from "@/i18n/routing";
 import { actorFor } from "@/lib/admin/actor";
 import { ContentError, deletePageTranslation, PageInput, savePageTranslation } from "@/lib/admin/content";
 import type { ContentPageKey } from "@/lib/admin/content-pages";
-import { HOME_SECTION_FIELDS, SectionOrderInput } from "@/lib/content/home";
+import { HOME_SECTION_FIELDS, HiddenSectionsInput, SectionOrderInput } from "@/lib/content/home";
 import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import { CONTENT_TAG } from "@/lib/content/source";
 import { formValues, issuesToErrors, type FormState } from "@/components/admin/form-state";
@@ -48,8 +48,13 @@ export async function savePageAction(
     key === "home" && v.sectionOrder !== undefined
       ? SectionOrderInput.safeParse(v.sectionOrder.split(",").filter(Boolean))
       : null;
-  if (order && !order.success)
-    return { status: "error", errors: { sectionOrder: order.error.issues[0]!.message }, values: v };
+  const off =
+    key === "home" && v.sectionOrder !== undefined
+      ? HiddenSectionsInput.safeParse((v.hiddenSections ?? "").split(",").filter(Boolean))
+      : null;
+  const layoutError = (order && !order.success ? order : off && !off.success ? off : null)?.error;
+  if (layoutError)
+    return { status: "error", errors: { sectionOrder: layoutError.issues[0]!.message }, values: v };
   try {
     await savePageTranslation(
       key,
@@ -58,7 +63,7 @@ export async function savePageAction(
       extras,
       actor,
       parsePhotoIds(v.heroMediaIds, 8),
-      order?.data,
+      order?.success && off?.success ? { order: order.data, hidden: off.data } : undefined,
     );
   } catch (error) {
     if (error instanceof ContentError)
