@@ -56,7 +56,8 @@
     "transparency": "Transparency",
     "contact": "Contact",
     "donate": "Donate",
-    "donateSoon": "Donate (coming soon)"
+    "donateSoon": "Donate (coming soon)",
+    "testimonials": "Testimonials"
   },
   "Footer": {
     "about": "Munira Shoaib Welfare Trust is a registered charitable trust in India. Donations are eligible for tax deduction under Section 80G.",
@@ -349,5 +350,13 @@
     "title": "Donate now",
     "note": "80G receipt by email for Indian donors.",
     "submit": "Donate"
+  },
+  "Testimonials": {
+    "title": "Testimonials",
+    "description": "Stories from the families, donors and volunteers we work with.",
+    "empty": "No stories yet. Please check back soon.",
+    "readStory": "Read the full story",
+    "more": "More stories",
+    "all": "All testimonials"
   }
 }

@@ -76,6 +76,12 @@ export function builtInPages(m: Messages): Partial<Record<PageKeyDb, PageText>> 
     gallery: { title: m.Gallery.title, h1: m.Gallery.title, intro: m.Gallery.description, reviewed: true },
     events: { title: m.Events.title, h1: m.Events.title, intro: m.Events.description, reviewed: true },
     news: { title: m.News.title, h1: m.News.title, intro: m.News.description, reviewed: true },
+    testimonials: {
+      title: m.Testimonials.title,
+      h1: m.Testimonials.title,
+      intro: m.Testimonials.description,
+      reviewed: true,
+    },
   };
 }
 

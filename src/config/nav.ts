@@ -13,6 +13,8 @@ export const PAGES = {
   gallery: { path: "/gallery", ready: true },
   events: { path: "/events", ready: true },
   news: { path: "/news", ready: true },
+  // Linked from Home and About; add it to a menu in Admin → Menus (not in the built-in menus).
+  testimonials: { path: "/testimonials", ready: true },
   transparency: { path: "/transparency", ready: true },
   contact: { path: "/contact", ready: true },
   // Off in production until go-live (src/lib/flags.ts).

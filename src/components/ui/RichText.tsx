@@ -45,7 +45,7 @@ export function RichText({
   photoStrings?: PhotoStrings;
 }) {
   return (
-    <div className="grid max-w-prose gap-4">
+    <div className="grid gap-4">
       {blocks.map((b, i) => {
         switch (b.type) {
           case "heading":
@@ -115,7 +115,7 @@ export function RichText({
             }
             return (
               <figure key={i} className="m-0 grid gap-2">
-                <ResponsiveImage image={image} alt={image.alt} />
+                <ResponsiveImage image={image} alt={image.alt} sizes="(min-width: 1280px) 1216px, 100vw" />
                 {b.caption ? (
                   <figcaption className="text-sm text-fg-muted">
                     <InlineText text={b.caption} />

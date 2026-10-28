@@ -3,7 +3,7 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { crawlAllowed, isCanonicalHost, languageAlternates } from "@/lib/seo/site";
 import { pingIndexNow } from "@/lib/seo/indexnow";
 import { robotsFor } from "@/app/robots";
-import { contentEntries, sitemapEntries } from "@/app/sitemap";
+import { contentEntries, sitemapEntries, storyEntries } from "@/app/sitemap";
 import { ContentFileSchema } from "@/lib/content/format";
 
 beforeEach(() => vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://mswelfaretrust.org"));
@@ -160,5 +160,21 @@ describe("pingIndexNow", () => {
       sent: true,
       status: 0,
     });
+  });
+});
+
+describe("testimonial stories in the sitemap", () => {
+  it("lists each story only in the languages it is written in, with hreflang", () => {
+    const entries = storyEntries({ en: ["asha", "ravi"], hi: ["asha"] });
+    expect(entries.map((e) => e.url).sort()).toEqual(
+      [
+        "https://mswelfaretrust.org/en/testimonials/asha",
+        "https://mswelfaretrust.org/en/testimonials/ravi",
+        "https://mswelfaretrust.org/hi/testimonials/asha",
+      ].sort(),
+    );
+    const asha = entries.find((e) => e.url.endsWith("/en/testimonials/asha"))!;
+    expect(Object.keys(asha.alternates!.languages!)).toEqual(expect.arrayContaining(["en", "hi"]));
+    expect(Object.keys(asha.alternates!.languages!)).not.toContain("mr");
   });
 });

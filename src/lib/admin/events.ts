@@ -12,7 +12,7 @@ import { parsePhotoIds } from "./photo-ids";
 
 // Events and news (Step 8c-2): settings + text per language, like causes.
 
-const slug = z
+export const slug = z
   .string()
   .trim()
   .toLowerCase()

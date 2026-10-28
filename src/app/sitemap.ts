@@ -3,6 +3,7 @@ import { routing, type Locale } from "@/i18n/routing";
 import { PAGES, readyPages, type PageKey } from "@/config/nav";
 import { albumsFrom, causesFrom, eventsFrom, newsFrom } from "@/lib/content/queries";
 import { getSiteContent, type SiteContent } from "@/lib/content/source";
+import { getTestimonials } from "@/lib/content/testimonials";
 import { absoluteUrl, languageAlternates } from "@/lib/seo/site";
 
 const INDEXABLE: PageKey[] = Object.keys(PAGES) as PageKey[];
@@ -36,6 +37,22 @@ export function contentEntries(content: SiteContent, lastModified = new Date()):
   ];
 }
 
+/** Testimonial stories, each in the languages it is written in: slugs per locale → entries. */
+export function storyEntries(
+  slugsByLocale: Partial<Record<Locale, string[]>>,
+  lastModified = new Date(),
+): MetadataRoute.Sitemap {
+  const locales = new Map<string, Locale[]>();
+  for (const l of routing.locales)
+    for (const slug of slugsByLocale[l] ?? []) locales.set(slug, [...(locales.get(slug) ?? []), l]);
+  return [...locales].flatMap(([slug, ls]) => entry(`/testimonials/${slug}`, ls, lastModified));
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  return [...sitemapEntries(), ...contentEntries(await getSiteContent())];
+  const stories = Object.fromEntries(
+    await Promise.all(
+      routing.locales.map(async (l) => [l, (await getTestimonials(l)).map((t) => t.slug)] as const),
+    ),
+  );
+  return [...sitemapEntries(), ...contentEntries(await getSiteContent()), ...storyEntries(stories)];
 }

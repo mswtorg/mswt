@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { MenuInput, menuInputFor } from "@/lib/admin/menus";
 import { HomeExtras } from "@/lib/content/home";
 import { TestimonialInput, TestimonialTextInput } from "@/lib/admin/testimonials";
+import { storySummary } from "@/lib/content/testimonials";
 import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
@@ -130,28 +131,67 @@ describe("home page fields", () => {
 });
 
 describe("testimonial fields", () => {
-  it("settings: status, order and an optional photo", () => {
-    const ok = TestimonialInput.parse({ status: "published", sortOrder: "3", showOnHome: true, photoId: "" });
-    expect(ok).toEqual({ status: "published", sortOrder: 3, showOnHome: true, photoId: null });
-    expect(
-      TestimonialInput.safeParse({ status: "live", sortOrder: "0", showOnHome: true, photoId: "" }).success,
-    ).toBe(false);
-    expect(
-      TestimonialInput.safeParse({ status: "draft", sortOrder: "-1", showOnHome: true, photoId: "" }).success,
-    ).toBe(false);
-    expect(TestimonialInput.safeParse({ status: "draft", sortOrder: "0", photoId: "x" }).success).toBe(false);
+  const settings = {
+    slug: "asha-school",
+    storyDate: "2026-03-14",
+    sortOrder: "3",
+    showOnHome: true,
+    photoId: "",
+  };
+  it("settings: address, date, status, order and an optional photo", () => {
+    expect(TestimonialInput.parse({ ...settings, status: "published" })).toEqual({
+      slug: "asha-school",
+      storyDate: "2026-03-14",
+      status: "published",
+      sortOrder: 3,
+      showOnHome: true,
+      photoId: null,
+    });
+    const bad = (over: object) =>
+      TestimonialInput.safeParse({ ...settings, status: "draft", ...over }).success;
+    expect(bad({ status: "live" })).toBe(false);
+    expect(bad({ sortOrder: "-1" })).toBe(false);
+    expect(bad({ photoId: "x" })).toBe(false);
+    expect(bad({ slug: "Asha School" })).toBe(false);
+    expect(bad({ storyDate: "" })).toBe(false);
+    expect(bad({ storyDate: "14/03/2026" })).toBe(false);
   });
 
-  it("text: a quote and a name are required; role is optional", () => {
-    const ok = TestimonialTextInput.parse({ quote: " Thank you ", name: "Asha", role: "", reviewed: true });
-    expect(ok).toEqual({ quote: "Thank you", name: "Asha", role: null, reviewed: true });
-    expect(TestimonialTextInput.safeParse({ quote: "", name: "A", role: "", reviewed: false }).success).toBe(
-      false,
-    );
+  it("text: heading, story and name are required; summary and role are optional", () => {
+    const text = {
+      title: " Back to school ",
+      body: "She is in class 6 now.",
+      summary: "",
+      name: "Asha",
+      role: "",
+    };
+    expect(TestimonialTextInput.parse({ ...text, reviewed: true })).toEqual({
+      title: "Back to school",
+      body: "She is in class 6 now.",
+      summary: null,
+      name: "Asha",
+      role: null,
+      reviewed: true,
+    });
+    const bad = (over: object) =>
+      TestimonialTextInput.safeParse({ ...text, reviewed: false, ...over }).success;
+    expect(bad({ title: "" })).toBe(false);
+    expect(bad({ name: "" })).toBe(false);
+    expect(bad({ summary: "x".repeat(301) })).toBe(false);
+  });
+
+  it("cards use the summary, else the story's first paragraph without markup, shortened", () => {
+    expect(storySummary("Own summary", [{ type: "paragraph", text: "Story" }])).toBe("Own summary");
     expect(
-      TestimonialTextInput.safeParse({ quote: "x".repeat(601), name: "A", role: "", reviewed: false })
-        .success,
-    ).toBe(false);
+      storySummary(null, [
+        { type: "heading", level: 2, text: "Start" },
+        { type: "paragraph", text: "She is **back** at [school](/en/causes/education) now." },
+      ]),
+    ).toBe("She is back at school now.");
+    const long = storySummary(null, [{ type: "paragraph", text: "word ".repeat(80) }]);
+    expect(long.length).toBeLessThanOrEqual(201);
+    expect(long.endsWith("word…")).toBe(true);
+    expect(storySummary(null, [])).toBe("");
   });
 });
 

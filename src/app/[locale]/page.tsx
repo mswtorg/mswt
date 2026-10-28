@@ -64,6 +64,7 @@ export default async function HomePage({ params }: Props) {
       getTestimonials(locale as Locale),
     ]);
   const quotes = testimonials.filter((q) => q.showOnHome).slice(0, 6);
+  const tt = await getTranslations("Testimonials");
   // Settings → Payments → "Show the quick donate box on Home", and only once donations are live.
   const donateBox = PAGES.donate.ready && (payments?.homeDonateBox ?? true) && payments;
   const section = (k: keyof NonNullable<typeof home>["sections"]) => home?.sections[k] || t(k);
@@ -169,7 +170,7 @@ export default async function HomePage({ params }: Props) {
           <HeadingRule id="causes-h" className="text-3xl">
             {section("causesH")}
           </HeadingRule>
-          <p className="mt-3 max-w-2xl text-fg-muted">{section("causesLead")}</p>
+          <p className="mt-3 text-fg-muted">{section("causesLead")}</p>
           <ul className="m-0 mt-8 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3">
             {causes.slice(0, 3).map((c) => (
               <li key={c.slug} className="grid">
@@ -235,6 +236,9 @@ export default async function HomePage({ params }: Props) {
               {section("testimonialsH")}
             </HeadingRule>
             <TestimonialList items={quotes} locale={lang} />
+            <p className="mt-6">
+              <TextLink href={`/${locale}/testimonials`}>{tt("all")}</TextLink>
+            </p>
           </div>
         </section>
       ) : null}
