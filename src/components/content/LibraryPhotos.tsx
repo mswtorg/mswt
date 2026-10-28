@@ -8,7 +8,8 @@ import { db } from "@/lib/db/client";
 import { pages } from "@/lib/db/schema";
 import { cn } from "@/lib/cn";
 import { getPhotoStrings } from "./ContentBody";
-import { PhotoSlider, ratioClass, type PhotoRatio, type SlidePhoto } from "./PhotoSlider";
+import { ratioClass, type PhotoRatio } from "./photo-ratio";
+import { PhotoSlider, type SlidePhoto } from "./PhotoSlider";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 /**

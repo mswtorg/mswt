@@ -202,6 +202,22 @@ test.describe("admin content 2", () => {
     }).toPass({ timeout: 15_000 });
     await expect(slider.getByRole("img").first()).toHaveAttribute("loading", "eager");
   });
+
+  // One photo is a plain image rendered on the server (this path once broke the stage build).
+  test("a page with one header photo shows it as an image", async () => {
+    await page.goto("/admin/content/pages/about?lang=en");
+    await pick("Photos", [photos[0]!.name]);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText(/Saved/)).toBeVisible();
+    await expect(async () => {
+      const res = await page.goto("/en/about");
+      expect(res?.status()).toBe(200);
+      await expect(page.locator("main figure img").first()).toHaveAttribute("loading", "eager", {
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "Photos" })).toHaveCount(0);
+  });
 });
 
 test.describe("list pages from the admin", () => {
