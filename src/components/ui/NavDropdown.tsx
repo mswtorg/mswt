@@ -27,7 +27,7 @@ export function NavDropdown({
   /** Accessible name of the chevron button, e.g. "Causes: more links". */
   toggleLabel: string;
   items: NavDropdownLink[];
-  /** An optional last link in the panel ("View all causes"). */
+  /** An optional first link in the panel ("View all causes"), set apart from the rest. */
   all?: NavDropdownLink;
   linkClassName: string;
 }) {
@@ -109,13 +109,16 @@ export function NavDropdown({
         className={cn("lg:absolute lg:top-full lg:left-0 lg:z-10 lg:w-72 lg:pt-2", open ? "block" : "hidden")}
       >
         <ul className="m-0 list-none border-l-2 border-border-decorative py-0 pl-4 lg:rounded-md lg:border lg:bg-bg-canvas lg:p-2 lg:shadow-md">
-          {[...items, ...(all ? [all] : [])].map((item, i) => (
-            <li key={`${i}-${item.href}`}>
+          {[...(all ? [all] : []), ...items].map((item, i) => (
+            <li
+              key={`${i}-${item.href}`}
+              className={cn(all && i === 0 && "mb-1 border-b border-border-decorative pb-1")}
+            >
               <a
                 href={item.href}
                 className={cn(
                   "flex min-h-(--size-target-comfortable) items-center rounded-sm text-fg-default no-underline hover:text-link-hover hover:underline lg:px-3 lg:hover:bg-bg-subtle",
-                  i === items.length && "font-medium text-link-default",
+                  all && i === 0 && "font-medium text-link-default",
                 )}
               >
                 {item.label}

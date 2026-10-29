@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { actorFor } from "@/lib/admin/actor";
 import {
   deleteMedia,
+  libraryItem,
   MediaServiceError,
   MediaTextInput,
   updateMediaText,
@@ -13,6 +14,7 @@ import {
 import { CONTENT_TAG } from "@/lib/content/source";
 import { MediaError } from "@/lib/media/process";
 import { formValues, issuesToErrors, type FormState } from "@/components/admin/form-state";
+import type { LibraryItem } from "@/components/admin/PhotoPicker";
 
 const MEDIA_MESSAGES: Record<MediaError["code"] | MediaServiceError["code"], string> = {
   format: "Upload a JPEG, PNG or WebP photo.",
@@ -49,6 +51,42 @@ export async function uploadMediaAction(_prev: FormState, form: FormData): Promi
   }
   updateTag(CONTENT_TAG);
   redirect(`/admin/content/media/${id}?uploaded=1`);
+}
+
+export type PastedPhoto =
+  { ok: true; item: LibraryItem } | { ok: false; field: "file" | "alt"; message: string };
+
+/**
+ * A photo pasted or dropped into an admin field: added to the media library like any upload
+ * (English alt text required), then handed back so the field can place it at once.
+ */
+export async function uploadPastedPhotoAction(form: FormData): Promise<PastedPhoto> {
+  const { actor } = await actorFor("cms.write");
+  const v = formValues(form);
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0)
+    return { ok: false, field: "file", message: "Choose a photo to upload" };
+  if ((v.alt ?? "").trim().length < 3)
+    return { ok: false, field: "alt", message: "Describe the photo in a few words" };
+  try {
+    const { id } = await uploadMedia(
+      {
+        bytes: new Uint8Array(await file.arrayBuffer()),
+        filename: file.name,
+        altEn: v.alt!,
+        captionEn: v.caption,
+      },
+      actor,
+    );
+    updateTag(CONTENT_TAG);
+    const item = await libraryItem(id);
+    if (!item) return { ok: false, field: "file", message: MEDIA_MESSAGES.not_found };
+    return { ok: true, item };
+  } catch (error) {
+    if (error instanceof MediaError || error instanceof MediaServiceError)
+      return { ok: false, field: "file", message: MEDIA_MESSAGES[error.code] };
+    throw error;
+  }
 }
 
 export async function updateMediaTextAction(

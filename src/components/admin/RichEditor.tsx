@@ -6,8 +6,10 @@ import { cn } from "@/lib/cn";
 import { safeHref } from "@/lib/content/blocks";
 import { blocksToMarkup, markupToBlocks } from "@/lib/content/markup";
 import { blocksToDoc, docToBlocks } from "@/lib/content/rich";
+import { imagesFrom } from "@/lib/media/shrink";
 import type { ImageView } from "@/lib/media/view";
 import { BlocksEditor } from "./BlocksEditor";
+import { usePastePhoto } from "./PastePhotoDialog";
 import { PhotoPicker, type LibraryItem, type PhotoPickerHandle } from "./PhotoPicker";
 import { PhotoLookup, type PhotoInfo } from "./rich/cards";
 import { richExtensions } from "./rich/extensions";
@@ -74,6 +76,11 @@ export function RichEditor({
   const imagePicker = useRef<PhotoPickerHandle>(null);
   const sliderPicker = useRef<PhotoPickerHandle>(null);
   const helpId = useId();
+  // Photos pasted or dropped in (uploaded to the library on the way) join the library shown here.
+  const [added, setAdded] = useState<LibraryItem[]>([]);
+  const photos = [...added, ...library];
+  const pasted = usePastePhoto(`${id}-paste`);
+  const placePhotos = useRef<(files: File[], at: number) => void>(() => {});
 
   const editor = useEditor({
     extensions: richExtensions,
@@ -91,6 +98,23 @@ export function RichEditor({
         ...(lang ? { lang } : {}),
         spellcheck: "true",
         class: surface,
+      },
+      // A photo pasted or dropped (not text that comes with a picture of itself): ask for its alt
+      // text, upload it, and put it where it was pasted or dropped.
+      handlePaste: (view, event) => {
+        const files = imagesFrom(event.clipboardData);
+        if (!files.length) return false;
+        event.preventDefault();
+        placePhotos.current(files, view.state.selection.from);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = moved ? [] : imagesFrom(event.dataTransfer);
+        if (!files.length) return false;
+        event.preventDefault();
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        placePhotos.current(files, at ?? view.state.selection.from);
+        return true;
       },
     },
     onUpdate: ({ editor }) => {
@@ -128,6 +152,24 @@ export function RichEditor({
     return () => form.removeEventListener("reset", onReset);
   }, [editor]);
 
+  useEffect(() => {
+    placePhotos.current = (files, at) => {
+      let first = true;
+      pasted.paste(files, (item) => {
+        setAdded((a) => [item, ...a]);
+        if (!editor) return;
+        // The first goes where it was pasted; the next ones follow it.
+        const pos = first ? Math.min(at, editor.state.doc.content.size) : editor.state.selection.to;
+        first = false;
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(pos, { type: "photo", attrs: { mediaId: item.id, caption: "" } })
+          .run();
+      });
+    };
+  }, [editor, pasted]);
+
   const toVisual = () => {
     const { blocks, errors } = markupToBlocks(text);
     if (errors.length) {
@@ -141,7 +183,7 @@ export function RichEditor({
   };
 
   const lookup = (mediaId: string): PhotoInfo | undefined => {
-    const item = library.find((l) => l.id === mediaId);
+    const item = photos.find((l) => l.id === mediaId);
     const view = media[mediaId];
     if (!item && !view) return undefined;
     return {
@@ -209,8 +251,14 @@ export function RichEditor({
           error={error}
           describedBy={describedBy}
           media={media}
-          library={library}
+          library={photos}
           onTextChange={setText}
+          onPastePhotos={(files, place) =>
+            pasted.paste(files, (item) => {
+              setAdded((a) => [item, ...a]);
+              place(item);
+            })
+          }
         />
       ) : null}
       {/* Stays mounted in Text view (hidden) so the visual document isn't rebuilt on every switch. */}
@@ -405,12 +453,12 @@ export function RichEditor({
           </div>
           <p id={helpId} className="m-0 text-xs text-fg-muted">
             Type as you would in a document. Paste from Word or Google Docs keeps headings, bold, lists and
-            links. Photos come from the media library (Insert image).
+            links. Photos come from the media library (Insert image), or paste or drop one where it should go.
           </p>
           <PhotoPicker
             ref={imagePicker}
             id={`${id}-image`}
-            library={library}
+            library={photos}
             mode="single"
             title="Insert a photo"
             onPick={([photo]) =>
@@ -424,7 +472,7 @@ export function RichEditor({
           <PhotoPicker
             ref={sliderPicker}
             id={`${id}-slider`}
-            library={library}
+            library={photos}
             mode="multi"
             min={2}
             title="Insert a slider"
@@ -438,6 +486,7 @@ export function RichEditor({
           />
         </PhotoLookup.Provider>
       </div>
+      {pasted.dialog}
     </div>
   );
 }

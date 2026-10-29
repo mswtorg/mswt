@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { and, desc, eq } from "drizzle-orm";
@@ -5,7 +6,14 @@ import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CauseInput, createCause, deleteCause, saveCauseTranslation, updateCause } from "@/lib/admin/causes";
 import { ContentError, deletePageTranslation, savePageTranslation } from "@/lib/admin/content";
-import { deleteMedia, MediaServiceError, mediaUsage, updateMediaText, uploadMedia } from "@/lib/admin/media";
+import {
+  deleteMedia,
+  libraryItem,
+  MediaServiceError,
+  mediaUsage,
+  updateMediaText,
+  uploadMedia,
+} from "@/lib/admin/media";
 import { deleteMessage, markRead, updateMessage } from "@/lib/admin/messages";
 import { hashPassword } from "@/lib/auth/password";
 import { db } from "@/lib/db/client";
@@ -75,6 +83,14 @@ describe("media library", () => {
     expect(meta.exif).toBeUndefined();
     expect(meta.orientation).toBeUndefined();
     expect(row!.blur).toMatch(/^data:image\/webp;base64,/);
+  });
+
+  it("a pasted photo comes back as a library item the field can show at once", async () => {
+    const { id } = await upload("Children at the reading class");
+    const item = await libraryItem(id);
+    expect(item).toMatchObject({ id, label: "camp-photo.webp", alt: "Children at the reading class" });
+    expect(item!.thumb).toContain(id);
+    expect(await libraryItem(randomUUID())).toBeNull();
   });
 
   it("refuses files that aren't photos, and alt text that says nothing", async () => {
