@@ -38,7 +38,7 @@ Locales: `en` (default), `hi`, `mr`, `gu`. `{l}` = locale. Slugs are ASCII and *
 | 404 / 500 | localised `not-found` / `error` |
 
 ### Admin (English, `noindex, nofollow`, `Disallow` in robots, auth required)
-`/admin/login`, `/admin/2fa`, `/admin` (dashboard), `/admin/donations`, `/admin/donations/new` (offline entry), `/admin/donations/{id}`, `/admin/donors`, `/admin/donors/{id}`, `/admin/causes`, `/admin/content/pages`, `/admin/content/gallery`, `/admin/content/events`, `/admin/content/news`, `/admin/content/menus`, `/admin/messages`, `/admin/reports`, `/admin/settings/organization`, `/admin/settings/seo`, `/admin/settings/payments`, `/admin/settings/email`, `/admin/settings/appearance`, `/admin/users`, `/admin/audit-log`.
+`/admin/login`, `/admin/2fa`, `/admin` (dashboard), `/admin/donations`, `/admin/donations/new` (offline entry), `/admin/donations/{id}`, `/admin/donors`, `/admin/donors/{id}`, `/admin/causes`, `/admin/content/pages`, `/admin/content/gallery`, `/admin/content/events`, `/admin/content/news`, `/admin/content/menus`, `/admin/messages`, `/admin/reports`, `/admin/settings/organization`, `/admin/settings/seo`, `/admin/settings/payments`, `/admin/settings/email`, `/admin/settings/receipts`, `/admin/settings/appearance`, `/admin/users`, `/admin/audit-log`.
 
 ### API (`noindex` header, `Disallow`, never cached)
 `POST /api/donations/order`, `POST /api/webhooks/cashfree`, `GET /api/donations/{publicOrderId}/status`, `GET /api/receipts/{token}` (signed, expiring link to R2 PDF), `POST /api/contact`, `GET /api/cron/reconcile` (Vercel Cron, secret header), `POST /api/indexnow` (internal, on publish).

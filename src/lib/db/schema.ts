@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Blocks } from "@/lib/content/blocks";
+import type { EmailTemplates, PdfTemplate } from "@/lib/receipts/template";
 import {
   type AnyPgColumn,
   bigint,
@@ -244,6 +245,20 @@ export const appearanceSettings = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [check("appearance_settings_single_row", sql`${t.id} = 1`)],
+);
+
+/** Receipt templates (Admin → Settings → Receipts); null = the built-in template. */
+export const receiptSettings = pgTable(
+  "receipt_settings",
+  {
+    id: singleRowId(),
+    pdf80g: jsonb("pdf_80g").$type<PdfTemplate>(),
+    pdfAck: jsonb("pdf_ack").$type<PdfTemplate>(),
+    email: jsonb("email").$type<EmailTemplates>(),
+    updatedBy: updatedBy(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("receipt_settings_single_row", sql`${t.id} = 1`)],
 );
 
 // ── Content (Step 6a) ────────────────────────────────────────────────────────────────────────

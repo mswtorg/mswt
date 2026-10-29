@@ -1,8 +1,16 @@
 import { eq } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { recordAudit, type Actor } from "@/lib/audit";
-import { appearanceSettings, emailSettings, organizationSettings, seoSettings } from "@/lib/db/schema";
+import {
+  appearanceSettings,
+  emailSettings,
+  organizationSettings,
+  receiptSettings,
+  seoSettings,
+} from "@/lib/db/schema";
 import type { Tx } from "@/lib/db/tx";
+import type { ReceiptKind } from "@/lib/receipts/numbering";
+import { EmailTemplatesSchema, pdfTemplateSchema } from "@/lib/receipts/template";
 import { AppearanceInput, EmailInput, OrganizationInput, SeoInput } from "./schemas";
 
 // The only write path for these settings (admin pages, org:sync): validated, locked, audited.
@@ -40,3 +48,22 @@ export const updateEmail = (tx: Tx, input: unknown, actor: Actor) =>
 
 export const updateAppearance = (tx: Tx, input: unknown, actor: Actor) =>
   updateRow(tx, appearanceSettings, "appearance", AppearanceInput.parse(input), actor);
+
+const RECEIPT_COLUMN = { "80g": "pdf80g", acknowledgement: "pdfAck", email: "email" } as const;
+
+/** Saves one receipt template (Settings → Receipts); null puts back the built-in one. */
+export const updateReceiptTemplate = (tx: Tx, part: ReceiptKind | "email", input: unknown, actor: Actor) =>
+  updateRow(
+    tx,
+    receiptSettings,
+    "receipts",
+    {
+      [RECEIPT_COLUMN[part]]:
+        input === null
+          ? null
+          : part === "email"
+            ? EmailTemplatesSchema.parse(input)
+            : pdfTemplateSchema(part).parse(input),
+    },
+    actor,
+  );
