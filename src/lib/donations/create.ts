@@ -113,8 +113,8 @@ export async function createOnlineDonation(
       if (cause?.status !== "active") throw new DonationClosedError("Cause is not accepting donations");
       causeId = cause.id;
     }
-    // Kept whenever given: required above Settings → Payments → "PAN required above", 80G or not.
-    // The receipt is still 80G only when asked for (decideReceiptKind).
+    // Kept whenever given (above Settings → Payments → "PAN required above" the donation is always
+    // 80G, so it is always given there); the receipt kind is decided by decideReceiptKind.
     const pan = input.pan || null;
     const donor = await upsertDonor(tx, {
       fullName: input.name,

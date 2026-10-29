@@ -37,9 +37,9 @@ export type DonateStrings = {
   receiptLegend: string;
   wants80g: string;
   wants80gHint: string;
+  wants80gLockedHint: string;
   pan: string;
   panHint: string;
-  panRequiredHint: string;
   line1: string;
   line2: string;
   city: string;
@@ -137,6 +137,7 @@ export function DonateForm({
 
   const amount = paiseOf(custom, preset);
   const panNeeded = amount > config.panAbovePaise;
+  const with80g = wants80g || panNeeded;
   const fee = coverFee && config.feeBp > 0 ? Math.floor((amount * config.feeBp + 5000) / 10000) : 0;
   const total = amount + fee;
   const money = (p: number) => formatRupees(p, locale);
@@ -339,16 +340,20 @@ export function DonateForm({
           id="donate-wants80g"
           name="wants80g"
           label={t.wants80g}
-          hint={t.wants80gHint}
-          checked={wants80g}
+          hint={panNeeded ? fill(t.wants80gLockedHint, limits) : t.wants80gHint}
+          checked={with80g}
+          // Above the PAN amount it is always an 80G donation: ticked and locked (the server agrees).
+          disabled={panNeeded}
           onChange={(e) => setWants80g(e.target.checked)}
         />
-        {wants80g || panNeeded ? (
+        {/* A disabled box isn't sent with the form. */}
+        {panNeeded ? <input type="hidden" name="wants80g" value="on" /> : null}
+        {with80g ? (
           <div className="mt-2 grid gap-6">
             <FormField
               id="donate-pan"
               label={t.pan}
-              hint={wants80g ? t.panHint : `${fill(t.panRequiredHint, limits)} ${t.panHint}`}
+              hint={t.panHint}
               required
               requiredLabel={t.required}
               error={err("pan")}
@@ -366,10 +371,6 @@ export function DonateForm({
                 />
               )}
             </FormField>
-          </div>
-        ) : null}
-        {wants80g ? (
-          <div className="mt-2 grid gap-6">
             <FormField
               id="donate-line1"
               label={t.line1}
