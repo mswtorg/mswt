@@ -72,7 +72,7 @@ describe("register PAN column", () => {
     name: "Asha",
     email: "a@example.com",
     phone: "9876543210",
-    panEnc: encryptPii("ABCDE1234F"),
+    panEnc: encryptPii("ABCPE1234F"),
     panLast4: "234F",
     address: { line1: "1 Road", city: "Pune", state: "MH", pincode: "411001" },
     mode: "online",
@@ -87,7 +87,7 @@ describe("register PAN column", () => {
   } as unknown as Parameters<typeof donationTable>[0][number];
   it("is masked unless the PAN window is open", () => {
     expect(donationTable([row], false).rows[0]![6]).toBe("XXXXXX234F");
-    expect(donationTable([row], true).rows[0]![6]).toBe("ABCDE1234F");
+    expect(donationTable([row], true).rows[0]![6]).toBe("ABCPE1234F");
   });
   it("shows a placeholder for values encrypted with another key", () => {
     expect(decryptPiiForDisplay("v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")).toBe(

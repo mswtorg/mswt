@@ -1,7 +1,8 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/db/client";
-import { auditLog, donations, paymentEvents, receipts, users } from "@/lib/db/schema";
+import { decryptPii } from "@/lib/crypto/pii";
+import { auditLog, donations, donors, paymentEvents, receipts, users } from "@/lib/db/schema";
 import { confirmOnlinePayment, markRefunded } from "@/lib/donations/confirm";
 import { createOnlineDonation } from "@/lib/donations/create";
 import { recordOfflineDonation } from "@/lib/donations/offline";
@@ -60,7 +61,7 @@ describe("online donations against Postgres", () => {
   it("applies a webhook once; duplicates are no-ops", async () => {
     const o = await donate({
       wants80g: "on",
-      pan: "ABCDE1234F",
+      pan: "ABCPE1234F",
       line1: "1 Road",
       city: "Pune",
       state: "MH",
@@ -71,6 +72,12 @@ describe("online donations against Postgres", () => {
     expect(await deliver(hook)).toEqual({ status: 200, body: { ok: true, duplicate: true } });
     const d = await donationRow(o.publicOrderId);
     expect(d.status).toBe("paid");
+    // The PAN is kept encrypted on the donation and the donor, never in plain text
+    expect(decryptPii(d.panEncSnapshot!)).toBe("ABCPE1234F");
+    expect(d.panLast4Snapshot).toBe("234F");
+    const [donor] = await db.select().from(donors).where(eq(donors.id, d.donorId));
+    expect(decryptPii(donor!.panEnc!)).toBe("ABCPE1234F");
+    expect(donor!.panHmac).toBeTruthy();
     const rs = await db.select().from(receipts).where(eq(receipts.donationId, d.id));
     expect(rs).toHaveLength(1);
     expect(rs[0]!.kind).toBe("80g");
@@ -192,7 +199,7 @@ describe("offline donations", () => {
         name: "Cash Donor",
         email: "cash@example.com",
         phone: "9876543210",
-        pan: "ABCDE1234F",
+        pan: "ABCPE1234F",
         address: null,
         amountPaise: 500000,
         causeId: null,

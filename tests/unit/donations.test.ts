@@ -5,6 +5,7 @@ import {
   donateSchema,
   feeCoverPaise,
   normalisePhone,
+  PAN_RE,
   validateDonation,
 } from "@/lib/donations/schema";
 import { cronSecret } from "@/lib/donations/cron";
@@ -70,13 +71,28 @@ describe("donate form validation", () => {
     const ok = donateSchema(settings).parse({
       ...form,
       wants80g: "on",
-      pan: "abcde1234f",
+      pan: "abcpe1234f",
       line1: "12 MG Road",
       city: "Pune",
       state: "Maharashtra",
       pincode: "411001",
     });
-    expect(ok.pan).toBe("ABCDE1234F");
+    expect(ok.pan).toBe("ABCPE1234F");
+  });
+  it("checks the PAN holder type (4th letter)", () => {
+    for (const pan of ["ABCPE1234F", "AAAHA1234A", "AAACA1234A", "AAATA1234A", "AAAFA1234A"])
+      expect(PAN_RE.test(pan)).toBe(true);
+    for (const pan of ["ABCDE1234F", "AAAXA1234A", "AAAZA1234A"]) expect(PAN_RE.test(pan)).toBe(false);
+    const r = donateSchema(settings).safeParse({
+      ...form,
+      wants80g: "on",
+      pan: "ABCDE1234F",
+      line1: "12 MG Road",
+      city: "Pune",
+      state: "Maharashtra",
+      pincode: "411001",
+    });
+    expect(donateErrors(r.error!.issues)).toEqual({ pan: "pan" });
   });
   it("reports every problem in one go, including 80G fields", () => {
     const r = validateDonation(settings, { ...form, amount: "50", name: "", wants80g: "on" });
@@ -388,15 +404,15 @@ describe("fake gateway", () => {
 
 describe("PII and links (SEC-11)", () => {
   it("encrypts PAN with a fresh IV and decrypts it", () => {
-    const a = encryptPii("ABCDE1234F");
-    expect(a).not.toContain("ABCDE1234F");
-    expect(encryptPii("ABCDE1234F")).not.toBe(a);
-    expect(decryptPii(a)).toBe("ABCDE1234F");
-    expect(piiLookupHash("ABCDE1234F")).toBe(piiLookupHash("ABCDE1234F"));
+    const a = encryptPii("ABCPE1234F");
+    expect(a).not.toContain("ABCPE1234F");
+    expect(encryptPii("ABCPE1234F")).not.toBe(a);
+    expect(decryptPii(a)).toBe("ABCPE1234F");
+    expect(piiLookupHash("ABCPE1234F")).toBe(piiLookupHash("ABCPE1234F"));
     expect(maskPan("234F")).toBe("XXXXXX234F");
   });
   it("detects tampered ciphertext", () => {
-    const a = encryptPii("ABCDE1234F");
+    const a = encryptPii("ABCPE1234F");
     const raw = Buffer.from(a.slice(3), "base64");
     raw[raw.length - 1]! ^= 1;
     expect(() => decryptPii(`v1:${raw.toString("base64")}`)).toThrow();

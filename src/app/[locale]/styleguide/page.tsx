@@ -148,7 +148,7 @@ export default async function StyleguidePage({ params }: { params: Promise<{ loc
         <ErrorSummary
           title="There are 2 problems with your donation details"
           errors={[
-            { fieldId: "sg-pan", message: "Enter a PAN in the format ABCDE1234F" },
+            { fieldId: "sg-pan", message: "Enter a PAN in the format ABCPE1234F" },
             { fieldId: "sg-citizen", message: "Confirm that you are an Indian citizen to continue" },
           ]}
         />
@@ -168,8 +168,8 @@ export default async function StyleguidePage({ params }: { params: Promise<{ loc
           <FormField
             id="sg-pan"
             label="PAN"
-            hint="10 characters, for example ABCDE1234F"
-            error="Enter a PAN in the format ABCDE1234F"
+            hint="10 characters, for example ABCPE1234F"
+            error="Enter a PAN in the format ABCPE1234F"
             requiredLabel="required"
             required
           >
