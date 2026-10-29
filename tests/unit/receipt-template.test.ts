@@ -106,6 +106,26 @@ describe("receipt templates", () => {
     expect(fill("{x}  ·  {y}", { x: "site", y: "" })).toBe("site");
   });
 
+  it("keeps each block's number when empty rows before it are hidden", () => {
+    const resolved = resolveReceipt(DEFAULT_PDF["80g"], data);
+    const amount = resolved.find((b) => b.type === "row" && b.label === "Amount");
+    // Address (block 6) is hidden for this donor; Amount stays block 9 (index 8), as in the builder.
+    expect(resolved.some((b) => b.type === "row" && b.label === "Address")).toBe(false);
+    expect(amount?.n).toBe(
+      DEFAULT_PDF["80g"].blocks.findIndex((b) => b.type === "row" && b.label === "Amount"),
+    );
+  });
+
+  it("numbers blocks only on a sample preview", async () => {
+    const numbered = await renderReceiptPdf({ ...data, sample: true, numbers: true });
+    const plain = await renderReceiptPdf({ ...data, numbers: true });
+    const unnumbered = await renderReceiptPdf(data);
+    expect(numbered.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(numbered.length).toBeGreaterThan(plain.length);
+    // Without `sample`, the numbers option changes nothing (only the creation date differs).
+    expect(Math.abs(plain.length - unnumbered.length)).toBeLessThan(40);
+  });
+
   it("renders a PDF from an edited template", async () => {
     const pdf = await renderReceiptPdf(
       { ...data, sample: true },

@@ -69,7 +69,7 @@ const SAMPLE = {
 export async function previewReceiptTemplate(
   p: Part,
   json: string,
-  opts: { reason?: AckReason; locale?: Locale; emailKind?: ReceiptKind } = {},
+  opts: { reason?: AckReason; locale?: Locale; emailKind?: ReceiptKind; numbers?: boolean } = {},
 ): Promise<PreviewResult> {
   await requireCapability("settings.receipts");
   const kind = part(p);
@@ -102,6 +102,7 @@ export async function previewReceiptTemplate(
       panMasked: kind === "80g" || opts.reason !== "no_pan" ? SAMPLE.panMasked : null,
       ackReason: kind === "80g" ? null : (opts.reason ?? "not_requested"),
       sample: true,
+      numbers: opts.numbers === true,
       trust,
     },
     parsed.data,

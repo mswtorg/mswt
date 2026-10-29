@@ -34,6 +34,7 @@ const COLOR = {
   rule: tokens.color.brand.green.$value,
   line: tokens.color.neutral["200"].$value,
   void: tokens.color.error["700"].$value,
+  tag: tokens.color.white.$value,
 };
 
 export type TrustFacts = {
@@ -65,6 +66,8 @@ export type ReceiptData = {
   voided?: boolean;
   /** Admin preview: watermarked "SAMPLE". */
   sample?: boolean;
+  /** Admin preview only (with `sample`): each block's number in the left margin, as in the builder. */
+  numbers?: boolean;
   trust: TrustFacts;
 };
 
@@ -198,9 +201,13 @@ export function receiptValues(r: ReceiptData, template: PdfTemplate): Record<str
   };
 }
 
-export type ResolvedBlock =
+export type ResolvedBlock = (
   | Extract<PdfBlock, { type: "header" | "text" | "rule" | "space" | "footer" }>
-  | { type: "row"; label: string; value: string };
+  | { type: "row"; label: string; value: string }
+) & {
+  /** The block's position in the template (0-based), kept when blocks before it are dropped. */
+  n: number;
+};
 
 /** The template with every field filled in; rows and text left empty by their fields are dropped. */
 export function resolveReceipt(template: PdfTemplate, r: ReceiptData): ResolvedBlock[] {
@@ -209,21 +216,21 @@ export function resolveReceipt(template: PdfTemplate, r: ReceiptData): ResolvedB
     const keys = fieldsIn(text);
     return keys.length > 0 && keys.every((k) => !values[k]?.trim());
   };
-  return template.blocks.flatMap((b): ResolvedBlock[] => {
+  return template.blocks.flatMap((b, n): ResolvedBlock[] => {
     switch (b.type) {
       case "header":
-        return [{ ...b, title: fill(b.title, values), text: fill(b.text, values) }];
+        return [{ ...b, n, title: fill(b.title, values), text: fill(b.text, values) }];
       case "row":
         return b.hideIfEmpty && (empty(b.value) || !fill(b.value, values).trim())
           ? []
-          : [{ type: "row", label: fill(b.label, values), value: fill(b.value, values) }];
+          : [{ type: "row", n, label: fill(b.label, values), value: fill(b.value, values) }];
       case "text":
       case "footer": {
         const text = fill(b.text, values);
-        return text.trim() ? [{ ...b, text }] : [];
+        return text.trim() ? [{ ...b, n, text }] : [];
       }
       default:
-        return [b];
+        return [{ ...b, n }];
     }
   });
 }
@@ -264,10 +271,28 @@ export async function renderReceiptPdf(
 
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
-  const footers: string[] = [];
+  const footers: { text: string; n: number }[] = [];
   const labelWidth = 150;
+  // Admin preview: "3" in a small tag in the left margin, level with where block 3 starts.
+  // Blocks that start close together (a gap, then text) get stacked tags instead of overlapping ones.
+  let tagBottom = 0;
+  const tag = (n: number, at: number) => {
+    if (!r.sample || !r.numbers) return;
+    const y = Math.max(at, tagBottom + 1);
+    tagBottom = y + 12;
+    const { x: keepX, y: keepY } = doc;
+    const label = String(n + 1);
+    doc.save();
+    doc.roundedRect(left - 34, y, 22, 12, 3).fill(COLOR.muted);
+    doc.font("bold").fontSize(7).fillColor(COLOR.tag);
+    doc.text(label, left - 34, y + 2.2, { width: 22, align: "center", lineBreak: false });
+    doc.restore();
+    doc.x = keepX;
+    doc.y = keepY;
+  };
 
   for (const b of resolveReceipt(template, r)) {
+    if (b.type !== "footer") tag(b.n, doc.y);
     switch (b.type) {
       case "header": {
         // Logo left; title and small lines right.
@@ -329,16 +354,19 @@ export async function renderReceiptPdf(
         doc.fontSize(9.5).moveDown(SPACE[b.size]);
         break;
       case "footer":
-        footers.push(b.text);
+        footers.push({ text: b.text, n: b.n });
         break;
     }
   }
 
   // Footers sit at the bottom of the last page, the last one lowest.
   doc.fontSize(7.5).fillColor(COLOR.muted);
-  footers.reverse().forEach((text, i) => {
+  footers.reverse().forEach(({ text, n }, i) => {
+    tagBottom = 0; // footers are drawn bottom-up, 12pt apart: no stacking
     const y = doc.page.height - doc.page.margins.bottom - 24 - i * 12;
+    doc.fontSize(7.5).fillColor(COLOR.muted);
     mixed(doc, text, false, { width, align: "center", lineBreak: false }, 7.5, left, y);
+    tag(n, y - 1);
   });
 
   const mark = r.voided ? "VOID" : r.sample ? "SAMPLE" : null;

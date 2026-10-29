@@ -46,7 +46,8 @@ const cspReportOnly = [
   `font-src 'self'${vercelToolbar.font}`,
   // *.r2.cloudflarestorage.com: admins upload large PDFs straight to the media bucket (signed URL).
   `connect-src 'self' https://challenges.cloudflare.com https://*.cashfree.com https://*.r2.cloudflarestorage.com${vercelToolbar.connect}`,
-  `frame-src https://challenges.cloudflare.com https://*.cashfree.com${vercelToolbar.frame}`,
+  // blob:: the sample receipt PDF shown in Admin → Settings → Receipts.
+  `frame-src blob: https://challenges.cloudflare.com https://*.cashfree.com${vercelToolbar.frame}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self' https://*.cashfree.com",

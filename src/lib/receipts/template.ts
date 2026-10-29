@@ -91,12 +91,22 @@ export type EmailTemplate = { subject: string; body: string };
 export type EmailTemplates = Record<ReceiptKind, Partial<Record<"en" | "hi" | "mr" | "gu", EmailTemplate>>>;
 
 export const BLOCK_LABEL: Record<PdfBlock["type"], string> = {
-  header: "Header (logo and title)",
-  text: "Text",
-  row: "Detail row",
-  rule: "Line",
-  space: "Space",
-  footer: "Footer",
+  header: "Top of the receipt",
+  text: "Paragraph",
+  row: "Detail line",
+  rule: "Divider line",
+  space: "Gap",
+  footer: "Page footer",
+};
+
+/** What each block looks like on the receipt, for the builder. */
+export const BLOCK_HINT: Record<PdfBlock["type"], string> = {
+  header: "The logo, the big title, and small lines beside it (receipt number, date).",
+  text: "Any text: a heading, a sentence, the Trust’s name.",
+  row: "A label on the left and its value on the right, with a thin line under it. Example: Amount  ₹2,500.",
+  rule: "A line across the page.",
+  space: "Empty space between blocks.",
+  footer: "Small centred text at the very bottom of the page.",
 };
 
 const trustBlocks = (regs: string): PdfBlock[] => [
