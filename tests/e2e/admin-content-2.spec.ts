@@ -494,7 +494,7 @@ test.describe("admin content 2", () => {
     expect(box.width / box.height).toBeCloseTo(3, 1);
   });
 
-  test("a trustee photo shows on About; a trustee without one keeps the placeholder", async ({ browser }) => {
+  test("a trustee photo shows on About; a trustee without one shows initials", async ({ browser }) => {
     const db = postgres(process.env.DATABASE_URL!);
     const [before] = await db`select trustees from organization_settings where id = 1`;
     const admin = await newPage(browser);
@@ -520,7 +520,10 @@ test.describe("admin content 2", () => {
         await page.goto("/en/about");
         await expect(trustees.getByRole("img", { name: "Test photo 1" })).toBeVisible({ timeout: 1000 });
       }).toPass({ timeout: 15_000 });
-      await expect(trustees.getByText(`${run} President`).first()).toBeVisible();
+      await expect(trustees.getByRole("heading", { name: `${run} President` })).toBeVisible();
+      // No photo: a circle with the initials (first and last word), hidden from screen readers.
+      await expect(trustees.locator("[data-initials]")).toHaveText(["EP"]);
+      await expect(trustees.locator("[data-initials]")).toHaveAttribute("aria-hidden", "true");
       await expect(trustees.locator("img")).toHaveCount(1);
     } finally {
       await db`update organization_settings set trustees = ${db.json(before!.trustees)} where id = 1`;
