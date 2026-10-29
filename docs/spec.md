@@ -196,10 +196,10 @@ Accountant enters donor, amount, mode (cash/cheque/NEFT/UPI), instrument ref & d
 | Users & roles | ✓ | — | — |
 | Audit log | ✓ | own actions | own actions |
 
-All roles: TOTP 2FA mandatory, session timeout 30 min idle, login rate-limited and locked after 5 failures.
+All roles: TOTP 2FA mandatory, session timeout 2 hours idle (owner decision 2026-10-29; an admin form with unsaved changes renews the session every 5 minutes while the person is typing or clicking in it), login rate-limited and locked after 5 failures.
 
 ### Sign-in and accounts (as built in Step 8a, 2026-10-23)
-- **Flow:** email + password → a signed 5-minute challenge cookie (no session) → 6-digit TOTP (±1 step, never the same step twice) or a one-time recovery code → Auth.js JWT session (HttpOnly, SameSite=Lax, `__Secure-` on https), 30 minutes idle. First sign-in without 2FA goes to setup (QR + key, confirm a code, 10 recovery codes shown once). No admin page works without 2FA.
+- **Flow:** email + password → a signed 5-minute challenge cookie (no session) → 6-digit TOTP (±1 step, never the same step twice) or a one-time recovery code → Auth.js JWT session (HttpOnly, SameSite=Lax, `__Secure-` on https), 2 hours idle. First sign-in without 2FA goes to setup (QR + key, confirm a code, 10 recovery codes shown once). No admin page works without 2FA.
 - **Lockout:** 5 wrong passwords or codes lock the account for 15 minutes; an in-memory per-IP limit (30 per 15 min per instance) slows guessing. Unknown emails and wrong passwords get the same message and take the same time.
 - **Sessions end at once** when a user is deactivated, their role changes, their password is reset or their 2FA is reset (`users.session_version`, checked on every request).
 - **Accounts:** the first Super Admin is created with `npm run admin:create` (password typed in the terminal, hidden). Super Admins invite users and create password-reset links (one-time, 72 h, only a SHA-256 stored) and send them themselves until email works. Nobody can change their own role or deactivate themselves, and the last active Super Admin can't be removed. Passwords: 12+ characters, not common, not containing the name/email (NIST 800-63B; no composition rules); argon2id.
