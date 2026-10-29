@@ -6,11 +6,13 @@ import { recordAudit, type Actor } from "@/lib/audit";
 import { db } from "@/lib/db/client";
 import { reports, reportTranslations } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
+import { DOCUMENT_KINDS, isCertificate } from "@/lib/content/document-kinds";
 import { mediaSlug } from "@/lib/media/process";
 import { getMediaStorage } from "@/lib/storage/media";
 import { ContentError, notifySearchEngines } from "./content";
 
-// Transparency documents (Step 8c-2): annual reports and audited accounts as public PDFs.
+// Transparency documents (Step 8c-2): annual reports and audited accounts as public PDFs, and
+// the Trust's registration certificates (12A, 80G, trust registration, PAN), which have no year.
 
 export const MAX_PDF_BYTES = 25 * 1024 * 1024;
 const PDF_MAGIC = "%PDF-";
@@ -21,14 +23,24 @@ export class DocumentError extends Error {
   }
 }
 
-export const DocumentInput = z.object({
-  fy: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}$/, "Use the financial year format 2025-26"),
-  kind: z.enum(["annual_report", "audited_accounts", "other"]),
-  status: z.enum(["draft", "published"]),
-});
+export const DocumentInput = z
+  .object({
+    fy: z.string().trim().default(""),
+    kind: z.enum(DOCUMENT_KINDS),
+    status: z.enum(["draft", "published"]),
+  })
+  .superRefine((v, ctx) => {
+    if (isCertificate(v.kind)) {
+      if (v.fy)
+        ctx.addIssue({
+          code: "custom",
+          path: ["fy"],
+          message: "Certificates have no financial year: leave it empty",
+        });
+    } else if (!/^\d{4}-\d{2}$/.test(v.fy))
+      ctx.addIssue({ code: "custom", path: ["fy"], message: "Use the financial year format 2025-26" });
+  })
+  .transform((v) => ({ ...v, fy: isCertificate(v.kind) ? null : v.fy }));
 export type DocumentInput = z.infer<typeof DocumentInput>;
 
 export const DocumentTitleInput = z.object({

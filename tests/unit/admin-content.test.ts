@@ -17,6 +17,7 @@ import { blocksToMarkup, imageIds, markupToBlocks } from "@/lib/content/markup";
 import { mediaSlug } from "@/lib/media/process";
 import { imageView } from "@/lib/media/view";
 import { imagesFrom, pastedName } from "@/lib/media/shrink";
+import { DocumentInput } from "@/lib/admin/documents";
 
 const ID = "d6a00170-1303-480e-b894-efd1e93e4af2";
 
@@ -378,5 +379,30 @@ describe("pasted photos", () => {
     const at = new Date("2026-10-28T09:05:00Z");
     expect(pastedName(png, at)).toBe("pasted-202610280905.png");
     expect(pastedName(new File([], "camp-day.jpg", { type: "image/jpeg" }), at)).toBe("camp-day.jpg");
+  });
+});
+
+describe("documents: reports have a year, certificates don't", () => {
+  const parse = (v: Record<string, string>) => DocumentInput.safeParse({ status: "draft", ...v });
+  it("a certificate needs no financial year and is stored without one", () => {
+    const r = parse({ kind: "cert_80g", fy: "" });
+    expect(r.success && r.data.fy).toBe(null);
+  });
+  it("a certificate with a year is refused", () => {
+    const r = parse({ kind: "cert_12a", fy: "2025-26" });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]).toMatchObject({
+      path: ["fy"],
+      message: expect.stringContaining("no financial year"),
+    });
+  });
+  it("a report needs a year in the 2025-26 format", () => {
+    expect(parse({ kind: "annual_report", fy: "" }).success).toBe(false);
+    expect(parse({ kind: "audited_accounts", fy: "2025" }).success).toBe(false);
+    const ok = parse({ kind: "annual_report", fy: "2025-26" });
+    expect(ok.success && ok.data.fy).toBe("2025-26");
+  });
+  it("only known types", () => {
+    expect(parse({ kind: "cert_aadhaar", fy: "" }).success).toBe(false);
   });
 });

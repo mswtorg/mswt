@@ -19,6 +19,7 @@ import {
   startPdfUploadAction,
   uploadPdfAction,
 } from "../actions";
+import { isCertificate } from "@/lib/content/document-kinds";
 import { documentSections, KIND_LABEL } from "../fields";
 
 export const metadata: Metadata = { title: "Document" };
@@ -41,8 +42,13 @@ export default async function DocumentPage({ params, searchParams }: Props) {
     <>
       <PageHeader
         back={{ href: "/admin/content/documents", label: "Documents" }}
-        title={translations.find((t) => t.locale === "en")?.title ?? `${KIND_LABEL[doc.kind]} ${doc.fy}`}
-        description={`${KIND_LABEL[doc.kind]} · ${doc.fy} · ${doc.status === "published" ? "Published" : "Draft"}`}
+        title={
+          translations.find((t) => t.locale === "en")?.title ??
+          [KIND_LABEL[doc.kind], doc.fy].filter(Boolean).join(" ")
+        }
+        description={[KIND_LABEL[doc.kind], doc.fy, doc.status === "published" ? "Published" : "Draft"]
+          .filter(Boolean)
+          .join(" · ")}
       />
       {q.created ? (
         <Alert tone="success" live="polite">
@@ -56,7 +62,15 @@ export default async function DocumentPage({ params, searchParams }: Props) {
         sections={documentSections(doc)}
       />
       <Card>
-        <Section id="pdf" title="PDF" description="Uploading a new PDF replaces the current one.">
+        <Section
+          id="pdf"
+          title="PDF"
+          description={
+            isCertificate(doc.kind)
+              ? "Uploading a new PDF replaces the current one. Check the scan first: blank out home addresses, signatures or anything personal before publishing."
+              : "Uploading a new PDF replaces the current one."
+          }
+        >
           <div className="grid gap-4">
             <Details
               items={[

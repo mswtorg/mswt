@@ -4,6 +4,7 @@ import { routing } from "@/i18n/routing";
 import type { Blocks } from "./blocks";
 import type { ContentPageKey } from "./format";
 import { getSiteContent, isProduction, type SiteContent } from "./source";
+import type { DocumentKind } from "./document-kinds";
 
 type Tr = { reviewed: boolean; seoTitle?: string; seoDescription?: string };
 
@@ -87,8 +88,9 @@ export type AlbumView = Meta & {
 };
 
 export type ReportView = {
-  fy: string;
-  kind: "annual_report" | "audited_accounts" | "other";
+  /** Null for registration certificates. */
+  fy: string | null;
+  kind: DocumentKind;
   title: string;
   /** Key in the public media bucket and size, once the PDF is uploaded. */
   pdfKey: string | null;
@@ -246,7 +248,7 @@ export function reportsFrom(c: SiteContent, locale: Locale): ReportView[] {
           ]
         : [];
     })
-    .sort((a, b) => b.fy.localeCompare(a.fy));
+    .sort((a, b) => (b.fy ?? "").localeCompare(a.fy ?? ""));
 }
 
 export function pageFrom(c: SiteContent, key: ContentPageKey, locale: Locale): PageView | null {

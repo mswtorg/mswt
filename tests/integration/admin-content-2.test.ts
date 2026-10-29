@@ -161,6 +161,24 @@ describe("documents", () => {
   });
 });
 
+describe("certificates", () => {
+  it("a certificate is saved without a year and audited; the database keeps years and types apart", async () => {
+    const id = await saveDocument(
+      null,
+      DocumentInput.parse({ fy: "", kind: "cert_80g", status: "published" }),
+      actor(),
+    );
+    const [row] = await db.select().from(reports).where(eq(reports.id, id));
+    expect(row).toMatchObject({ kind: "cert_80g", fy: null, status: "published" });
+    const log = await db.select().from(auditLog).where(eq(auditLog.entityId, id));
+    expect(log.map((l) => l.action)).toContain("document.create");
+    // A certificate with a year, or a report without one, never reaches the table.
+    await expect(db.insert(reports).values({ kind: "cert_12a", fy: "2025-26" })).rejects.toThrow();
+    await expect(db.insert(reports).values({ kind: "annual_report", fy: null })).rejects.toThrow();
+    await deleteDocument(id, actor());
+  });
+});
+
 describe("menus", () => {
   it("falls back to the built-in menu, hides links that aren't live, keeps order", async () => {
     await saveMenu("footer_legal", [], actor());

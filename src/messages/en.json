@@ -153,11 +153,18 @@
     "kind": {
       "annual_report": "Annual report",
       "audited_accounts": "Audited accounts",
-      "other": "Document"
+      "other": "Document",
+      "cert_12a": "12A registration certificate",
+      "cert_80g": "80G registration certificate",
+      "cert_registration": "Trust registration",
+      "cert_pan": "PAN",
+      "cert_other": "Certificate"
     },
     "fileSoon": "PDF coming soon",
     "empty": "No reports are published yet.",
-    "download": "Download PDF ({size} MB)"
+    "download": "Download PDF ({size} MB)",
+    "certificatesH": "Registration certificates",
+    "certificatesLead": "The Trust's registration and tax certificates."
   },
   "About": {
     "title": "About us",
@@ -171,8 +178,9 @@
     "validity": "valid {from} to {to}",
     "fcra": "FCRA",
     "fcraValue": "Not registered. We accept donations from Indian citizens only.",
-    "reports": "Read our annual reports and audited accounts",
-    "testimonials": "What people say"
+    "reports": "Read our annual reports, audited accounts and certificates",
+    "testimonials": "What people say",
+    "viewCertificate": "View certificate"
   },
   "Contact": {
     "title": "Contact us",

@@ -181,6 +181,56 @@ test.describe("admin content 2", () => {
     expect(res.headers()["content-type"]).toBe("application/pdf");
   });
 
+  test("a registration certificate has no year and shows in its own section", async () => {
+    await page.goto("/admin/content/documents/new");
+    await page.locator("#document-kind").selectOption({ label: "Certificate: 80G registration" });
+    // A year is refused for certificates.
+    await page.locator("#document-fy").fill("2025-26");
+    await page.getByRole("button", { name: "Create document" }).click();
+    await expect(page.getByText(/Certificates have no financial year/).first()).toBeVisible();
+    await page.locator("#document-fy").fill("");
+    await page.locator("#document-status").selectOption("published");
+    await page.getByRole("button", { name: "Create document" }).click();
+    await expect(page.getByText(/Document created/)).toBeVisible();
+    await expect(page.getByText(/blank out home addresses, signatures/)).toBeVisible();
+    const pdf = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+    await page
+      .locator("#pdf-file")
+      .setInputFiles({ name: "80G.pdf", mimeType: "application/pdf", buffer: pdf });
+    await page.getByRole("button", { name: "Upload PDF" }).click();
+    await expect(page.getByText("PDF uploaded.")).toBeVisible();
+    await page.locator("#document-title-title").fill(`${run} 80G certificate`);
+    await page.getByLabel(/Reviewed by a person/).check();
+    await page.getByRole("button", { name: "Save", exact: true }).last().click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+    await page.goto("/admin/content/documents");
+    await expect(
+      page.getByRole("table", { name: "Registration certificates" }).getByText(`${run} 80G certificate`),
+    ).toBeVisible();
+    await expectAccessible(page);
+
+    // Transparency: "Registration certificates" comes before the yearly reports.
+    await expect(async () => {
+      await page.goto("/en/transparency");
+      await expect(page.locator("#certificates")).toContainText(`${run} 80G certificate`, { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+    const headings = await page.locator("main h2").allTextContents();
+    expect(headings[0]).toBe("Registration certificates");
+    const link = page
+      .locator("#certificates")
+      .getByRole("link", { name: new RegExp(`${run} 80G certificate`) });
+    expect((await page.request.get((await link.getAttribute("href"))!)).status()).toBe(200);
+    await expectAccessible(page);
+
+    // About links to the certificates (its cached copy refreshes within a load or two).
+    await expect(async () => {
+      await page.goto("/en/about");
+      await expect(
+        page.getByRole("link", { name: "Read our annual reports, audited accounts and certificates" }),
+      ).toHaveAttribute("href", "/en/transparency#certificates", { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+  });
+
   test("the header menu can be renamed per language and reordered", async () => {
     await page.goto("/admin/content/menus?menu=header");
     await expectAccessible(page);
