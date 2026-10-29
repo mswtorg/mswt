@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/content/PageHeader";
 import { PageHero } from "@/components/content/LibraryPhotos";
 import { ContentBody } from "@/components/content/ContentBody";
 import { TeamPhoto } from "@/components/content/TeamPhoto";
+import { FlipCard } from "@/components/content/FlipCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export const revalidate = 3600;
@@ -74,19 +75,38 @@ export default async function TeamPage({ params }: Props) {
       {team.length === 0 ? (
         <EmptyState>{t("empty")}</EmptyState>
       ) : (
-        <ul className="m-0 grid list-none gap-x-8 gap-y-12 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {team.map((m) => (
-            <li key={m.id} className="grid content-start justify-items-center gap-2 text-center">
-              <TeamPhoto mediaId={m.photoId} name={m.name} locale={locale} />
-              <h2 className="mt-2 text-xl">{m.name}</h2>
-              <p className="text-sm text-fg-muted">{m.designation}</p>
-              {m.bio.length ? (
-                <div className="mt-2 w-full text-left">
-                  <ContentBody blocks={m.bio} locale={locale} />
-                </div>
-              ) : null}
-            </li>
-          ))}
+        <ul className="m-0 grid list-none gap-8 p-0 sm:grid-cols-2 lg:grid-cols-3">
+          {team.map((m) => {
+            const front = (
+              <>
+                <TeamPhoto mediaId={m.photoId} name={m.name} locale={locale} />
+                <h2 className="mt-2 text-xl">{m.name}</h2>
+                <p className="text-sm text-fg-muted">{m.designation}</p>
+              </>
+            );
+            return (
+              <li key={m.id} className="grid">
+                {m.bio.length ? (
+                  // Hover (or the button) turns the card over to the person's details.
+                  <FlipCard
+                    front={front}
+                    back={
+                      <>
+                        <p className="text-lg font-semibold text-fg-strong">{m.name}</p>
+                        <ContentBody blocks={m.bio} locale={locale} />
+                      </>
+                    }
+                    moreLabel={t("more", { name: m.name })}
+                    backLabel={t("back")}
+                  />
+                ) : (
+                  <div className="grid content-start justify-items-center gap-2 rounded-xl border border-border-decorative bg-bg-canvas p-6 text-center">
+                    {front}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

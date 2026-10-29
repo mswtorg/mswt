@@ -48,7 +48,7 @@ export default async function PaymentSettingsPage() {
               label: "PAN required above (₹)",
               required: true,
               inputMode: "numeric",
-              hint: "Every online donation above this amount must give a PAN, whether or not the donor asks for an 80G receipt.",
+              hint: "Every online donation above this amount is an 80G donation: the 80G box is ticked and locked, and PAN and postal address are required.",
               defaultValue: rupees(s?.panRequiredAbovePaise ?? 100000),
             },
           ],

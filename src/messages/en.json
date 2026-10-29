@@ -247,9 +247,9 @@
     "receiptLegend": "80G receipt",
     "wants80g": "I want an 80G receipt for income-tax deduction",
     "wants80gHint": "Needs your PAN and postal address.",
+    "wants80gLockedHint": "Donations above {pan} always get an 80G receipt, so your PAN and postal address are needed.",
     "pan": "PAN",
     "panHint": "10 characters, for example ABCPE1234F",
-    "panRequiredHint": "Needed for donations above {pan}.",
     "line1": "Address line 1",
     "line2": "Address line 2",
     "city": "City",
@@ -379,6 +379,8 @@
   "Team": {
     "title": "Board members",
     "description": "The trustees and people who run Munira Shoaib Welfare Trust.",
-    "empty": "No board members to show yet."
+    "empty": "No board members to show yet.",
+    "more": "About {name}",
+    "back": "Back"
   }
 }

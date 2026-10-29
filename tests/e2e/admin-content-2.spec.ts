@@ -550,6 +550,21 @@ test.describe("admin content 2", () => {
     await expect(president.locator("[data-initials]")).toHaveText("EP");
     await expect(president.locator("[data-initials]")).toHaveAttribute("aria-hidden", "true");
     await expectAccessible(visitor);
+    // The card turns over to the details on hover, and with its button (keyboard, touch).
+    const card = president.locator("[data-flipped]");
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await president.hover();
+    await expect(card).toHaveAttribute("data-flipped", "true");
+    await visitor.mouse.move(0, 0);
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await president.getByRole("button", { name: `About ${run} President` }).click();
+    await expect(card).toHaveAttribute("data-flipped", "true");
+    const back = president.getByRole("button", { name: "Back" });
+    await expect(back).toBeFocused();
+    await expectAccessible(visitor);
+    await back.click();
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await expect(president.getByRole("button", { name: `About ${run} President` })).toBeFocused();
     // Not written in Hindi yet: not shown there (no English fallback).
     await visitor.goto("/hi/team");
     await expect(visitor.getByText(`${run} President`)).toHaveCount(0);

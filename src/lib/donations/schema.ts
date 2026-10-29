@@ -28,56 +28,64 @@ const checkbox = z.preprocess((v) => v === "on" || v === "true" || v === true, z
 type Limits = Pick<PaymentSettings, "minAmountPaise" | "maxAmountPaise" | "panRequiredAbovePaise">;
 
 export function donateSchema(settings: Limits) {
-  return z
-    .object({
-      amount: z.string().transform((v, ctx) => {
-        let paise: number;
-        try {
-          paise = rupeesToPaise(v);
-        } catch {
-          ctx.addIssue({ code: "custom", message: "amount" });
-          return z.NEVER;
-        }
-        if (paise < settings.minAmountPaise) ctx.addIssue({ code: "custom", message: "amountMin" });
-        if (settings.maxAmountPaise !== null && paise > settings.maxAmountPaise)
-          ctx.addIssue({ code: "custom", message: "amountMax" });
-        return paise;
-      }),
-      // Cause slug ("" = general fund); resolved to an active cause in the database on the server.
-      cause: z
-        .union([
-          z.literal(""),
-          z
-            .string()
-            .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
-            .max(120),
-        ])
-        .transform((v) => v || null),
-      name: text(120),
-      email: z.email().max(200),
-      phone: z
-        .string()
-        .transform((v, ctx) => normalisePhone(v) ?? (ctx.addIssue({ code: "custom" }), z.NEVER)),
-      wants80g: checkbox,
-      pan: z.string().trim().toUpperCase().optional(),
-      line1: z.string().trim().max(200).optional(),
-      line2: z.string().trim().max(200).optional(),
-      city: z.string().trim().max(80).optional(),
-      state: z.string().trim().max(80).optional(),
-      pincode: z.string().trim().optional(),
-      anonymous: checkbox,
-      coverFee: checkbox,
-      citizen: checkbox.refine((v) => v === true),
-    })
-    .superRefine((d, ctx) => {
-      for (const field of missing80gFields(d)) ctx.addIssue({ code: "custom", path: [field] });
-      if (panMissing(d.amount, d.pan, settings))
-        ctx.addIssue({ code: "custom", path: ["pan"], message: "panRequired" });
-    });
+  return (
+    z
+      .object({
+        amount: z.string().transform((v, ctx) => {
+          let paise: number;
+          try {
+            paise = rupeesToPaise(v);
+          } catch {
+            ctx.addIssue({ code: "custom", message: "amount" });
+            return z.NEVER;
+          }
+          if (paise < settings.minAmountPaise) ctx.addIssue({ code: "custom", message: "amountMin" });
+          if (settings.maxAmountPaise !== null && paise > settings.maxAmountPaise)
+            ctx.addIssue({ code: "custom", message: "amountMax" });
+          return paise;
+        }),
+        // Cause slug ("" = general fund); resolved to an active cause in the database on the server.
+        cause: z
+          .union([
+            z.literal(""),
+            z
+              .string()
+              .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+              .max(120),
+          ])
+          .transform((v) => v || null),
+        name: text(120),
+        email: z.email().max(200),
+        phone: z
+          .string()
+          .transform((v, ctx) => normalisePhone(v) ?? (ctx.addIssue({ code: "custom" }), z.NEVER)),
+        wants80g: checkbox,
+        pan: z.string().trim().toUpperCase().optional(),
+        line1: z.string().trim().max(200).optional(),
+        line2: z.string().trim().max(200).optional(),
+        city: z.string().trim().max(80).optional(),
+        state: z.string().trim().max(80).optional(),
+        pincode: z.string().trim().optional(),
+        anonymous: checkbox,
+        coverFee: checkbox,
+        citizen: checkbox.refine((v) => v === true),
+      })
+      // Above the PAN amount the donation is always 80G: the form shows the box ticked and locked,
+      // and the server decides the same whatever was sent.
+      .transform((d) => ({ ...d, wants80g: d.wants80g || panRequired(d.amount, settings) }))
+      .superRefine((d, ctx) => {
+        if (panMissing(d.amount, d.pan, settings))
+          ctx.addIssue({ code: "custom", path: ["pan"], message: "panRequired" });
+        for (const field of missing80gFields(d)) ctx.addIssue({ code: "custom", path: [field] });
+      })
+  );
 }
 export type DonateInput = z.output<ReturnType<typeof donateSchema>>;
 
-/** Above Settings → Payments → "PAN required above", every donation needs a valid PAN (80G or not). */
+/**
+ * Above Settings → Payments → "PAN required above", a donation needs a valid PAN and is always an
+ * 80G donation (so it also needs the 80G address).
+ */
 export function panRequired(amountPaise: number, settings: Pick<PaymentSettings, "panRequiredAbovePaise">) {
   return amountPaise > settings.panRequiredAbovePaise;
 }
@@ -119,11 +127,12 @@ export function validateDonation(
   const parsed = donateSchema(settings).safeParse(raw);
   if (parsed.success) return { ok: true, data: parsed.data };
   const errors = donateErrors(parsed.error.issues);
-  for (const field of missing80gFields(raw)) errors[field] ??= field;
   let amount: number | null = null;
   try {
     amount = rupeesToPaise(raw.amount ?? "");
   } catch {}
+  const forced80g = amount !== null && panRequired(amount, settings);
+  for (const field of missing80gFields(forced80g ? { ...raw, wants80g: "on" } : raw)) errors[field] ??= field;
   if (amount !== null && panMissing(amount, raw.pan, settings)) errors.pan = "panRequired";
   return { ok: false, errors };
 }

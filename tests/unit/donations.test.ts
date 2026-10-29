@@ -72,25 +72,40 @@ describe("donate form validation", () => {
     expect(ok.pan).toBe("ABCPE1234F");
     expect(ok.city).toBeUndefined();
   });
-  it("requires a PAN above the admin's amount, with or without 80G", () => {
-    // ₹1,000 is the limit itself: no PAN needed.
-    expect(donateSchema(settings).safeParse({ ...form, amount: "1000" }).success).toBe(true);
+  it("above the admin's PAN amount, always 80G: PAN and address required, whatever the box says", () => {
+    // ₹1,000 is the limit itself: no PAN needed, no 80G unless asked for.
+    const at = donateSchema(settings).parse({ ...form, amount: "1000" });
+    expect(at.wants80g).toBe(false);
     const r = donateSchema(settings).safeParse({ ...form, amount: "1000.01" });
-    expect(donateErrors(r.error!.issues)).toEqual({ pan: "panRequired" });
-    const bad = donateSchema(settings).safeParse({ ...form, amount: "5000", pan: "ABCDE1234F" });
+    expect(donateErrors(r.error!.issues)).toEqual({ pan: "panRequired", line1: "line1", pincode: "pincode" });
+    const bad = donateSchema(settings).safeParse({
+      ...form,
+      amount: "5000",
+      pan: "ABCDE1234F",
+      line1: "12 MG Road",
+      pincode: "411001",
+    });
     expect(donateErrors(bad.error!.issues)).toEqual({ pan: "panRequired" });
-    const ok = donateSchema(settings).parse({ ...form, amount: "5000", pan: "abcpe1234f" });
-    expect(ok.pan).toBe("ABCPE1234F");
-    expect(ok.wants80g).toBe(false);
+    // The box was not sent (a client can't opt out): still an 80G donation.
+    const ok = donateSchema(settings).parse({
+      ...form,
+      amount: "5000",
+      wants80g: "",
+      pan: "abcpe1234f",
+      line1: "12 MG Road",
+      pincode: "411001",
+    });
+    expect(ok).toMatchObject({ pan: "ABCPE1234F", wants80g: true });
     // A higher limit set in Settings → Payments.
     expect(
-      donateSchema({ ...settings, panRequiredAbovePaise: 1_000_000 }).safeParse({ ...form, amount: "5000" })
-        .success,
-    ).toBe(true);
+      donateSchema({ ...settings, panRequiredAbovePaise: 1_000_000 }).parse({ ...form, amount: "5000" })
+        .wants80g,
+    ).toBe(false);
     // Also reported with other problems at once.
     const all = validateDonation(settings, { ...form, amount: "5000", name: "" });
     expect(all.ok).toBe(false);
-    if (!all.ok) expect(all.errors).toEqual({ name: "name", pan: "panRequired" });
+    if (!all.ok)
+      expect(all.errors).toEqual({ name: "name", pan: "panRequired", line1: "line1", pincode: "pincode" });
   });
   it("checks the PAN holder type (4th letter)", () => {
     for (const pan of ["ABCPE1234F", "AAAHA1234A", "AAACA1234A", "AAATA1234A", "AAAFA1234A"])
