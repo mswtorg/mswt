@@ -70,6 +70,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
         icon: "testimonials",
         anyOf: ["cms.write"],
       },
+      { key: "team", label: "Team", href: "/admin/content/team", icon: "team", anyOf: ["cms.write"] },
       {
         key: "gallery",
         label: "Gallery",

@@ -14,4 +14,4 @@ export const DONATE_FIELDS = [
 ] as const;
 export type DonateField = (typeof DONATE_FIELDS)[number];
 export type DonateErrorCode =
-  DonateField | "amountMin" | "amountMax" | "captcha" | "rate" | "server" | "closed";
+  DonateField | "amountMin" | "amountMax" | "panRequired" | "captcha" | "rate" | "server" | "closed";

@@ -45,12 +45,40 @@ test("the donate form reports missing details next to each field", async ({ page
   await page.getByRole("button", { name: /Donate ₹/ }).click();
   const summary = page.getByRole("alert").filter({ hasText: "Please fix the following" });
   await expect(summary).toBeFocused();
-  for (const id of ["name", "email", "phone", "pan", "line1", "city", "state", "pincode", "citizen"])
+  for (const id of ["name", "email", "phone", "pan", "line1", "pincode", "citizen"])
     await expect(page.locator(`#donate-${id}`)).toHaveAttribute("aria-invalid", "true");
+  // City and state are optional, even for an 80G receipt.
+  for (const id of ["city", "state"])
+    await expect(page.locator(`#donate-${id}`)).not.toHaveAttribute("aria-invalid", "true");
   // An error must not untick the 80G box (React resets a form after its action runs).
   await expect(page.locator("#donate-wants80g")).toBeChecked();
   await summary.getByRole("link", { name: "Enter your full name." }).click();
   await expect(page.locator("#donate-name")).toBeFocused();
+});
+
+test("above the PAN amount (₹1,000 by default) a PAN is asked for, even without 80G", async ({ page }) => {
+  await page.goto("/en/donate");
+  const custom = page.locator("#donate-custom");
+  const pan = page.locator("#donate-pan");
+  await custom.fill("1000");
+  await expect(pan).toHaveCount(0);
+  await custom.fill("5000");
+  await expect(pan).toBeVisible();
+  await expect(page.getByText("Needed for donations above ₹1,000.")).toBeVisible();
+  await expect(page.locator("#donate-wants80g")).not.toBeChecked();
+  await expect(page.locator("#donate-line1")).toHaveCount(0);
+  await page.getByRole("button", { name: /Donate ₹/ }).click();
+  await expect(pan).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#donate-pan-error")).toContainText(
+    "Enter your PAN: it is needed for donations above ₹1,000.",
+  );
+  await pan.fill("abcpe1234f");
+  await pan.press("Tab");
+  await expect(pan).not.toHaveAttribute("aria-invalid", "true");
+  await expectAccessible(page);
+  // Back under the limit: no PAN field.
+  await custom.fill("500");
+  await expect(pan).toHaveCount(0);
 });
 
 test("fields are checked as they are left, and the message clears once fixed", async ({ page }) => {

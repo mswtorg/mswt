@@ -44,6 +44,7 @@ test.describe("admin content 2", () => {
     await db`delete from reports where id in (select report_id from report_translations where title like ${run + "%"})`;
     await db`delete from menu_items`;
     await db`delete from testimonials where id in (select testimonial_id from testimonial_translations where name like ${run + "%"})`;
+    await db`delete from team_members where id in (select member_id from team_member_translations where name like ${run + "%"})`;
     await db`delete from page_translations where page_key = 'home'`;
     await db`update pages set hero_media_ids = '{}' where key = 'home'`;
     await db.end();
@@ -494,42 +495,73 @@ test.describe("admin content 2", () => {
     expect(box.width / box.height).toBeCloseTo(3, 1);
   });
 
-  test("a trustee photo shows on About; a trustee without one shows initials", async ({ browser }) => {
-    const db = postgres(process.env.DATABASE_URL!);
-    const [before] = await db`select trustees from organization_settings where id = 1`;
-    const admin = await newPage(browser);
-    try {
-      await signInFirstTime(admin, await createUser("super_admin"));
-      await admin.goto("/admin/settings/organization");
-      await admin.getByLabel("Trustees").fill(`${run} Trustee | Trustee\n${run} President | President`);
-      await admin.getByRole("button", { name: "Save" }).click();
-      await expect(admin.getByRole("status")).toContainText("Saved");
-      await admin.reload();
-      const group = admin.getByRole("group", { name: `${run} Trustee (Trustee)` });
-      await group.getByRole("button", { name: /Choose photo/ }).click();
-      await admin
-        .getByRole("dialog")
-        .getByRole("button", { name: new RegExp(photos[0]!.name) })
-        .click();
-      await expect(admin.getByRole("dialog")).toBeHidden();
-      await admin.getByRole("button", { name: "Save" }).click();
-      await expect(admin.getByRole("status")).toContainText("Saved");
-
-      const trustees = page.locator("section", { has: page.locator("#trustees-h") });
-      await expect(async () => {
-        await page.goto("/en/about");
-        await expect(trustees.getByRole("img", { name: "Test photo 1" })).toBeVisible({ timeout: 1000 });
-      }).toPass({ timeout: 15_000 });
-      await expect(trustees.getByRole("heading", { name: `${run} President` })).toBeVisible();
-      // No photo: a circle with the initials (first and last word), hidden from screen readers.
-      await expect(trustees.locator("[data-initials]")).toHaveText(["EP"]);
-      await expect(trustees.locator("[data-initials]")).toHaveAttribute("aria-hidden", "true");
-      await expect(trustees.locator("img")).toHaveCount(1);
-    } finally {
-      await db`update organization_settings set trustees = ${db.json(before!.trustees)} where id = 1`;
-      await db.end();
-      await admin.context().close();
+  test("team members: all on /team, only ticked ones on About; initials without a photo", async () => {
+    // A Content Editor manages the team (Content → Team).
+    async function addMember(name: string, designation: string, opts: { photo?: string; about: boolean }) {
+      await page.goto("/admin/content/team");
+      await page.getByRole("link", { name: "Add member" }).click();
+      await page.locator("#team-member-status").selectOption("published");
+      if (opts.photo) await pick("Photo", [opts.photo]);
+      if (opts.about) await page.getByLabel("Show on the About page").check();
+      await expectAccessible(page);
+      await page.getByRole("button", { name: "Add member" }).click();
+      await expect(page.getByText(/Team member added/)).toBeVisible();
+      await page.locator("#team-member-text-name").fill(name);
+      await page.locator("#team-member-text-designation").fill(designation);
+      const editor = page.getByRole("textbox", { name: "Details", exact: true });
+      await editor.click();
+      await editor.pressSequentially(`${name} has served the Trust since 2015.`);
+      await page.getByLabel(/Reviewed by a person/).check();
+      await expectAccessible(page);
+      await page.getByRole("button", { name: "Save text" }).click();
+      await expect(page.getByText(/^Saved\./)).toBeVisible();
     }
+    await addMember(`${run} Trustee`, "Founder Trustee", { photo: photos[0]!.name, about: true });
+    await addMember(`${run} President`, "President", { about: false });
+
+    const visitor = await newPage(page.context().browser()!);
+    const about = visitor.locator("section", { has: visitor.locator("#trustees-h") });
+    await expect(async () => {
+      await visitor.goto("/en/about");
+      await expect(about.getByRole("heading", { name: `${run} Trustee` })).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+    await expect(about.getByRole("img", { name: "Test photo 1" })).toBeVisible();
+    await expect(about.getByRole("heading", { name: `${run} President` })).toHaveCount(0);
+    // Everyone published is in the NGO's JSON-LD members; "founder" designations also as founder.
+    const ld = JSON.parse((await visitor.locator('script[type="application/ld+json"]').textContent())!);
+    const org = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "NGO");
+    expect(org.member.map((m: { name: string }) => m.name)).toEqual(
+      expect.arrayContaining([`${run} Trustee`, `${run} President`]),
+    );
+    expect(org.founder).toContainEqual({
+      "@type": "Person",
+      name: `${run} Trustee`,
+      jobTitle: "Founder Trustee",
+    });
+    await about.getByRole("link", { name: "Meet all board members" }).click();
+
+    await expect(visitor).toHaveURL(/\/en\/team$/);
+    await expect(visitor.getByRole("heading", { level: 1, name: "Board members" })).toBeVisible();
+    const president = visitor.getByRole("listitem").filter({ hasText: `${run} President` });
+    await expect(president.getByRole("heading", { level: 2 })).toHaveText(`${run} President`);
+    await expect(president).toContainText("President");
+    await expect(president).toContainText("has served the Trust since 2015.");
+    // No photo: a circle with the initials (first and last word), hidden from screen readers.
+    await expect(president.locator("[data-initials]")).toHaveText("EP");
+    await expect(president.locator("[data-initials]")).toHaveAttribute("aria-hidden", "true");
+    await expectAccessible(visitor);
+    // Not written in Hindi yet: not shown there (no English fallback).
+    await visitor.goto("/hi/team");
+    await expect(visitor.getByText(`${run} President`)).toHaveCount(0);
+    await visitor.context().close();
+
+    // Delete one from the admin: it leaves /team.
+    await page.goto("/admin/content/team");
+    await page.getByRole("link", { name: `${run} President` }).click();
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "Delete member" }).click();
+    await expect(page.getByText("Team member deleted.")).toBeVisible();
+    await expect(page.getByRole("link", { name: `${run} President` })).toHaveCount(0);
   });
 });
 

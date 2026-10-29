@@ -57,7 +57,8 @@
     "contact": "Contact",
     "donate": "Donate",
     "donateSoon": "Donate (coming soon)",
-    "testimonials": "Testimonials"
+    "testimonials": "Testimonials",
+    "team": "Board members"
   },
   "Footer": {
     "about": "Munira Shoaib Welfare Trust is a registered charitable trust in India. Donations are eligible for tax deduction under Section 80G.",
@@ -180,7 +181,8 @@
     "fcraValue": "Not registered. We accept donations from Indian citizens only.",
     "reports": "Read our annual reports, audited accounts and certificates",
     "testimonials": "What people say",
-    "viewCertificate": "View certificate"
+    "viewCertificate": "View certificate",
+    "allTeam": "Meet all board members"
   },
   "Contact": {
     "title": "Contact us",
@@ -247,6 +249,7 @@
     "wants80gHint": "Needs your PAN and postal address.",
     "pan": "PAN",
     "panHint": "10 characters, for example ABCPE1234F",
+    "panRequiredHint": "Needed for donations above {pan}.",
     "line1": "Address line 1",
     "line2": "Address line 2",
     "city": "City",
@@ -273,6 +276,7 @@
       "email": "Enter a valid email address.",
       "phone": "Enter a 10-digit Indian mobile number.",
       "pan": "Enter a valid PAN, for example ABCPE1234F.",
+      "panRequired": "Enter your PAN: it is needed for donations above {pan}.",
       "line1": "Enter your address.",
       "city": "Enter your city.",
       "state": "Enter your state.",
@@ -371,5 +375,10 @@
     "readStory": "Read the full story",
     "more": "More stories",
     "all": "All testimonials"
+  },
+  "Team": {
+    "title": "Board members",
+    "description": "The trustees and people who run Munira Shoaib Welfare Trust.",
+    "empty": "No board members to show yet."
   }
 }

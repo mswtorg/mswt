@@ -59,18 +59,22 @@ export function istIso(d: Date): string {
 
 const LANGUAGES = routing.locales as readonly string[];
 
-/** The site-wide NGO entity, built only from organization_settings (LD-03, LD-04). */
-export function ngo(org: OrganizationSettings, locale: Locale): NGO {
+/** The site-wide NGO entity, built from organization_settings and the published team (LD-03, LD-04). */
+export function ngo(
+  org: OrganizationSettings,
+  locale: Locale,
+  team: readonly { name: string; designation: string }[] = [],
+): NGO {
   const alternateNames = [
     ...new Set([org.displayName, ...Object.values(org.alternateNames ?? {}).flat()]),
   ].filter((n) => n && n !== org.legalName && n !== org.displayName);
-  const people = (org.trustees ?? [])
-    .slice()
-    .sort((a, b) => a.sort - b.sort)
-    .map((t): Person => ({ "@type": "Person", name: t.name, jobTitle: t.role }));
-  const founders = (org.trustees ?? [])
-    .filter((t) => /founder/i.test(t.role))
-    .map((t): Person => ({ "@type": "Person", name: t.name, jobTitle: t.role }));
+  const person = (m: { name: string; designation: string }): Person => ({
+    "@type": "Person",
+    name: m.name,
+    jobTitle: m.designation,
+  });
+  const people = team.map(person);
+  const founders = team.filter((m) => /founder/i.test(m.designation)).map(person);
   return compact<NGO>({
     "@type": "NGO",
     "@id": ids.organization(),

@@ -57,6 +57,7 @@ export default async function DonatePage({ params }: Props) {
     "wants80gHint",
     "pan",
     "panHint",
+    "panRequiredHint",
     "line1",
     "line2",
     "city",
@@ -82,6 +83,7 @@ export default async function DonatePage({ params }: Props) {
     "email",
     "phone",
     "pan",
+    "panRequired",
     "line1",
     "city",
     "state",
@@ -133,6 +135,7 @@ export default async function DonatePage({ params }: Props) {
                 presets: settings.presetAmountsPaise,
                 minPaise: settings.minAmountPaise,
                 maxPaise: settings.maxAmountPaise,
+                panAbovePaise: settings.panRequiredAbovePaise,
                 feeBp: settings.feeCoverEnabled ? settings.feeCoverPercentBp : 0,
                 causes,
               }}

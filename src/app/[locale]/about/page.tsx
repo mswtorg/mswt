@@ -11,16 +11,15 @@ import { pageMetadata } from "@/lib/seo/page";
 import { getOrganizationSettings } from "@/lib/settings";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageHero } from "@/components/content/LibraryPhotos";
-import { initials } from "@/lib/initials";
 import { PageHeader } from "@/components/content/PageHeader";
 import { SampleBanner } from "@/components/content/Banners";
 import { ContentBody } from "@/components/content/ContentBody";
 import { HeadingRule } from "@/components/ui/Typography";
-import { ResponsiveImage } from "@/components/content/ResponsiveImage";
-import { getMediaViews } from "@/lib/content/media";
 import { TextLink } from "@/components/ui/TextLink";
 import { getTestimonials } from "@/lib/content/testimonials";
 import { TestimonialList } from "@/components/content/Testimonials";
+import { TeamPhoto } from "@/components/content/TeamPhoto";
+import { getTeam } from "@/lib/content/team";
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ locale: string }> };
@@ -42,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AboutPage({ params }: Props) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
-  const [t, tc, tt, tr, page, org, testimonials, documents] = await Promise.all([
+  const [t, tc, tt, tr, page, org, testimonials, documents, team] = await Promise.all([
     getTranslations("About"),
     getTranslations("Common"),
     getTranslations("Testimonials"),
@@ -51,6 +50,7 @@ export default async function AboutPage({ params }: Props) {
     getOrganizationSettings(),
     getTestimonials(locale),
     getReports(locale),
+    getTeam(locale),
   ]);
   if (!page && !org) notFound();
   const title = page?.h1 ?? t("title");
@@ -58,7 +58,8 @@ export default async function AboutPage({ params }: Props) {
     { name: tc("home"), path: "" },
     { name: t("title"), path: "/about" },
   ];
-  const trustees = (org?.trustees ?? []).slice().sort((a, b) => a.sort - b.sort);
+  // Content → Team: members ticked "Show on About"; everyone is on /team.
+  const trustees = team.filter((m) => m.showOnAbout);
   // A published certificate (Content → Documents) is linked next to its registration number.
   const mediaBase = getMediaStorage()?.publicBase ?? null;
   const withCertificate = (value: string | null, kind: "cert_12a" | "cert_80g") => {
@@ -105,7 +106,7 @@ export default async function AboutPage({ params }: Props) {
     <div className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8">
       <JsonLd
         graph={pageGraph([
-          org ? ngo(org, locale) : null,
+          org ? ngo(org, locale, team) : null,
           webPage({
             type: "AboutPage",
             locale,
@@ -137,13 +138,16 @@ export default async function AboutPage({ params }: Props) {
           </HeadingRule>
           <ul className="mt-8 grid list-none gap-8 p-0 sm:grid-cols-2 lg:grid-cols-4">
             {trustees.map((p) => (
-              <li key={p.name} className="grid justify-items-center gap-2 text-center">
-                <TrusteePhoto mediaId={p.photoMediaId ?? null} name={p.name} locale={locale} />
+              <li key={p.id} className="grid justify-items-center gap-2 text-center">
+                <TeamPhoto mediaId={p.photoId} name={p.name} locale={locale} />
                 <h3 className="text-lg">{p.name}</h3>
-                <p className="text-sm text-fg-muted">{p.role}</p>
+                <p className="text-sm text-fg-muted">{p.designation}</p>
               </li>
             ))}
           </ul>
+          <p className="mt-6">
+            <TextLink href={`/${locale}/team`}>{t("allTeam")}</TextLink>
+          </p>
         </section>
       ) : null}
 
@@ -182,37 +186,5 @@ export default async function AboutPage({ params }: Props) {
         </section>
       ) : null}
     </div>
-  );
-}
-
-/** A trustee's library photo (round), or their initials when none is set or it lacks alt text here. */
-async function TrusteePhoto({
-  mediaId,
-  name,
-  locale,
-}: {
-  mediaId: string | null;
-  name: string;
-  locale: Locale;
-}) {
-  const image = mediaId ? (await getMediaViews([mediaId], locale))[mediaId] : undefined;
-  if (!image?.alt || !image.src)
-    // Decorative: the name is the heading right below.
-    return (
-      <span
-        aria-hidden="true"
-        data-initials
-        className="grid size-32 place-items-center rounded-full bg-bg-brand-subtle text-4xl font-semibold text-fg-brand"
-      >
-        {initials(name)}
-      </span>
-    );
-  return (
-    <ResponsiveImage
-      image={image}
-      alt={image.alt}
-      sizes="128px"
-      className="aspect-square w-32 rounded-full"
-    />
   );
 }

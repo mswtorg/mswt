@@ -22,7 +22,7 @@ import { formatReceiptNumber } from "@/lib/receipts/numbering";
 import { missingTrustFacts, renderReceiptPdf, type TrustFacts } from "@/lib/receipts/pdf";
 import { amountInWords, integerInWords } from "@/lib/receipts/words";
 
-const settings = { minAmountPaise: 10000, maxAmountPaise: 10_000_000 };
+const settings = { minAmountPaise: 10000, maxAmountPaise: 10_000_000, panRequiredAbovePaise: 100000 };
 const form = {
   amount: "1000",
   cause: "",
@@ -59,25 +59,38 @@ describe("donate form validation", () => {
     const r = donateSchema(settings).safeParse({ ...form, citizen: "" });
     expect(donateErrors(r.error!.issues)).toEqual({ citizen: "citizen" });
   });
-  it("requires PAN and address only for an 80G receipt", () => {
+  it("requires PAN, address line 1 and PIN code for an 80G receipt; city and state are optional", () => {
     const r = donateSchema(settings).safeParse({ ...form, wants80g: "on", pan: "abcde1234" });
-    expect(Object.keys(donateErrors(r.error!.issues)).sort()).toEqual([
-      "city",
-      "line1",
-      "pan",
-      "pincode",
-      "state",
-    ]);
+    expect(Object.keys(donateErrors(r.error!.issues)).sort()).toEqual(["line1", "pan", "pincode"]);
     const ok = donateSchema(settings).parse({
       ...form,
       wants80g: "on",
       pan: "abcpe1234f",
       line1: "12 MG Road",
-      city: "Pune",
-      state: "Maharashtra",
       pincode: "411001",
     });
     expect(ok.pan).toBe("ABCPE1234F");
+    expect(ok.city).toBeUndefined();
+  });
+  it("requires a PAN above the admin's amount, with or without 80G", () => {
+    // ₹1,000 is the limit itself: no PAN needed.
+    expect(donateSchema(settings).safeParse({ ...form, amount: "1000" }).success).toBe(true);
+    const r = donateSchema(settings).safeParse({ ...form, amount: "1000.01" });
+    expect(donateErrors(r.error!.issues)).toEqual({ pan: "panRequired" });
+    const bad = donateSchema(settings).safeParse({ ...form, amount: "5000", pan: "ABCDE1234F" });
+    expect(donateErrors(bad.error!.issues)).toEqual({ pan: "panRequired" });
+    const ok = donateSchema(settings).parse({ ...form, amount: "5000", pan: "abcpe1234f" });
+    expect(ok.pan).toBe("ABCPE1234F");
+    expect(ok.wants80g).toBe(false);
+    // A higher limit set in Settings → Payments.
+    expect(
+      donateSchema({ ...settings, panRequiredAbovePaise: 1_000_000 }).safeParse({ ...form, amount: "5000" })
+        .success,
+    ).toBe(true);
+    // Also reported with other problems at once.
+    const all = validateDonation(settings, { ...form, amount: "5000", name: "" });
+    expect(all.ok).toBe(false);
+    if (!all.ok) expect(all.errors).toEqual({ name: "name", pan: "panRequired" });
   });
   it("checks the PAN holder type (4th letter)", () => {
     for (const pan of ["ABCPE1234F", "AAAHA1234A", "AAACA1234A", "AAATA1234A", "AAAFA1234A"])
@@ -103,8 +116,6 @@ describe("donate form validation", () => {
         name: "name",
         pan: "pan",
         line1: "line1",
-        city: "city",
-        state: "state",
         pincode: "pincode",
       });
   });
