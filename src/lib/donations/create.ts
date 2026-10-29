@@ -34,8 +34,8 @@ export async function upsertDonor(
     ? {
         addressLine1: d.address.line1,
         addressLine2: d.address.line2 ?? null,
-        city: d.address.city,
-        state: d.address.state,
+        city: d.address.city ?? null,
+        state: d.address.state ?? null,
         pincode: d.address.pincode,
       }
     : {};
@@ -90,13 +90,14 @@ export async function createOnlineDonation(
   const provider = getPaymentProvider();
   const fee = feeCoverPaise(input.amount, ctx.settings, input.coverFee);
   const publicOrderId = newPublicOrderId();
+  // City and state are optional; line 1 and the PIN code make an address (80G needs one).
   const address =
-    input.wants80g && input.line1 && input.city && input.state && input.pincode
+    input.wants80g && input.line1 && input.pincode
       ? {
           line1: input.line1,
           ...(input.line2 ? { line2: input.line2 } : {}),
-          city: input.city,
-          state: input.state,
+          ...(input.city ? { city: input.city } : {}),
+          ...(input.state ? { state: input.state } : {}),
           pincode: input.pincode,
         }
       : null;
@@ -112,7 +113,9 @@ export async function createOnlineDonation(
       if (cause?.status !== "active") throw new DonationClosedError("Cause is not accepting donations");
       causeId = cause.id;
     }
-    const pan = input.wants80g ? (input.pan ?? null) : null;
+    // Kept whenever given: required above Settings → Payments → "PAN required above", 80G or not.
+    // The receipt is still 80G only when asked for (decideReceiptKind).
+    const pan = input.pan || null;
     const donor = await upsertDonor(tx, {
       fullName: input.name,
       email: input.email,

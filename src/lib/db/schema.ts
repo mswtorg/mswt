@@ -147,10 +147,6 @@ export const organizationSettings = pgTable(
       .array()
       .default(sql`'{}'::text[]`)
       .notNull(),
-    trustees: jsonb("trustees")
-      .$type<{ name: string; role: string; photoMediaId?: string; bio?: Localised; sort: number }[]>()
-      .default([])
-      .notNull(),
     sameAs: text("same_as")
       .array()
       .default(sql`'{}'::text[]`)
@@ -198,6 +194,8 @@ export const paymentSettings = pgTable(
     feeCoverEnabled: boolean("fee_cover_enabled").default(false).notNull(),
     // Section 80G(5D): cash above ₹2,000 is not deductible.
     cash80gLimitPaise: paise("cash_80g_limit_paise").default(200000).notNull(),
+    // Admin → Settings → Payments: every online donation above this must give a PAN (80G or not).
+    panRequiredAbovePaise: paise("pan_required_above_paise").default(100000).notNull(),
     providerMode: providerMode("provider_mode").default("sandbox").notNull(),
     // Admin → Settings → Payments: the quick donate box on Home.
     homeDonateBox: boolean("home_donate_box").default(true).notNull(),
@@ -283,6 +281,7 @@ export const pageKey = pgEnum("page_key", [
   "events",
   "news",
   "testimonials",
+  "team",
 ]);
 export const eventStatus = pgEnum("event_status", [
   "scheduled",
@@ -626,6 +625,44 @@ export const testimonialTranslations = pgTable(
 );
 
 /**
+ * Team members (Content → Team): the board and team, all shown on /team; those with
+ * `show_on_about` also on About. A member shows in a language once their text is there (and
+ * reviewed, in production). Replaced organization_settings.trustees (migration 0019).
+ */
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: publishStatus("status").default("draft").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    showOnAbout: boolean("show_on_about").default(false).notNull(),
+    photoId: uuid("photo_id").references(() => media.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("team_members_sort_idx").on(t.sortOrder)],
+);
+
+export const teamMemberTranslations = pgTable(
+  "team_member_translations",
+  {
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    locale: locale("locale").notNull(),
+    name: text("name").notNull(),
+    /** "Managing Trustee", "Treasurer"… */
+    designation: text("designation").notNull(),
+    /** Details about the person (typed blocks, edited in the visual editor). */
+    bio: blocks("bio"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.memberId, t.locale] })],
+);
+
+/**
  * Transparency documents. The PDF lives in R2 (Step 8); until then pdf_r2_key is null. Reports
  * have a financial year; registration certificates (`cert_*`) never do.
  */
@@ -745,8 +782,9 @@ export const donorCreatedVia = pgEnum("donor_created_via", ["online", "offline"]
 export type PostalAddress = {
   line1: string;
   line2?: string;
-  city: string;
-  state: string;
+  /** Optional on the online form since 2026-10; older addresses always have them. */
+  city?: string;
+  state?: string;
   pincode: string;
 };
 

@@ -15,9 +15,10 @@ import {
   mediaTranslations,
   newsPosts,
   newsTranslations,
-  organizationSettings,
   pages,
   pageTranslations,
+  teamMembers,
+  teamMemberTranslations,
   testimonials,
 } from "@/lib/db/schema";
 import { withTx } from "@/lib/db/tx";
@@ -128,9 +129,9 @@ const usesImage = (col: unknown, id: string) =>
   sql`(${col} @> ${JSON.stringify([{ type: "image", mediaId: id }])}::jsonb or ${col} @> ${JSON.stringify([{ type: "slider", mediaIds: [id] }])}::jsonb)`;
 const inList = (col: unknown, id: string) => sql`${id}::uuid = any(${col})`;
 
-/** Where a photo is used: covers, sliders, page headers, albums, trustees and text in any language. */
+/** Where a photo is used: covers, sliders, page headers, albums, team members and text in any language. */
 export async function mediaUsage(id: string): Promise<{ label: string; href: string }[]> {
-  const [causeRows, pageRows, eventRows, newsRows, albums, trustees, quotes] = await Promise.all([
+  const [causeRows, pageRows, eventRows, newsRows, albums, team, quotes] = await Promise.all([
     db
       .selectDistinct({ id: causes.id, slug: causes.slug })
       .from(causes)
@@ -167,9 +168,10 @@ export async function mediaUsage(id: string): Promise<{ label: string; href: str
       .leftJoin(galleryItems, eq(galleryItems.albumId, galleryAlbums.id))
       .where(or(eq(galleryAlbums.coverImageId, id), eq(galleryItems.mediaId, id))),
     db
-      .select({ id: organizationSettings.id })
-      .from(organizationSettings)
-      .where(sql`${organizationSettings.trustees} @> ${JSON.stringify([{ photoMediaId: id }])}::jsonb`),
+      .selectDistinct({ id: teamMembers.id })
+      .from(teamMembers)
+      .leftJoin(teamMemberTranslations, eq(teamMemberTranslations.memberId, teamMembers.id))
+      .where(or(eq(teamMembers.photoId, id), usesImage(teamMemberTranslations.bio, id))),
     db.select({ id: testimonials.id }).from(testimonials).where(eq(testimonials.photoId, id)),
   ]);
   return [
@@ -178,7 +180,7 @@ export async function mediaUsage(id: string): Promise<{ label: string; href: str
     ...eventRows.map((e) => ({ label: `Event: ${e.slug}`, href: `/admin/content/events/${e.id}` })),
     ...newsRows.map((n) => ({ label: `News: ${n.slug}`, href: `/admin/content/news/${n.id}` })),
     ...albums.map((a) => ({ label: `Gallery: ${a.slug}`, href: `/admin/content/gallery/${a.id}` })),
-    ...(trustees.length ? [{ label: "Trustees", href: "/admin/settings/organization" }] : []),
+    ...team.map((m) => ({ label: "Team member", href: `/admin/content/team/${m.id}` })),
     ...quotes.map((t) => ({ label: "Testimonial", href: `/admin/content/testimonials/${t.id}` })),
   ];
 }

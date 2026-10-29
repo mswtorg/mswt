@@ -50,7 +50,6 @@ function org(overrides: Partial<OrganizationSettings> = {}): OrganizationSetting
     email: "info@mswelfaretrust.org",
     contactHours: {},
     areaServed: [],
-    trustees: [],
     sameAs: [],
     logoMediaId: null,
     signatoryName: null,
@@ -96,7 +95,7 @@ describe("ngo()", () => {
     }
   });
 
-  it("uses settings when present: address, phone, PAN, trustees, profiles, localised names", () => {
+  it("uses settings when present: address, phone, PAN, team, profiles, localised names", () => {
     const n = o(
       ngo(
         org({
@@ -109,13 +108,13 @@ describe("ngo()", () => {
           state: "Maharashtra",
           pincode: "411001",
           phones: ["+91 20 1234 5678"],
-          trustees: [
-            { name: "B Person", role: "Trustee", sort: 2 },
-            { name: "A Person", role: "Founder & Managing Trustee", sort: 1 },
-          ],
           sameAs: ["https://www.facebook.com/mswt"],
         }),
         "hi",
+        [
+          { name: "A Person", designation: "Founder & Managing Trustee" },
+          { name: "B Person", designation: "Trustee" },
+        ],
       ),
     );
     expect(n.description).toBe("मिशन");

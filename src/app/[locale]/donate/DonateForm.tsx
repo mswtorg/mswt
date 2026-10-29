@@ -39,6 +39,7 @@ export type DonateStrings = {
   wants80gHint: string;
   pan: string;
   panHint: string;
+  panRequiredHint: string;
   line1: string;
   line2: string;
   city: string;
@@ -64,6 +65,8 @@ export type DonateConfig = {
   minPaise: number;
   /** Largest online donation (null = no limit). */
   maxPaise: number | null;
+  /** Donations above this need a PAN, 80G or not (Settings → Payments). */
+  panAbovePaise: number;
   feeBp: number;
   causes: { slug: string; title: string }[];
 };
@@ -133,6 +136,7 @@ export function DonateForm({
   }, [state, resetTurnstile]);
 
   const amount = paiseOf(custom, preset);
+  const panNeeded = amount > config.panAbovePaise;
   const fee = coverFee && config.feeBp > 0 ? Math.floor((amount * config.feeBp + 5000) / 10000) : 0;
   const total = amount + fee;
   const money = (p: number) => formatRupees(p, locale);
@@ -140,6 +144,7 @@ export function DonateForm({
   const limits = {
     min: money(config.minPaise),
     max: config.maxPaise === null ? "" : money(config.maxPaise),
+    pan: money(config.panAbovePaise),
   };
   const shown = useLiveErrors<DonateField, DonateErrorCode>({
     form,
@@ -157,7 +162,11 @@ export function DonateForm({
       const raw = Object.fromEntries([...data].map(([k, v]) => [k, String(v)]));
       const amount = raw.custom?.trim() || (raw.preset ? String(Number(raw.preset) / 100) : "");
       const result = validateDonation(
-        { minAmountPaise: config.minPaise, maxAmountPaise: config.maxPaise },
+        {
+          minAmountPaise: config.minPaise,
+          maxAmountPaise: config.maxPaise,
+          panRequiredAbovePaise: config.panAbovePaise,
+        },
         { ...raw, amount },
       );
       return result.ok ? {} : result.errors;
@@ -334,12 +343,12 @@ export function DonateForm({
           checked={wants80g}
           onChange={(e) => setWants80g(e.target.checked)}
         />
-        {wants80g ? (
+        {wants80g || panNeeded ? (
           <div className="mt-2 grid gap-6">
             <FormField
               id="donate-pan"
               label={t.pan}
-              hint={t.panHint}
+              hint={wants80g ? t.panHint : `${fill(t.panRequiredHint, limits)} ${t.panHint}`}
               required
               requiredLabel={t.required}
               error={err("pan")}
@@ -357,6 +366,10 @@ export function DonateForm({
                 />
               )}
             </FormField>
+          </div>
+        ) : null}
+        {wants80g ? (
+          <div className="mt-2 grid gap-6">
             <FormField
               id="donate-line1"
               label={t.line1}
@@ -386,13 +399,7 @@ export function DonateForm({
               )}
             </FormField>
             <div className="grid gap-6 md:grid-cols-3">
-              <FormField
-                id="donate-city"
-                label={t.city}
-                required
-                requiredLabel={t.required}
-                error={err("city")}
-              >
+              <FormField id="donate-city" label={t.city} requiredLabel={t.optional} error={err("city")}>
                 {(p) => (
                   <Input
                     {...p}
@@ -403,13 +410,7 @@ export function DonateForm({
                   />
                 )}
               </FormField>
-              <FormField
-                id="donate-state"
-                label={t.state}
-                required
-                requiredLabel={t.required}
-                error={err("state")}
-              >
+              <FormField id="donate-state" label={t.state} requiredLabel={t.optional} error={err("state")}>
                 {(p) => (
                   <Input
                     {...p}

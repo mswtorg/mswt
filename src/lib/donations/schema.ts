@@ -25,7 +25,9 @@ export function normalisePhone(raw: string): string | null {
 const text = (max: number) => z.string().trim().min(1).max(max);
 const checkbox = z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean());
 
-export function donateSchema(settings: Pick<PaymentSettings, "minAmountPaise" | "maxAmountPaise">) {
+type Limits = Pick<PaymentSettings, "minAmountPaise" | "maxAmountPaise" | "panRequiredAbovePaise">;
+
+export function donateSchema(settings: Limits) {
   return z
     .object({
       amount: z.string().transform((v, ctx) => {
@@ -69,41 +71,60 @@ export function donateSchema(settings: Pick<PaymentSettings, "minAmountPaise" | 
     })
     .superRefine((d, ctx) => {
       for (const field of missing80gFields(d)) ctx.addIssue({ code: "custom", path: [field] });
+      if (panMissing(d.amount, d.pan, settings))
+        ctx.addIssue({ code: "custom", path: ["pan"], message: "panRequired" });
     });
 }
 export type DonateInput = z.output<ReturnType<typeof donateSchema>>;
 
-/** An 80G receipt needs PAN and a postal address (spec §4.3). Checks raw form values too. */
+/** Above Settings → Payments → "PAN required above", every donation needs a valid PAN (80G or not). */
+export function panRequired(amountPaise: number, settings: Pick<PaymentSettings, "panRequiredAbovePaise">) {
+  return amountPaise > settings.panRequiredAbovePaise;
+}
+
+function panMissing(
+  amountPaise: number,
+  pan: string | undefined,
+  settings: Pick<PaymentSettings, "panRequiredAbovePaise">,
+) {
+  return panRequired(amountPaise, settings) && !PAN_RE.test((pan ?? "").trim().toUpperCase());
+}
+
+/**
+ * An 80G receipt needs PAN and a postal address (spec §4.3): address line 1 and PIN code; city and
+ * state are optional. Checks raw form values too.
+ */
 export function missing80gFields(v: {
   wants80g?: unknown;
   pan?: string;
   line1?: string;
-  city?: string;
-  state?: string;
   pincode?: string;
 }): DonateField[] {
   if (!(v.wants80g === true || v.wants80g === "on" || v.wants80g === "true")) return [];
   const missing: DonateField[] = [];
   if (!PAN_RE.test((v.pan ?? "").trim().toUpperCase())) missing.push("pan");
   if (!v.line1?.trim()) missing.push("line1");
-  if (!v.city?.trim()) missing.push("city");
-  if (!v.state?.trim()) missing.push("state");
   if (!/^[1-9][0-9]{5}$/.test((v.pincode ?? "").trim())) missing.push("pincode");
   return missing;
 }
 
 /**
  * All problems at once: zod skips object-level checks while fields are invalid, so the 80G
- * fields are also checked on the raw values.
+ * fields and the PAN rule are also checked on the raw values.
  */
 export function validateDonation(
-  settings: Pick<PaymentSettings, "minAmountPaise" | "maxAmountPaise">,
+  settings: Limits,
   raw: Record<string, string>,
 ): { ok: true; data: DonateInput } | { ok: false; errors: Partial<Record<DonateField, DonateErrorCode>> } {
   const parsed = donateSchema(settings).safeParse(raw);
   if (parsed.success) return { ok: true, data: parsed.data };
   const errors = donateErrors(parsed.error.issues);
   for (const field of missing80gFields(raw)) errors[field] ??= field;
+  let amount: number | null = null;
+  try {
+    amount = rupeesToPaise(raw.amount ?? "");
+  } catch {}
+  if (amount !== null && panMissing(amount, raw.pan, settings)) errors.pan = "panRequired";
   return { ok: false, errors };
 }
 
@@ -113,7 +134,10 @@ export function donateErrors(issues: z.core.$ZodIssue[]): Partial<Record<DonateF
   for (const issue of issues) {
     const field = issue.path[0] as DonateField | undefined;
     if (!field || !(DONATE_FIELDS as readonly string[]).includes(field)) continue;
-    const code = issue.message === "amountMin" || issue.message === "amountMax" ? issue.message : field;
+    const code =
+      issue.message === "amountMin" || issue.message === "amountMax" || issue.message === "panRequired"
+        ? issue.message
+        : field;
     errors[field] ??= code;
   }
   return errors;

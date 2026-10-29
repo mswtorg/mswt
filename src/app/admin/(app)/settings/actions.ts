@@ -2,15 +2,11 @@
 
 import { headers } from "next/headers";
 import { updateTag } from "next/cache";
-import { eq } from "drizzle-orm";
 import type { ZodType } from "zod";
 import { requireCapability } from "@/lib/admin/guard";
-import { parsePhotoIds } from "@/lib/admin/photo-ids";
 import type { Capability } from "@/lib/admin/permissions";
 import { AppearanceInput, EmailInput, OrganizationInput, SeoInput } from "@/lib/admin/settings/schemas";
 import { updateAppearance, updateEmail, updateOrganization, updateSeo } from "@/lib/admin/settings/service";
-import { db } from "@/lib/db/client";
-import { organizationSettings } from "@/lib/db/schema";
 import { withTx, type Tx } from "@/lib/db/tx";
 import type { Actor } from "@/lib/audit";
 import { rupeesToPaise } from "@/lib/money";
@@ -33,7 +29,7 @@ const localised = (v: Record<string, string>, field: string) =>
 
 /**
  * Puts each validation error on the form field it belongs to: schema names are mapped
- * (minAmountPaise → min), and list items (phones.2, trustees.0.name) go to their textarea.
+ * (minAmountPaise → min), and list items (phones.2) go to their textarea.
  */
 function toFieldErrors(
   errors: Record<string, string>,
@@ -89,25 +85,6 @@ export async function saveOrganization(_prev: FormState, form: FormData) {
     "settings.organization",
     form,
     async (v) => {
-      // Trustees are edited as "Name | Role" lines; bios are kept. Photos come from the
-      // "Trustee photos" fields (trusteePhoto.<index in the saved list>), matched by name.
-      const [current] = await db
-        .select({ trustees: organizationSettings.trustees })
-        .from(organizationSettings)
-        .where(eq(organizationSettings.id, 1));
-      const photoByName = new Map(
-        (current?.trustees ?? []).map((t, j) => [
-          t.name,
-          `trusteePhoto.${j}` in v ? parsePhotoIds(v[`trusteePhoto.${j}`], 1)[0] : t.photoMediaId,
-        ]),
-      );
-      const trustees = lines(v.trustees).map((line, i) => {
-        const [name = "", role = ""] = line.split("|").map((s) => s.trim());
-        if (!name || !role) throw new Error(`Trustee line ${i + 1}: write it as "Name | Role"`);
-        const { photoMediaId: _, ...before } = current?.trustees.find((t) => t.name === name) ?? {};
-        const photoMediaId = photoByName.get(name);
-        return { ...before, name, role, sort: i + 1, ...(photoMediaId ? { photoMediaId } : {}) };
-      });
       return {
         legalName: v.legalName,
         displayName: v.displayName,
@@ -141,7 +118,6 @@ export async function saveOrganization(_prev: FormState, form: FormData) {
         email: v.email,
         areaServed: lines(v.areaServed),
         sameAs: lines(v.sameAs),
-        trustees,
         signatoryName: v.signatoryName,
         signatoryTitle: v.signatoryTitle,
       };
@@ -192,6 +168,7 @@ export async function savePayments(_prev: FormState, form: FormData) {
         .map((p) => rupees(p, "Suggested amounts")),
       feeCoverEnabled: v.feeCoverEnabled === "on",
       feeCoverPercentBp: Math.round(Number(v.feePercent || "0") * 100),
+      panRequiredAbovePaise: rupees(v.panAbove, "PAN required above"),
       homeDonateBox: v.homeDonateBox === "on",
     }),
     PaymentSettingsInput,
@@ -204,6 +181,7 @@ export async function savePayments(_prev: FormState, form: FormData) {
       presetAmountsPaise: "presets",
       feeCoverPercentBp: "feePercent",
       feeCoverEnabled: "feeCoverEnabled",
+      panRequiredAbovePaise: "panAbove",
       homeDonateBox: "homeDonateBox",
     },
   );

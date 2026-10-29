@@ -45,6 +45,8 @@ async function donate() {
     name: "Alert Donor",
     email: `alert-${Math.random().toString(36).slice(2)}@example.com`,
     phone: "9876543210",
+    // Above ₹1,000 every donation needs a PAN (Settings → Payments).
+    pan: "ABCPE1234F",
     wants80g: "",
     anonymous: "",
     coverFee: "",

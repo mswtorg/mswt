@@ -82,6 +82,7 @@ export function builtInPages(m: Messages): Partial<Record<PageKeyDb, PageText>> 
       intro: m.Testimonials.description,
       reviewed: true,
     },
+    team: { title: m.Team.title, h1: m.Team.title, intro: m.Team.description, reviewed: true },
   };
 }
 

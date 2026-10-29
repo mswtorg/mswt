@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { eq } from "drizzle-orm";
 import { requireCapability } from "@/lib/admin/guard";
-import { editorMedia } from "@/lib/admin/media";
 import { db } from "@/lib/db/client";
 import { organizationSettings } from "@/lib/db/schema";
 import type { FieldSpec, FormSectionSpec } from "@/components/admin/form-state";
@@ -12,10 +11,7 @@ export const metadata: Metadata = { title: "Organization" };
 
 export default async function OrganizationSettingsPage() {
   await requireCapability("settings.organization");
-  const [[o], { library }] = await Promise.all([
-    db.select().from(organizationSettings).where(eq(organizationSettings.id, 1)),
-    editorMedia("en"),
-  ]);
+  const [o] = await db.select().from(organizationSettings).where(eq(organizationSettings.id, 1));
   const v = (x: string | null | undefined) => x ?? "";
   const localised = (field: "description" | "contactHours", label: string, textarea = false): FieldSpec[] =>
     LOCALE_FIELDS.map((l) => ({
@@ -110,17 +106,9 @@ export default async function OrganizationSettingsPage() {
       ],
     },
     {
-      title: "People",
-      description: "Trustees on the About page; the signatory on receipts.",
+      title: "Receipt signatory",
+      description: "Printed on receipts. Board members and team are in Content → Team.",
       fields: [
-        {
-          name: "trustees",
-          label: "Trustees",
-          type: "textarea",
-          rows: 4,
-          hint: "One per line, as: Name | Role",
-          defaultValue: (o?.trustees ?? []).map((t) => `${t.name} | ${t.role}`).join("\n"),
-        },
         { name: "signatoryName", label: "Receipt signatory", defaultValue: v(o?.signatoryName) },
         {
           name: "signatoryTitle",
@@ -130,22 +118,6 @@ export default async function OrganizationSettingsPage() {
         },
       ],
     },
-    ...((o?.trustees ?? []).length
-      ? [
-          {
-            title: "Trustee photos",
-            description: "Shown on the About page. Save new trustees above first, then choose their photos.",
-            fields: (o?.trustees ?? []).map((t, i): FieldSpec => ({
-              name: `trusteePhoto.${i}`,
-              label: `${t.name} (${t.role})`,
-              type: "photo",
-              defaultValue: t.photoMediaId ?? "",
-              photos: { library },
-              span: "full",
-            })),
-          },
-        ]
-      : []),
     {
       title: "Reach",
       description: "Where the Trust works and its official social media profiles.",

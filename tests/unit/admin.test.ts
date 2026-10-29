@@ -62,6 +62,7 @@ describe("role permissions match docs/spec.md §5", () => {
       "events",
       "news",
       "testimonials",
+      "team",
       "gallery",
       "documents",
       "media",
@@ -246,7 +247,6 @@ describe("settings validation", () => {
     email: "",
     contactHours: {},
     areaServed: [],
-    trustees: [],
     sameAs: [],
   };
   it("normalises empty strings to null and upper-cases PAN", () => {
