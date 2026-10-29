@@ -16,7 +16,8 @@ import {
 import { openCheckout } from "@/components/forms/checkout";
 import { useTurnstile } from "@/components/forms/useTurnstile";
 import { formatRupees, rupeesToPaise } from "@/lib/money";
-import type { DonateErrorCode, DonateField } from "@/lib/donations/schema";
+import { DONATE_FIELDS, type DonateErrorCode, type DonateField } from "@/lib/donations/fields";
+import { useLiveErrors } from "@/components/forms/useLiveErrors";
 import { startDonation, type DonateState } from "./actions";
 
 export type DonateStrings = {
@@ -61,6 +62,8 @@ export type DonateStrings = {
 export type DonateConfig = {
   presets: number[];
   minPaise: number;
+  /** Largest online donation (null = no limit). */
+  maxPaise: number | null;
   feeBp: number;
   causes: { slug: string; title: string }[];
 };
@@ -134,22 +137,45 @@ export function DonateForm({
   const total = amount + fee;
   const money = (p: number) => formatRupees(p, locale);
 
-  const err = (f: DonateField) => {
-    const code = errors[f];
-    if (!code) return undefined;
-    return fill(t.errors[code], { min: money(config.minPaise) });
+  const limits = {
+    min: money(config.minPaise),
+    max: config.maxPaise === null ? "" : money(config.maxPaise),
   };
-  const summaryItems = useMemo(() => {
+  const shown = useLiveErrors<DonateField, DonateErrorCode>({
+    form,
+    serverErrors: errors,
+    serverState: state,
+    fieldOf: (name) =>
+      name === "custom" || name === "preset"
+        ? "amount"
+        : (DONATE_FIELDS as readonly string[]).includes(name)
+          ? (name as DonateField)
+          : undefined,
+    // The server's own rules, loaded on first use (amount as the server builds it).
+    check: async (data) => {
+      const { validateDonation } = await import("@/lib/donations/schema");
+      const raw = Object.fromEntries([...data].map(([k, v]) => [k, String(v)]));
+      const amount = raw.custom?.trim() || (raw.preset ? String(Number(raw.preset) / 100) : "");
+      const result = validateDonation(
+        { minAmountPaise: config.minPaise, maxAmountPaise: config.maxPaise },
+        { ...raw, amount },
+      );
+      return result.ok ? {} : result.errors;
+    },
+  });
+  const err = (f: DonateField) => {
+    const code = shown(f);
+    return code ? fill(t.errors[code], limits) : undefined;
+  };
+  // The summary lists what the server found, minus what has been put right since.
+  const summaryItems = (() => {
     const ids: Partial<Record<DonateField, string>> = { amount: "donate-custom", citizen: "donate-citizen" };
     const items = (Object.keys(errors) as (DonateField | "form")[])
-      .filter((f) => f !== "form")
-      .map((f) => ({
-        fieldId: ids[f as DonateField] ?? `donate-${f}`,
-        message: fill(t.errors[errors[f]!], { min: formatRupees(config.minPaise, locale) }),
-      }));
+      .filter((f): f is DonateField => f !== "form" && Boolean(shown(f as DonateField)))
+      .map((f) => ({ fieldId: ids[f] ?? `donate-${f}`, message: err(f)! }));
     if (errors.form) items.push({ fieldId: "donate-name", message: t.errors[errors.form] });
     return items;
-  }, [errors, t, config.minPaise, locale]);
+  })();
 
   const busy = pending || (state.status === "checkout" && !gatewayError);
   return (

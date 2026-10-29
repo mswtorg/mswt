@@ -132,6 +132,7 @@ export default async function DonatePage({ params }: Props) {
               config={{
                 presets: settings.presetAmountsPaise,
                 minPaise: settings.minAmountPaise,
+                maxPaise: settings.maxAmountPaise,
                 feeBp: settings.feeCoverEnabled ? settings.feeCoverPercentBp : 0,
                 causes,
               }}
