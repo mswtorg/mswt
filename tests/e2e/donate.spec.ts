@@ -47,6 +47,8 @@ test("the donate form reports missing details next to each field", async ({ page
   await expect(summary).toBeFocused();
   for (const id of ["name", "email", "phone", "pan", "line1", "city", "state", "pincode", "citizen"])
     await expect(page.locator(`#donate-${id}`)).toHaveAttribute("aria-invalid", "true");
+  // An error must not untick the 80G box (React resets a form after its action runs).
+  await expect(page.locator("#donate-wants80g")).toBeChecked();
   await summary.getByRole("link", { name: "Enter your full name." }).click();
   await expect(page.locator("#donate-name")).toBeFocused();
 });
