@@ -83,6 +83,7 @@ test.describe("admin finance", () => {
     await expectAccessible(page);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`${donationPath}$`));
+    await expect(page.getByText("Not asked for", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Resend receipt" }).click();
     await expect(page.getByText("Receipt emailed again.")).toBeVisible();
@@ -101,6 +102,12 @@ test.describe("admin finance", () => {
     await expect(page.getByRole("listitem").getByText("Void", { exact: true })).toBeVisible();
     await expect(page.getByRole("listitem").getByText("80G", { exact: true })).toBeVisible();
     await expect(page.getByText(/receipt\.reissue by E2E accountant/)).toBeVisible();
+    // The donation and the donor's page both say an 80G receipt was asked for, with the masked PAN.
+    await expect(page.getByText("Asked for", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Open donor" }).click();
+    const row = page.getByRole("table", { name: "Donations by this donor" }).getByRole("row").nth(1);
+    await expect(row.getByRole("cell", { name: "Asked for" })).toBeVisible();
+    await expect(page.getByText("XXXXXX234F", { exact: true })).toBeVisible();
   });
 
   test("full PAN needs the emailed code; CSV and Excel downloads", async () => {
