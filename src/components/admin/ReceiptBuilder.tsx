@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { routing, type Locale } from "@/i18n/routing";
 import { moveItem } from "@/lib/admin/order";
 import { LANGUAGES } from "@/lib/admin/languages";
 import type { ReceiptKind } from "@/lib/receipts/numbering";
 import {
   ACK_REASONS,
+  BLOCK_HINT,
   BLOCK_LABEL,
   type AckReason,
   type EmailTemplate,
@@ -22,7 +23,7 @@ type PreviewResult =
 type Preview = (
   part: ReceiptKind | "email",
   json: string,
-  opts: { reason?: AckReason; locale?: Locale; emailKind?: ReceiptKind },
+  opts: { reason?: AckReason; locale?: Locale; emailKind?: ReceiptKind; numbers?: boolean },
 ) => Promise<PreviewResult>;
 
 const small =
@@ -55,6 +56,7 @@ function useChanged() {
 /** A text box with an "Insert field" menu that puts {field} where the cursor is. */
 function FieldText({
   id,
+  context = "",
   label,
   value,
   onChange,
@@ -64,6 +66,8 @@ function FieldText({
   lang,
 }: {
   id: string;
+  /** Read by screen readers before the label, e.g. "Block 8, detail line: ". */
+  context?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -93,16 +97,17 @@ function FieldText({
     onChange: (e: { target: { value: string } }) => onChange(e.target.value),
   };
   return (
-    <div className="grid gap-1 text-sm">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+    <div className="grid min-w-0 gap-1 text-sm">
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
         <label htmlFor={id} className="font-medium text-fg-strong">
+          {context ? <span className="sr-only">{context}</span> : null}
           {label}
         </label>
         <select
           value=""
-          aria-label={`Insert field into ${label}`}
+          aria-label={`Insert field into ${context}${label}`}
           onChange={(e) => e.target.value && insert(e.target.value)}
-          className={`${compactControl} min-h-8 w-auto py-0.5 text-xs`}
+          className={`${compactControl} min-h-8 w-auto max-w-full py-0.5 text-xs`}
         >
           <option value="">Insert field…</option>
           {groups.map((g) => (
@@ -140,9 +145,13 @@ function Choice<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <label className="grid gap-1 text-sm">
+    <label className="grid min-w-0 gap-1 text-sm">
       <span className="font-medium text-fg-strong">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value as T)} className={compactControl}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className={`${compactControl} max-w-full`}
+      >
         {(Object.keys(options) as T[]).map((k) => (
           <option key={k} value={k}>
             {options[k]}
@@ -211,9 +220,128 @@ const STYLE = {
   small: "Small (grey)",
 } as const;
 
+/** "{donor.pan}" → "[Donor PAN (masked)]", for the one-line summary of a block. */
+function named(text: string, fields: FieldDef[]) {
+  return text.replace(/\{([a-z0-9.]+)\}/g, (m, k: string) => {
+    const f = fields.find((x) => x.key === k);
+    return f ? `[${f.label}]` : m;
+  });
+}
+
+function summaryOf(b: PdfBlock, fields: FieldDef[]) {
+  const text =
+    b.type === "header"
+      ? b.title
+      : b.type === "row"
+        ? `${b.label}: ${b.value}`
+        : b.type === "text" || b.type === "footer"
+          ? b.text
+          : b.type === "rule"
+            ? b.style === "brand"
+              ? "Green line (thick)"
+              : "Thin grey line"
+            : `${b.size[0]!.toUpperCase()}${b.size.slice(1)}`;
+  return named(text.split("\n")[0] ?? "", fields) || "(empty)";
+}
+
+/** The sample PDF beside the blocks: refreshes a moment after each change, with download and new-tab links. */
+function PdfPreview({ kind, json, preview }: { kind: ReceiptKind; json: string; preview: Preview }) {
+  const [reason, setReason] = useState<AckReason>("not_requested");
+  const [numbers, setNumbers] = useState(true);
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const latest = useRef(0);
+  const shown = useRef<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const run = ++latest.current;
+    setBusy(true);
+    const r = await preview(kind, json, { reason, numbers });
+    if (run !== latest.current) return;
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    setError("");
+    const next = URL.createObjectURL(
+      new Blob([Uint8Array.from(atob(r.pdf ?? ""), (c) => c.charCodeAt(0))], { type: "application/pdf" }),
+    );
+    if (shown.current) URL.revokeObjectURL(shown.current);
+    shown.current = next;
+    setUrl(next);
+  }, [kind, json, reason, numbers, preview]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void refresh(), 800);
+    return () => clearTimeout(t);
+  }, [refresh]);
+  useEffect(() => () => void (shown.current && URL.revokeObjectURL(shown.current)), []);
+
+  const file = `sample-${kind === "80g" ? "80g-receipt" : "acknowledgement"}.pdf`;
+  return (
+    <section
+      aria-labelledby="receipt-preview-title"
+      className="grid min-w-0 gap-2 rounded-md border border-border-decorative bg-bg-subtle p-3 xl:sticky xl:top-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="receipt-preview-title" className="m-0 text-base font-semibold text-fg-strong">
+          Preview
+        </h2>
+        <span aria-hidden="true" className="text-xs text-fg-muted">
+          {busy ? "Updating…" : url ? "Up to date" : ""}
+        </span>
+      </div>
+      <p className="m-0 text-xs text-fg-muted">
+        Sample donor details with the Trust’s saved details, from this template as it is now (saved or not).
+        The grey numbers match the blocks.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        {kind === "acknowledgement" ? (
+          <Choice
+            label="Reason"
+            value={reason}
+            options={
+              Object.fromEntries(ACK_REASONS.map((r) => [r.key, r.label])) as Record<AckReason, string>
+            }
+            onChange={setReason}
+          />
+        ) : null}
+        <Check label="Show block numbers" checked={numbers} onChange={setNumbers} />
+      </div>
+      <p role="status" className="m-0 text-sm text-status-error-fg-on-canvas empty:hidden">
+        {error}
+      </p>
+      {url ? (
+        <iframe
+          title="Receipt preview (PDF)"
+          src={`${url}#view=FitH`}
+          className="h-[70vh] w-full rounded-md border border-border-decorative bg-bg-canvas xl:h-[calc(100vh-14rem)]"
+        />
+      ) : (
+        <p className="m-0 grid h-40 place-items-center text-sm text-fg-muted">Preparing the preview…</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={small} disabled={busy} onClick={() => void refresh()}>
+          Refresh preview
+        </button>
+        {url ? (
+          <>
+            <a href={url} download={file} className={`${small} no-underline`}>
+              Download PDF
+            </a>
+            <a href={url} target="_blank" rel="noopener" className={`${small} no-underline`}>
+              Open in a new tab
+            </a>
+          </>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 /**
  * Builds a receipt PDF from blocks: add, edit, move (↑ ↓) and remove; text takes {fields} from the
- * "Insert field" menus. Posted as JSON in a hidden "template" field of the surrounding AdminForm.
+ * "Insert field" menus. Each block folds to one line; the preview beside it numbers the blocks the same
+ * way. Posted as JSON in a hidden "template" field of the surrounding AdminForm.
  */
 export function PdfTemplateBuilder({
   formId,
@@ -231,9 +359,11 @@ export function PdfTemplateBuilder({
   const [blocks, setBlocks] = useState(initial.blocks);
   const [notes, setNotes] = useState(initial.notes ?? {});
   const [adding, setAdding] = useState<PdfBlock["type"]>("text");
-  const [reason, setReason] = useState<AckReason>("not_requested");
+  const [open, setOpen] = useState<string | null>(null);
   const { hidden, changed } = useChanged();
   const template: PdfTemplate = kind === "acknowledgement" ? { blocks, notes } : { blocks };
+  const json = JSON.stringify(template);
+  const openAt = blocks.findIndex((b) => keyOf(b) === open);
 
   const update = (next: PdfBlock[]) => {
     setBlocks(next);
@@ -241,222 +371,225 @@ export function PdfTemplateBuilder({
   };
   const set = (n: number, patch: Partial<PdfBlock>) =>
     update(blocks.map((b, j) => (j === n ? carry(b, { ...b, ...patch } as PdfBlock) : b)));
+  const add = () => {
+    const block = NEW_BLOCK[adding]();
+    const at = openAt >= 0 ? openAt + 1 : blocks.length;
+    update([...blocks.slice(0, at), block, ...blocks.slice(at)]);
+    setOpen(keyOf(block));
+  };
   const id = (n: number, name: string) => fieldId(formId, `blocks.${n}.${name}`);
-  const summary = (b: PdfBlock) =>
-    b.type === "header"
-      ? b.title
-      : b.type === "row"
-        ? b.label
-        : b.type === "text" || b.type === "footer"
-          ? b.text
-          : b.type === "rule"
-            ? b.style === "brand"
-              ? "Green line"
-              : "Thin line"
-            : `${b.size} space`;
 
   return (
-    <div className="grid gap-4">
-      <input type="hidden" name="part" value={kind} />
-      <input ref={hidden} type="hidden" name="template" value={JSON.stringify(template)} />
-      <p className="m-0 text-sm text-fg-muted">
-        Blocks print from top to bottom. Text in {"{braces}"} is filled in for each receipt: use{" "}
-        <strong>Insert field</strong> to add one. A detail row with “Hide when empty” is left out when its
-        fields are empty (for example, no PAN).
-      </p>
-      <ol id={fieldId(formId, "blocks")} tabIndex={-1} className="m-0 grid list-none gap-2 p-0">
-        {blocks.map((b, n) => (
-          <li
-            key={keyOf(b)}
-            className="grid gap-3 rounded-md border border-border-decorative bg-bg-canvas p-3"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium text-fg-strong">
-                  {n + 1}. {BLOCK_LABEL[b.type]}
-                </span>
-                <span className="block truncate text-xs text-fg-muted">{summary(b)}</span>
-              </span>
-              <button
-                type="button"
-                className={small}
-                disabled={n === 0}
-                onClick={() => update(moveItem(blocks, n, n - 1))}
-                aria-label={`Move block ${n + 1} up`}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className={small}
-                disabled={n === blocks.length - 1}
-                onClick={() => update(moveItem(blocks, n, n + 1))}
-                aria-label={`Move block ${n + 1} down`}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                className={small}
-                onClick={() => update(blocks.filter((_, j) => j !== n))}
-                aria-label={`Remove block ${n + 1}`}
-              >
-                Remove
-              </button>
-            </div>
-            {b.type === "header" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <FieldText
-                  id={id(n, "title")}
-                  label={`Block ${n + 1}: title`}
-                  value={b.title}
-                  onChange={(title) => set(n, { title })}
-                  fields={fields}
-                />
-                <FieldText
-                  id={id(n, "text")}
-                  label={`Block ${n + 1}: lines under the title`}
-                  value={b.text}
-                  rows={2}
-                  onChange={(text) => set(n, { text })}
-                  fields={fields}
-                />
-                <Check label="Show the logo" checked={b.logo} onChange={(logo) => set(n, { logo })} />
-              </div>
-            ) : b.type === "text" ? (
-              <div className="grid gap-3">
-                <FieldText
-                  id={id(n, "text")}
-                  label={`Block ${n + 1}: text`}
-                  value={b.text}
-                  rows={3}
-                  onChange={(text) => set(n, { text })}
-                  fields={fields}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Choice
-                    label="Style"
-                    value={b.style}
-                    options={STYLE}
-                    onChange={(style) => set(n, { style })}
-                  />
-                  <Choice
-                    label="Align"
-                    value={b.align}
-                    options={ALIGN}
-                    onChange={(align) => set(n, { align })}
-                  />
-                </div>
-              </div>
-            ) : b.type === "row" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <FieldText
-                  id={id(n, "label")}
-                  label={`Block ${n + 1}: label`}
-                  value={b.label}
-                  onChange={(label) => set(n, { label })}
-                  fields={fields}
-                />
-                <FieldText
-                  id={id(n, "value")}
-                  label={`Block ${n + 1}: value`}
-                  value={b.value}
-                  onChange={(value) => set(n, { value })}
-                  fields={fields}
-                />
-                <Check
-                  label="Hide when empty"
-                  checked={b.hideIfEmpty}
-                  onChange={(hideIfEmpty) => set(n, { hideIfEmpty })}
-                />
-              </div>
-            ) : b.type === "rule" ? (
-              <Choice
-                label="Line"
-                value={b.style}
-                options={{ brand: "Green line (thick)", thin: "Thin grey line" }}
-                onChange={(style) => set(n, { style })}
-              />
-            ) : b.type === "space" ? (
-              <Choice
-                label="Size"
-                value={b.size}
-                options={{ small: "Small", medium: "Medium", large: "Large" }}
-                onChange={(size) => set(n, { size })}
-              />
-            ) : (
-              <FieldText
-                id={id(n, "text")}
-                label={`Block ${n + 1}: footer text`}
-                value={b.text}
-                onChange={(text) => set(n, { text })}
-                fields={fields}
-              />
-            )}
-          </li>
-        ))}
-      </ol>
-      <fieldset className="flex flex-wrap items-end gap-2 rounded-md border border-border-decorative p-3">
-        <legend className="px-1 text-sm font-semibold text-fg-strong">Add a block at the end</legend>
-        <Choice label="Block" value={adding} options={BLOCK_LABEL} onChange={setAdding} />
-        <button type="button" className={small} onClick={() => update([...blocks, NEW_BLOCK[adding]()])}>
-          Add
-        </button>
-      </fieldset>
-      {kind === "acknowledgement" ? (
-        <fieldset className="grid gap-3 rounded-md border border-border-decorative p-3">
-          <legend className="px-1 text-sm font-semibold text-fg-strong">Reason notes</legend>
-          <p className="m-0 text-sm text-fg-muted">
-            The field <strong>Reason note</strong> ({"{ack.note}"}) prints the sentence for the reason this
-            donation got an acknowledgement instead of an 80G receipt.
-          </p>
-          {ACK_REASONS.map((r) => (
-            <FieldText
-              key={r.key}
-              id={fieldId(formId, `notes.${r.key}`)}
-              label={r.label}
-              value={notes[r.key] ?? ""}
-              rows={2}
-              onChange={(v) => {
-                setNotes({ ...notes, [r.key]: v });
-                changed();
-              }}
-              fields={fields.filter((f) => f.key !== "ack.note")}
-            />
-          ))}
-        </fieldset>
-      ) : null}
-      <PreviewBar
-        run={async () => {
-          const r = await preview(kind, JSON.stringify(template), { reason });
-          if (!r.ok) return r.error;
-          const url = URL.createObjectURL(
-            new Blob([Uint8Array.from(atob(r.pdf ?? ""), (c) => c.charCodeAt(0))], {
-              type: "application/pdf",
-            }),
-          );
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `sample-${kind === "80g" ? "80g-receipt" : "acknowledgement"}.pdf`;
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 10_000);
-          return "Sample PDF downloaded (marked SAMPLE), with this template as it is now, saved or not.";
-        }}
-      >
-        {kind === "acknowledgement" ? (
-          <Choice
-            label="Preview with reason"
-            value={reason}
-            options={
-              Object.fromEntries(ACK_REASONS.map((r) => [r.key, r.label])) as Record<AckReason, string>
-            }
-            onChange={setReason}
-          />
-        ) : null}
-        <p className="m-0 flex-1 text-sm text-fg-muted">
-          Download a sample PDF with sample donor details and the Trust’s saved details.
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] xl:items-start">
+      <div className="grid min-w-0 gap-4">
+        <input type="hidden" name="part" value={kind} />
+        <input ref={hidden} type="hidden" name="template" value={json} />
+        <p className="m-0 text-sm text-fg-muted">
+          The receipt is built from blocks, printed from top to bottom; the grey numbers match the preview.
+          Open a block with <strong>Edit</strong>. Fields such as {"{donor.name}"} (shown here as [Donor
+          name]) are filled in for each receipt: use <strong>Insert field</strong> to add one. A detail line
+          with “Hide when empty” is left out when its fields are empty (for example, no PAN).
         </p>
-      </PreviewBar>
+        <ol id={fieldId(formId, "blocks")} tabIndex={-1} className="m-0 grid min-w-0 list-none gap-2 p-0">
+          {blocks.map((b, n) => {
+            const key = keyOf(b);
+            const isOpen = key === open;
+            const name = `Block ${n + 1}, ${BLOCK_LABEL[b.type].toLowerCase()}: `;
+            const panel = `${formId}-block-${key}`;
+            return (
+              <li
+                key={key}
+                className={`grid min-w-0 gap-3 rounded-md border bg-bg-canvas p-2 ${isOpen ? "border-action-primary-bg" : "border-border-decorative"}`}
+              >
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="grid h-6 min-w-7 place-items-center rounded-sm bg-bg-inverse px-1 text-xs font-semibold text-fg-inverse"
+                  >
+                    {n + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 basis-40">
+                    <span className="block text-sm font-medium text-fg-strong">{BLOCK_LABEL[b.type]}</span>
+                    <span className="block truncate text-xs text-fg-muted">{summaryOf(b, fields)}</span>
+                  </span>
+                  <span className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      className={small}
+                      aria-expanded={isOpen}
+                      aria-controls={isOpen ? panel : undefined}
+                      aria-label={`${isOpen ? "Close" : "Edit"} block ${n + 1}`}
+                      onClick={() => setOpen(isOpen ? null : key)}
+                    >
+                      {isOpen ? "Close" : "Edit"}
+                    </button>
+                    <button
+                      type="button"
+                      className={small}
+                      disabled={n === 0}
+                      onClick={() => update(moveItem(blocks, n, n - 1))}
+                      aria-label={`Move block ${n + 1} up`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className={small}
+                      disabled={n === blocks.length - 1}
+                      onClick={() => update(moveItem(blocks, n, n + 1))}
+                      aria-label={`Move block ${n + 1} down`}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className={small}
+                      onClick={() => update(blocks.filter((_, j) => j !== n))}
+                      aria-label={`Remove block ${n + 1}`}
+                    >
+                      Remove
+                    </button>
+                  </span>
+                </div>
+                {isOpen ? (
+                  <div id={panel} className="grid min-w-0 gap-3 border-t border-border-decorative pt-3">
+                    <p className="m-0 text-xs text-fg-muted">{BLOCK_HINT[b.type]}</p>
+                    {b.type === "header" ? (
+                      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                        <FieldText
+                          id={id(n, "title")}
+                          context={name}
+                          label="Title"
+                          value={b.title}
+                          onChange={(title) => set(n, { title })}
+                          fields={fields}
+                        />
+                        <FieldText
+                          id={id(n, "text")}
+                          context={name}
+                          label="Small lines beside the title"
+                          value={b.text}
+                          rows={2}
+                          onChange={(text) => set(n, { text })}
+                          fields={fields}
+                        />
+                        <Check label="Show the logo" checked={b.logo} onChange={(logo) => set(n, { logo })} />
+                      </div>
+                    ) : b.type === "text" ? (
+                      <div className="grid min-w-0 gap-3">
+                        <FieldText
+                          id={id(n, "text")}
+                          context={name}
+                          label="Text"
+                          value={b.text}
+                          rows={3}
+                          onChange={(text) => set(n, { text })}
+                          fields={fields}
+                        />
+                        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                          <Choice
+                            label="Style"
+                            value={b.style}
+                            options={STYLE}
+                            onChange={(style) => set(n, { style })}
+                          />
+                          <Choice
+                            label="Align"
+                            value={b.align}
+                            options={ALIGN}
+                            onChange={(align) => set(n, { align })}
+                          />
+                        </div>
+                      </div>
+                    ) : b.type === "row" ? (
+                      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                        <FieldText
+                          id={id(n, "label")}
+                          context={name}
+                          label="Label (left)"
+                          value={b.label}
+                          onChange={(label) => set(n, { label })}
+                          fields={fields}
+                        />
+                        <FieldText
+                          id={id(n, "value")}
+                          context={name}
+                          label="Value (right)"
+                          value={b.value}
+                          onChange={(value) => set(n, { value })}
+                          fields={fields}
+                        />
+                        <Check
+                          label="Hide when empty"
+                          checked={b.hideIfEmpty}
+                          onChange={(hideIfEmpty) => set(n, { hideIfEmpty })}
+                        />
+                      </div>
+                    ) : b.type === "rule" ? (
+                      <Choice
+                        label="Line"
+                        value={b.style}
+                        options={{ brand: "Green line (thick)", thin: "Thin grey line" }}
+                        onChange={(style) => set(n, { style })}
+                      />
+                    ) : b.type === "space" ? (
+                      <Choice
+                        label="Size"
+                        value={b.size}
+                        options={{ small: "Small", medium: "Medium", large: "Large" }}
+                        onChange={(size) => set(n, { size })}
+                      />
+                    ) : (
+                      <FieldText
+                        id={id(n, "text")}
+                        context={name}
+                        label="Footer text"
+                        value={b.text}
+                        onChange={(text) => set(n, { text })}
+                        fields={fields}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+        <fieldset className="flex min-w-0 flex-wrap items-end gap-2 rounded-md border border-border-decorative p-3">
+          <legend className="px-1 text-sm font-semibold text-fg-strong">Add a block</legend>
+          <Choice label="Block" value={adding} options={BLOCK_LABEL} onChange={setAdding} />
+          <button type="button" className={small} onClick={add}>
+            {openAt >= 0 ? `Add after block ${openAt + 1}` : "Add at the end"}
+          </button>
+          <p className="m-0 basis-full text-xs text-fg-muted">
+            {BLOCK_HINT[adding]} {openAt >= 0 ? "" : "Open a block first to add one after it."}
+          </p>
+        </fieldset>
+        {kind === "acknowledgement" ? (
+          <fieldset className="grid min-w-0 gap-3 rounded-md border border-border-decorative p-3">
+            <legend className="px-1 text-sm font-semibold text-fg-strong">Reason notes</legend>
+            <p className="m-0 text-sm text-fg-muted">
+              The field <strong>Reason note</strong> ({"{ack.note}"}) prints the sentence for the reason this
+              donation got an acknowledgement instead of an 80G receipt.
+            </p>
+            {ACK_REASONS.map((r) => (
+              <FieldText
+                key={r.key}
+                id={fieldId(formId, `notes.${r.key}`)}
+                label={r.label}
+                value={notes[r.key] ?? ""}
+                rows={2}
+                onChange={(v) => {
+                  setNotes({ ...notes, [r.key]: v });
+                  changed();
+                }}
+                fields={fields.filter((f) => f.key !== "ack.note")}
+              />
+            ))}
+          </fieldset>
+        ) : null}
+      </div>
+      <PdfPreview kind={kind} json={json} preview={preview} />
     </div>
   );
 }
@@ -506,7 +639,7 @@ export function EmailTemplateBuilder({
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4">
       <input type="hidden" name="part" value="email" />
       <input ref={hidden} type="hidden" name="template" value={JSON.stringify(toSave)} />
       <div role="group" aria-label="Language" className="flex flex-wrap gap-1">
@@ -530,7 +663,7 @@ export function EmailTemplateBuilder({
         const e = effective(kind, locale);
         const custom = Boolean(toSave[kind][locale]);
         return (
-          <fieldset key={kind} className="grid gap-3 rounded-md border border-border-decorative p-3">
+          <fieldset key={kind} className="grid min-w-0 gap-3 rounded-md border border-border-decorative p-3">
             <legend className="px-1 text-sm font-semibold text-fg-strong">
               {label} · {LANGUAGES[locale].name}
             </legend>
