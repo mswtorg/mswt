@@ -5,9 +5,19 @@ import tokens from "../../../tokens/design-tokens.json";
 import type { PostalAddress } from "@/lib/db/schema";
 import { formatRupees, type Paise } from "@/lib/money";
 import type { ReceiptKind } from "./numbering";
+import {
+  DEFAULT_PDF,
+  fieldsIn,
+  fill,
+  type AckReason,
+  type PdfBlock,
+  type PdfTemplate,
+  type TextStyle,
+} from "./template";
 import { amountInWords } from "./words";
 
-// Receipt PDF (spec §4.3), English only (owner decision 2026-10-22). Donor names and addresses may
+// Receipt PDF (spec §4.3), drawn from its template (./template.ts, edited in Admin → Settings →
+// Receipts). English only (owner decision 2026-10-22). Donor names and addresses may
 // be in Devanagari or Gujarati: Poppins covers Latin + Devanagari, Noto Sans Gujarati the rest.
 // TTF, not WOFF2: pdfkit's font subsetter breaks with two WOFF2 fonts in one document.
 
@@ -24,6 +34,7 @@ const COLOR = {
   rule: tokens.color.brand.green.$value,
   line: tokens.color.neutral["200"].$value,
   void: tokens.color.error["700"].$value,
+  tag: tokens.color.white.$value,
 };
 
 export type TrustFacts = {
@@ -51,8 +62,12 @@ export type ReceiptData = {
   modeLabel: string;
   paymentReference: string | null;
   towards: string;
-  ackReason: "no_pan" | "not_requested" | "cause" | "cash_limit" | null;
+  ackReason: AckReason | null;
   voided?: boolean;
+  /** Admin preview: watermarked "SAMPLE". */
+  sample?: boolean;
+  /** Admin preview only (with `sample`): each block's number in the left margin, as in the builder. */
+  numbers?: boolean;
   trust: TrustFacts;
 };
 
@@ -97,19 +112,32 @@ function runs(text: string): { gujarati: boolean; text: string }[] {
 
 type Doc = PDFKit.PDFDocument;
 
-function mixed(doc: Doc, text: string, bold: boolean, opts: PDFKit.Mixins.TextOptions = {}) {
+/** Text in Poppins with Gujarati runs in Noto Sans Gujarati; starts at (x, y) when given. */
+function mixed(
+  doc: Doc,
+  text: string,
+  bold: boolean,
+  opts: PDFKit.Mixins.TextOptions,
+  size: number,
+  x?: number,
+  y?: number,
+) {
+  doc.fontSize(size);
   const parts = runs(text);
   parts.forEach((part, i) => {
     doc.font(part.gujarati ? (bold ? "gujaratiBold" : "gujarati") : bold ? "bold" : "regular");
-    doc.text(part.text, { ...opts, continued: i < parts.length - 1 });
+    const o = { ...opts, continued: i < parts.length - 1 };
+    if (i === 0 && x !== undefined && y !== undefined) doc.text(part.text, x, y, o);
+    else doc.text(part.text, o);
   });
 }
 
-/** Draws the horizontal logo from its SVG (nested <g transform> + <path d>, as in brand/logo). */
-function drawLogo(doc: Doc, x: number, y: number, width: number) {
+/** Draws the horizontal logo from its SVG (nested <g transform> + <path d>, as in brand/logo); returns its height. */
+function drawLogo(doc: Doc, x: number, y: number, width: number): number {
   const svg = readFileSync(join(process.cwd(), "public/brand/mswt-logo-horizontal.svg"), "utf8");
   const viewBox = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
   const vbWidth = Number(viewBox?.[1] ?? 1560);
+  const vbHeight = Number(viewBox?.[2] ?? 489);
   doc
     .save()
     .translate(x, y)
@@ -137,23 +165,91 @@ function drawLogo(doc: Doc, x: number, y: number, width: number) {
     if (d) doc.path(d).fill(fills.at(-1) ?? COLOR.text);
   }
   doc.restore();
+  return (vbHeight * width) / vbWidth;
 }
 
-function ackNote(reason: ReceiptData["ackReason"]): string {
-  switch (reason) {
-    case "cash_limit":
-      return "This is an acknowledgement, not a receipt for deduction under Section 80G: donations in cash above ₹2,000 are not eligible for the deduction (Section 80G(5D) of the Income-tax Act, 1961).";
-    case "no_pan":
-      return "This is an acknowledgement, not a receipt for deduction under Section 80G, because no PAN was provided. Contact the Trust in the same financial year to have an 80G receipt issued.";
-    case "cause":
-      return "This is an acknowledgement. Donations towards this purpose are not eligible for deduction under Section 80G.";
-    default:
-      return "This is an acknowledgement of your donation. It is not a receipt for deduction under Section 80G.";
-  }
+/** The value of every template field for one receipt (missing Trust facts print as "to be confirmed"). */
+export function receiptValues(r: ReceiptData, template: PdfTemplate): Record<string, string> {
+  const t = r.trust;
+  const a = r.donorAddress;
+  const reason = r.ackReason ?? "not_requested";
+  return {
+    "receipt.number": r.number,
+    "receipt.date": istDate(r.receivedAt),
+    "donor.name": r.donorName,
+    "donor.address": a
+      ? [a.line1, a.line2, a.city, `${a.state} ${a.pincode}`].filter(Boolean).join(", ")
+      : "",
+    "donor.pan": r.panMasked ?? "",
+    amount: formatRupees(r.amountPaise, "en"),
+    "amount.words": amountInWords(r.amountPaise),
+    "payment.mode": r.modeLabel,
+    "payment.reference": r.paymentReference ?? "",
+    "donation.towards": r.towards,
+    "trust.name": t.legalName,
+    "trust.address": t.address ?? TBC("Trust address"),
+    "trust.pan": t.trustPan ?? TBC("Trust PAN"),
+    "trust.12a": t.reg12aNumber ?? TBC("12A registration"),
+    "trust.80g": t.reg80gNumber ?? TBC("80G registration"),
+    "trust.80g.from": t.reg80gValidFrom ?? TBC("80G validity"),
+    "trust.80g.to": t.reg80gValidTo ?? TBC("80G validity"),
+    "trust.signatory": t.signatoryName ?? TBC("signatory"),
+    "trust.signatory.title": t.signatoryTitle ?? "Authorised Signatory",
+    "trust.website": t.website,
+    "trust.email": t.email ?? "",
+    "ack.note": template.notes?.[reason] ?? DEFAULT_PDF.acknowledgement.notes?.[reason] ?? "",
+  };
 }
 
-/** Renders the receipt to a PDF buffer. */
-export async function renderReceiptPdf(r: ReceiptData): Promise<Buffer> {
+export type ResolvedBlock = (
+  | Extract<PdfBlock, { type: "header" | "text" | "rule" | "space" | "footer" }>
+  | { type: "row"; label: string; value: string }
+) & {
+  /** The block's position in the template (0-based), kept when blocks before it are dropped. */
+  n: number;
+};
+
+/** The template with every field filled in; rows and text left empty by their fields are dropped. */
+export function resolveReceipt(template: PdfTemplate, r: ReceiptData): ResolvedBlock[] {
+  const values = receiptValues(r, template);
+  const empty = (text: string) => {
+    const keys = fieldsIn(text);
+    return keys.length > 0 && keys.every((k) => !values[k]?.trim());
+  };
+  return template.blocks.flatMap((b, n): ResolvedBlock[] => {
+    switch (b.type) {
+      case "header":
+        return [{ ...b, n, title: fill(b.title, values), text: fill(b.text, values) }];
+      case "row":
+        return b.hideIfEmpty && (empty(b.value) || !fill(b.value, values).trim())
+          ? []
+          : [{ type: "row", n, label: fill(b.label, values), value: fill(b.value, values) }];
+      case "text":
+      case "footer": {
+        const text = fill(b.text, values);
+        return text.trim() ? [{ ...b, n, text }] : [];
+      }
+      default:
+        return [{ ...b, n }];
+    }
+  });
+}
+
+const STYLE: Record<TextStyle, { bold: boolean; size: number; muted: boolean }> = {
+  title: { bold: true, size: 15, muted: false },
+  heading: { bold: true, size: 11, muted: false },
+  strong: { bold: true, size: 9.5, muted: false },
+  normal: { bold: false, size: 9, muted: false },
+  small: { bold: false, size: 8.5, muted: true },
+};
+const SPACE = { small: 0.6, medium: 1.8, large: 2.5 } as const;
+const LOGO_WIDTH = 190;
+
+/** Renders the receipt to a PDF buffer from its template (the built-in one unless given). */
+export async function renderReceiptPdf(
+  r: ReceiptData,
+  template: PdfTemplate = DEFAULT_PDF[r.kind],
+): Promise<Buffer> {
   // `font` avoids pdfkit loading its built-in Helvetica metrics (not shipped to serverless bundles).
   const doc = new PDFDocument({
     size: "A4",
@@ -175,111 +271,109 @@ export async function renderReceiptPdf(r: ReceiptData): Promise<Buffer> {
 
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
-  const t = r.trust;
-
-  // Header: logo left, title + number right.
-  drawLogo(doc, left, 48, 190);
-  doc.fillColor(COLOR.text).font("bold").fontSize(15);
-  doc.text(r.kind === "80g" ? "DONATION RECEIPT" : "ACKNOWLEDGEMENT", left, 52, { width, align: "right" });
-  doc.font("regular").fontSize(9.5).fillColor(COLOR.muted);
-  doc.text(`No. ${r.number}`, { width, align: "right" });
-  doc.text(`Date: ${istDate(r.receivedAt)}`, { width, align: "right" });
-
-  // Trust block.
-  doc.y = 118;
-  doc.font("bold").fontSize(11).fillColor(COLOR.text).text(t.legalName, left, doc.y, { width });
-  doc.font("regular").fontSize(8.5).fillColor(COLOR.muted);
-  doc.text(t.address ?? TBC("Trust address"), { width });
-  const regs = [
-    `PAN: ${t.trustPan ?? TBC("Trust PAN")}`,
-    `12A: ${t.reg12aNumber ?? TBC("12A registration")}`,
-    `80G: ${t.reg80gNumber ?? TBC("80G registration")}` +
-      (t.reg80gValidFrom && t.reg80gValidTo ? ` (valid ${t.reg80gValidFrom} to ${t.reg80gValidTo})` : ""),
-  ];
-  doc.text(regs.join("   ·   "), { width });
-  doc.moveDown(0.6);
-  doc.rect(left, doc.y, width, 2).fill(COLOR.rule);
-  doc.moveDown(1);
-
-  // Details table.
-  const address = r.donorAddress
-    ? [
-        r.donorAddress.line1,
-        r.donorAddress.line2,
-        r.donorAddress.city,
-        `${r.donorAddress.state} ${r.donorAddress.pincode}`,
-      ]
-        .filter(Boolean)
-        .join(", ")
-    : null;
-  const rows: [string, string][] = [
-    ["Received with thanks from", r.donorName],
-    ...(address ? ([["Address", address]] as [string, string][]) : []),
-    ...(r.panMasked ? ([["Donor PAN", r.panMasked]] as [string, string][]) : []),
-    ["Amount", formatRupees(r.amountPaise, "en")],
-    ["Amount in words", amountInWords(r.amountPaise)],
-    ["Mode of payment", r.modeLabel],
-    ...(r.paymentReference ? ([["Payment reference", r.paymentReference]] as [string, string][]) : []),
-    ["Towards", r.towards],
-    ["Date of receipt", istDate(r.receivedAt)],
-  ];
+  const footers: { text: string; n: number }[] = [];
   const labelWidth = 150;
-  for (const [label, value] of rows) {
-    const y = doc.y;
-    doc.font("regular").fontSize(9.5).fillColor(COLOR.muted).text(label, left, y, { width: labelWidth });
-    doc.fillColor(COLOR.text);
-    doc.x = left + labelWidth;
-    doc.y = y;
-    mixed(doc, value, true, { width: width - labelWidth });
-    doc.x = left;
-    doc.moveDown(0.25);
-    doc
-      .moveTo(left, doc.y)
-      .lineTo(left + width, doc.y)
-      .lineWidth(0.5)
-      .strokeColor(COLOR.line)
-      .stroke();
-    doc.moveDown(0.45);
+  // Admin preview: "3" in a small tag in the left margin, level with where block 3 starts.
+  // Blocks that start close together (a gap, then text) get stacked tags instead of overlapping ones.
+  let tagBottom = 0;
+  const tag = (n: number, at: number) => {
+    if (!r.sample || !r.numbers) return;
+    const y = Math.max(at, tagBottom + 1);
+    tagBottom = y + 12;
+    const { x: keepX, y: keepY } = doc;
+    const label = String(n + 1);
+    doc.save();
+    doc.roundedRect(left - 34, y, 22, 12, 3).fill(COLOR.muted);
+    doc.font("bold").fontSize(7).fillColor(COLOR.tag);
+    doc.text(label, left - 34, y + 2.2, { width: 22, align: "center", lineBreak: false });
+    doc.restore();
+    doc.x = keepX;
+    doc.y = keepY;
+  };
+
+  for (const b of resolveReceipt(template, r)) {
+    if (b.type !== "footer") tag(b.n, doc.y);
+    switch (b.type) {
+      case "header": {
+        // Logo left; title and small lines right.
+        const top = doc.y;
+        const logoHeight = b.logo ? drawLogo(doc, left, top, LOGO_WIDTH) : 0;
+        doc.fillColor(COLOR.text);
+        mixed(doc, b.title, true, { width, align: "right" }, 15, left, top + 4);
+        doc.fontSize(9.5).fillColor(COLOR.muted);
+        if (b.text.trim()) mixed(doc, b.text, false, { width, align: "right" }, 9.5);
+        doc.x = left;
+        doc.y = Math.max(top + logoHeight, doc.y) + 10;
+        break;
+      }
+      case "text": {
+        const s = STYLE[b.style];
+        doc.fillColor(s.muted ? COLOR.muted : COLOR.text);
+        mixed(doc, b.text, s.bold, { width, align: b.align }, s.size, left, doc.y);
+        doc.moveDown(0.4);
+        break;
+      }
+      case "row": {
+        const y = doc.y;
+        doc
+          .font("regular")
+          .fontSize(9.5)
+          .fillColor(COLOR.muted)
+          .text(b.label, left, y, { width: labelWidth });
+        const labelBottom = doc.y;
+        doc.fillColor(COLOR.text);
+        mixed(doc, b.value, true, { width: width - labelWidth }, 9.5, left + labelWidth, y);
+        doc.x = left;
+        doc.y = Math.max(doc.y, labelBottom);
+        doc.moveDown(0.25);
+        doc
+          .moveTo(left, doc.y)
+          .lineTo(left + width, doc.y)
+          .lineWidth(0.5)
+          .strokeColor(COLOR.line)
+          .stroke();
+        doc.moveDown(0.45);
+        break;
+      }
+      case "rule":
+        if (b.style === "brand") {
+          doc.moveDown(0.3);
+          doc.rect(left, doc.y, width, 2).fill(COLOR.rule);
+          doc.moveDown(1);
+        } else {
+          doc
+            .moveTo(left, doc.y)
+            .lineTo(left + width, doc.y)
+            .lineWidth(0.5)
+            .strokeColor(COLOR.line)
+            .stroke();
+          doc.moveDown(0.6);
+        }
+        break;
+      case "space":
+        doc.fontSize(9.5).moveDown(SPACE[b.size]);
+        break;
+      case "footer":
+        footers.push({ text: b.text, n: b.n });
+        break;
+    }
   }
 
-  // Statement.
-  doc.moveDown(0.6);
-  doc.font("regular").fontSize(9).fillColor(COLOR.text);
-  doc.text(
-    r.kind === "80g"
-      ? "This donation is eligible for deduction under Section 80G of the Income-tax Act, 1961, subject to the conditions specified therein. The Trust reports donations in Form 10BD; the certificate in Form 10BE is issued after that filing."
-      : ackNote(r.ackReason),
-    left,
-    doc.y,
-    { width },
-  );
-  doc.moveDown(0.5);
-  doc.text("We confirm that no goods or services were provided in return for this donation.", { width });
-
-  // Signatory.
-  doc.moveDown(2.5);
-  doc.font("bold").fontSize(9.5).text(`For ${t.legalName}`, { width, align: "right" });
-  doc.moveDown(1.8);
-  doc
-    .font("regular")
-    .fontSize(9)
-    .text(t.signatoryName ?? TBC("signatory"), { width, align: "right" });
-  doc.fillColor(COLOR.muted).text(t.signatoryTitle ?? "Authorised Signatory", { width, align: "right" });
-
-  // Footer.
-  const footerY = doc.page.height - doc.page.margins.bottom - 24;
+  // Footers sit at the bottom of the last page, the last one lowest.
   doc.fontSize(7.5).fillColor(COLOR.muted);
-  doc.text(
-    `This is a computer-generated receipt. ${[t.website, t.email].filter(Boolean).join("  ·  ")}`,
-    left,
-    footerY,
-    { width, align: "center", lineBreak: false },
-  );
+  footers.reverse().forEach(({ text, n }, i) => {
+    tagBottom = 0; // footers are drawn bottom-up, 12pt apart: no stacking
+    const y = doc.page.height - doc.page.margins.bottom - 24 - i * 12;
+    doc.fontSize(7.5).fillColor(COLOR.muted);
+    mixed(doc, text, false, { width, align: "center", lineBreak: false }, 7.5, left, y);
+    tag(n, y - 1);
+  });
 
-  if (r.voided) {
+  const mark = r.voided ? "VOID" : r.sample ? "SAMPLE" : null;
+  if (mark) {
     doc.save().rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
     doc.font("bold").fontSize(110).fillColor(COLOR.void).opacity(0.18);
-    doc.text("VOID", 0, doc.page.height / 2 - 70, {
+    doc.text(mark, 0, doc.page.height / 2 - 70, {
       width: doc.page.width,
       align: "center",
       lineBreak: false,

@@ -4,16 +4,9 @@ import { requireAdmin } from "@/lib/admin/guard";
 import { adminNav } from "@/lib/admin/nav";
 import { can, ROLE_LABELS } from "@/lib/admin/permissions";
 import { newMessageCount } from "@/lib/admin/messages";
+import { initials } from "@/lib/initials";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { logoutAction } from "../(auth)/actions";
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
 
 // Everything below requires a signed-in admin; each page also checks its own capability.
 export default async function AdminAppLayout({ children }: { children: ReactNode }) {

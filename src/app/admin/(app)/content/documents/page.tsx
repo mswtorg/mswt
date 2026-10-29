@@ -6,6 +6,7 @@ import { requireCapability } from "@/lib/admin/guard";
 import { DataTable, PageHeader, Td, Th, Tr } from "@/components/admin/ui";
 import { Alert, Badge } from "@/components/ui/Alert";
 import { ButtonLink } from "@/components/ui/Button";
+import { isCertificate } from "@/lib/content/document-kinds";
 import { KIND_LABEL } from "./fields";
 
 export const metadata: Metadata = { title: "Documents" };
@@ -20,7 +21,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Documents"
-        description="Annual reports and audited accounts on the Transparency page, as public PDFs."
+        description="Registration certificates, annual reports and audited accounts on the Transparency page, as public PDFs."
         actions={<ButtonLink href="/admin/content/documents/new">New document</ButtonLink>}
       />
       {q.deleted ? (
@@ -28,60 +29,83 @@ export default async function DocumentsPage({ searchParams }: Props) {
           <p>Document deleted.</p>
         </Alert>
       ) : null}
-      <DataTable caption="Documents">
-        <thead>
-          <tr>
-            <Th>Document</Th>
-            <Th>Year</Th>
-            <Th>Status</Th>
-            <Th>Languages</Th>
-            <Th>PDF</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="px-4 py-8 text-center text-fg-muted">
-                No documents yet.
-              </td>
-            </tr>
-          ) : (
-            rows.map((d) => (
-              <Tr key={d.id}>
-                <Td header>
-                  <Link
-                    href={`/admin/content/documents/${d.id}`}
-                    className="text-link-default underline underline-offset-4"
-                  >
-                    {d.translations.find((t) => t.locale === "en")?.title ?? KIND_LABEL[d.kind]}
-                  </Link>
-                  <span className="block text-xs font-normal text-fg-muted">{KIND_LABEL[d.kind]}</span>
-                </Td>
-                <Td>{d.fy}</Td>
-                <Td>
-                  <Badge tone={d.status === "published" ? "success" : "neutral"}>
-                    {d.status === "published" ? "Published" : "Draft"}
-                  </Badge>
-                </Td>
-                <Td>
-                  <span className="flex flex-wrap gap-1">
-                    {routing.locales.map((l) => {
-                      const t = d.translations.find((x) => x.locale === l);
-                      return t ? (
-                        <Badge key={l} tone={t.reviewedAt ? "success" : "warning"}>
-                          {l.toUpperCase()}
-                          <span className="sr-only">{t.reviewedAt ? " reviewed" : " draft"}</span>
-                        </Badge>
-                      ) : null;
-                    })}
-                  </span>
-                </Td>
-                <Td>{size(d.pdfBytes)}</Td>
-              </Tr>
-            ))
-          )}
-        </tbody>
-      </DataTable>
+      <DocumentTable
+        caption="Registration certificates"
+        rows={rows.filter((d) => isCertificate(d.kind))}
+        empty="No certificates yet. Use New document and choose a Certificate type (12A, 80G…)."
+      />
+      <DocumentTable
+        caption="Reports by year"
+        rows={rows.filter((d) => !isCertificate(d.kind))}
+        empty="No reports yet."
+      />
     </>
+  );
+}
+
+function DocumentTable({
+  caption,
+  rows,
+  empty,
+}: {
+  caption: string;
+  rows: Awaited<ReturnType<typeof listDocuments>>;
+  empty: string;
+}) {
+  return (
+    <DataTable caption={caption}>
+      <thead>
+        <tr>
+          <Th>Document</Th>
+          <Th>Year</Th>
+          <Th>Status</Th>
+          <Th>Languages</Th>
+          <Th>PDF</Th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={5} className="px-4 py-8 text-center text-fg-muted">
+              {empty}
+            </td>
+          </tr>
+        ) : (
+          rows.map((d) => (
+            <Tr key={d.id}>
+              <Td header>
+                <Link
+                  href={`/admin/content/documents/${d.id}`}
+                  className="text-link-default underline underline-offset-4"
+                >
+                  {d.translations.find((t) => t.locale === "en")?.title ?? KIND_LABEL[d.kind]}
+                </Link>
+                <span className="block text-xs font-normal text-fg-muted">{KIND_LABEL[d.kind]}</span>
+              </Td>
+              <Td>{d.fy ?? "–"}</Td>
+              <Td>
+                <Badge tone={d.status === "published" ? "success" : "neutral"}>
+                  {d.status === "published" ? "Published" : "Draft"}
+                </Badge>
+              </Td>
+              <Td>
+                <span className="flex flex-wrap gap-1">
+                  {routing.locales.map((l) => {
+                    const t = d.translations.find((x) => x.locale === l);
+                    return t ? (
+                      <Badge key={l} tone={t.reviewedAt ? "success" : "warning"}>
+                        {l.toUpperCase()}
+                        <span className="sr-only">{t.reviewedAt ? " reviewed" : " draft"}</span>
+                      </Badge>
+                    ) : null;
+                  })}
+                </span>
+              </Td>
+              <Td>{size(d.pdfBytes)}</Td>
+            </Tr>
+          ))
+        )}
+      </tbody>
+    </DataTable>
   );
 }

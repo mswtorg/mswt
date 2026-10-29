@@ -47,8 +47,47 @@ test("the donate form reports missing details next to each field", async ({ page
   await expect(summary).toBeFocused();
   for (const id of ["name", "email", "phone", "pan", "line1", "city", "state", "pincode", "citizen"])
     await expect(page.locator(`#donate-${id}`)).toHaveAttribute("aria-invalid", "true");
+  // An error must not untick the 80G box (React resets a form after its action runs).
+  await expect(page.locator("#donate-wants80g")).toBeChecked();
   await summary.getByRole("link", { name: "Enter your full name." }).click();
   await expect(page.locator("#donate-name")).toBeFocused();
+});
+
+test("fields are checked as they are left, and the message clears once fixed", async ({ page }) => {
+  await page.goto("/en/donate");
+  const phone = page.locator("#donate-phone");
+  await phone.fill("12345");
+  await expect(page.getByText("Enter a 10-digit Indian mobile number.")).toHaveCount(0); // not while typing
+  await phone.press("Tab");
+  await expect(phone).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Enter a 10-digit Indian mobile number.")).toBeVisible();
+  await phone.fill("98765 43210");
+  await expect(phone).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Enter a 10-digit Indian mobile number.")).toHaveCount(0);
+
+  await page.locator("#donate-wants80g").check();
+  const pan = page.locator("#donate-pan");
+  await pan.fill("ABCDE1234F"); // 4th letter D is not a PAN holder type
+  await pan.press("Tab");
+  await expect(page.getByText("Enter a valid PAN, for example ABCPE1234F.")).toBeVisible();
+  await pan.fill("abcpe1234f");
+  await expect(page.getByText("Enter a valid PAN, for example ABCPE1234F.")).toHaveCount(0);
+
+  // Fields nobody has reached yet stay quiet; no summary until Donate is pressed.
+  await expect(page.locator("#donate-name")).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Please fix the following")).toHaveCount(0);
+  await expectAccessible(page);
+});
+
+test("the contact form checks the email when it is left", async ({ page }) => {
+  await page.goto("/en/contact");
+  const email = page.locator("#contact-email");
+  await email.fill("someone@");
+  await email.press("Tab");
+  await expect(page.getByText("Enter an email address in the format name@example.com")).toBeVisible();
+  await email.fill("someone@example.com");
+  await expect(page.getByText("Enter an email address in the format name@example.com")).toHaveCount(0);
+  await expectAccessible(page);
 });
 
 test("payment APIs are never cached and refuse bad input", async ({ request }) => {

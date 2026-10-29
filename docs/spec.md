@@ -23,7 +23,7 @@ Locales: `en` (default), `hi`, `mr`, `gu`. `{l}` = locale. Slugs are ASCII and *
 | News article | `/{l}/news/{slug}` | NewsArticle JSON-LD |
 | Testimonials | `/{l}/testimonials` | CollectionPage; 9 per page; in Admin → Menus only (not in the built-in menus) |
 | Testimonial story | `/{l}/testimonials/{slug}` | WebPage + BreadcrumbList; no `Review` markup |
-| Transparency | `/{l}/transparency` | Annual reports, audited accounts (PDF links on R2) |
+| Transparency | `/{l}/transparency` | Registration certificates (12A, 80G, trust registration, PAN), then annual reports and audited accounts by year (PDF links on R2) |
 | Contact | `/{l}/contact` | Form (Turnstile) + address/map link. ContactPage |
 | Privacy policy | `/{l}/privacy` | DPDP Act 2023 compliant |
 | Terms of use | `/{l}/terms` | |
@@ -38,7 +38,7 @@ Locales: `en` (default), `hi`, `mr`, `gu`. `{l}` = locale. Slugs are ASCII and *
 | 404 / 500 | localised `not-found` / `error` |
 
 ### Admin (English, `noindex, nofollow`, `Disallow` in robots, auth required)
-`/admin/login`, `/admin/2fa`, `/admin` (dashboard), `/admin/donations`, `/admin/donations/new` (offline entry), `/admin/donations/{id}`, `/admin/donors`, `/admin/donors/{id}`, `/admin/causes`, `/admin/content/pages`, `/admin/content/gallery`, `/admin/content/events`, `/admin/content/news`, `/admin/content/menus`, `/admin/messages`, `/admin/reports`, `/admin/settings/organization`, `/admin/settings/seo`, `/admin/settings/payments`, `/admin/settings/email`, `/admin/settings/appearance`, `/admin/users`, `/admin/audit-log`.
+`/admin/login`, `/admin/2fa`, `/admin` (dashboard), `/admin/donations`, `/admin/donations/new` (offline entry), `/admin/donations/{id}`, `/admin/donors`, `/admin/donors/{id}`, `/admin/causes`, `/admin/content/pages`, `/admin/content/gallery`, `/admin/content/events`, `/admin/content/news`, `/admin/content/menus`, `/admin/messages`, `/admin/reports`, `/admin/settings/organization`, `/admin/settings/seo`, `/admin/settings/payments`, `/admin/settings/email`, `/admin/settings/receipts`, `/admin/settings/appearance`, `/admin/users`, `/admin/audit-log`.
 
 ### API (`noindex` header, `Disallow`, never cached)
 `POST /api/donations/order`, `POST /api/webhooks/cashfree`, `GET /api/donations/{publicOrderId}/status`, `GET /api/receipts/{token}` (signed, expiring link to R2 PDF), `POST /api/contact`, `GET /api/cron/reconcile` (Vercel Cron, secret header), `POST /api/indexnow` (internal, on publish).
@@ -196,10 +196,10 @@ Accountant enters donor, amount, mode (cash/cheque/NEFT/UPI), instrument ref & d
 | Users & roles | ✓ | — | — |
 | Audit log | ✓ | own actions | own actions |
 
-All roles: TOTP 2FA mandatory, session timeout 30 min idle, login rate-limited and locked after 5 failures.
+All roles: TOTP 2FA mandatory, session timeout 2 hours idle (owner decision 2026-10-29; an admin form with unsaved changes renews the session every 5 minutes while the person is typing or clicking in it), login rate-limited and locked after 5 failures.
 
 ### Sign-in and accounts (as built in Step 8a, 2026-10-23)
-- **Flow:** email + password → a signed 5-minute challenge cookie (no session) → 6-digit TOTP (±1 step, never the same step twice) or a one-time recovery code → Auth.js JWT session (HttpOnly, SameSite=Lax, `__Secure-` on https), 30 minutes idle. First sign-in without 2FA goes to setup (QR + key, confirm a code, 10 recovery codes shown once). No admin page works without 2FA.
+- **Flow:** email + password → a signed 5-minute challenge cookie (no session) → 6-digit TOTP (±1 step, never the same step twice) or a one-time recovery code → Auth.js JWT session (HttpOnly, SameSite=Lax, `__Secure-` on https), 2 hours idle. First sign-in without 2FA goes to setup (QR + key, confirm a code, 10 recovery codes shown once). No admin page works without 2FA.
 - **Lockout:** 5 wrong passwords or codes lock the account for 15 minutes; an in-memory per-IP limit (30 per 15 min per instance) slows guessing. Unknown emails and wrong passwords get the same message and take the same time.
 - **Sessions end at once** when a user is deactivated, their role changes, their password is reset or their 2FA is reset (`users.session_version`, checked on every request).
 - **Accounts:** the first Super Admin is created with `npm run admin:create` (password typed in the terminal, hidden). Super Admins invite users and create password-reset links (one-time, 72 h, only a SHA-256 stored) and send them themselves until email works. Nobody can change their own role or deactivate themselves, and the last active Super Admin can't be removed. Passwords: 12+ characters, not common, not containing the name/email (NIST 800-63B; no composition rules); argon2id.
@@ -234,7 +234,7 @@ All roles: TOTP 2FA mandatory, session timeout 30 min idle, login rate-limited a
 - **Events** (`/admin/content/events`): web address, draft/published, event status, in person/online/mixed, start/end typed in IST, venue or online link, cover, slider; text per language (title, summary, details, SEO, reviewed). Event structured data includes the cover image.
 - **News** (`/admin/content/news`): web address, draft/published, publish date (IST; publishing without one publishes now), author, cover, slider; headline, excerpt, story per language. NewsArticle structured data uses the cover.
 - **Gallery** (`/admin/content/gallery`): album settings, cover (else the first photo), ordered photos (captions come from the media library per language), title and description per language.
-- **Documents** (`/admin/content/documents`): FY, type, draft/published, title per language, and a PDF of up to 25 MB. With R2 the browser uploads straight to the public media bucket through a 5-minute signed URL (needs a CORS rule, M8c-6); the server then checks it starts with `%PDF-` and its size, attaches it under `documents/{id}/{name}-{random}.pdf` and deletes the previous file. Transparency lists "Download PDF (n MB)".
+- **Documents** (`/admin/content/documents`): type, FY, draft/published, title per language, and a PDF of up to 25 MB. With R2 the browser uploads straight to the public media bucket through a 5-minute signed URL (needs a CORS rule, M8c-6); the server then checks it starts with `%PDF-` and its size, attaches it under `documents/{id}/{name}-{random}.pdf` and deletes the previous file. Transparency lists "Download PDF (n MB)". **Registration certificates** are document types too (12A, 80G, trust registration, PAN, other: `cert_*`) with **no financial year** (a database check keeps years and types apart). They are listed in their own admin table and in a "Registration certificates" section at the top of Transparency (`#certificates`); About links the 12A and 80G numbers to their certificate PDF once published. The upload reminds the editor to blank out home addresses and signatures first.
 - **Menus** (`/admin/content/menus`, table `menu_items`): header and the three footer lists. Links to pages, causes, news, events or https sites, ordered, hidden, renamed per language. While a menu has no saved links the built-in menu (`src/config/nav.ts`) is used; pages that aren't live and items not published in that language never show; a web link shows only in languages it has a label for.
 - **Header dropdowns (2026-10-28):** each header link has **Sub-links**: None; **Pick by hand** (up to 12 links, same controls: page, cause, news, event or web link, order, hide, rename per language); or **Automatic**: all causes, latest 5 news posts, or next 5 upcoming events, each followed by "View all …". One level deep, header only (footer lists stay flat). Sub-links follow the same visibility rules; a link whose sub-links are all left out in a language shows as a plain link. The built-in header (and the seeded/migrated one) has Causes on "Automatic: all causes". Saves are audited (`menu.update` lists sub-links).
 

@@ -153,11 +153,18 @@
     "kind": {
       "annual_report": "Annual report",
       "audited_accounts": "Audited accounts",
-      "other": "Document"
+      "other": "Document",
+      "cert_12a": "12A registration certificate",
+      "cert_80g": "80G registration certificate",
+      "cert_registration": "Trust registration",
+      "cert_pan": "PAN",
+      "cert_other": "Certificate"
     },
     "fileSoon": "PDF coming soon",
     "empty": "No reports are published yet.",
-    "download": "Download PDF ({size} MB)"
+    "download": "Download PDF ({size} MB)",
+    "certificatesH": "Registration certificates",
+    "certificatesLead": "The Trust's registration and tax certificates."
   },
   "About": {
     "title": "About us",
@@ -171,8 +178,9 @@
     "validity": "valid {from} to {to}",
     "fcra": "FCRA",
     "fcraValue": "Not registered. We accept donations from Indian citizens only.",
-    "reports": "Read our annual reports and audited accounts",
-    "testimonials": "What people say"
+    "reports": "Read our annual reports, audited accounts and certificates",
+    "testimonials": "What people say",
+    "viewCertificate": "View certificate"
   },
   "Contact": {
     "title": "Contact us",
@@ -238,7 +246,7 @@
     "wants80g": "I want an 80G receipt for income-tax deduction",
     "wants80gHint": "Needs your PAN and postal address.",
     "pan": "PAN",
-    "panHint": "10 characters, for example ABCDE1234F",
+    "panHint": "10 characters, for example ABCPE1234F",
     "line1": "Address line 1",
     "line2": "Address line 2",
     "city": "City",
@@ -264,7 +272,7 @@
       "name": "Enter your full name.",
       "email": "Enter a valid email address.",
       "phone": "Enter a 10-digit Indian mobile number.",
-      "pan": "Enter a valid PAN, for example ABCDE1234F.",
+      "pan": "Enter a valid PAN, for example ABCPE1234F.",
       "line1": "Enter your address.",
       "city": "Enter your city.",
       "state": "Enter your state.",

@@ -56,6 +56,7 @@ test.describe("admin flows", () => {
       "SEO",
       "Payments",
       "Email",
+      "Receipts",
       "Appearance",
       "Audit log",
       "My account",
@@ -185,7 +186,12 @@ test.describe("admin flows", () => {
       "Audit log",
       "My account",
     ]);
-    for (const path of ["/admin/settings/payments", "/admin/settings/organization", "/admin/users"]) {
+    for (const path of [
+      "/admin/settings/payments",
+      "/admin/settings/organization",
+      "/admin/settings/receipts",
+      "/admin/users",
+    ]) {
       await other.goto(path);
       await expect(other.getByRole("heading", { name: /don’t have access/ }), path).toBeVisible();
     }

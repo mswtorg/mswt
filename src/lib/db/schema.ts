@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Blocks } from "@/lib/content/blocks";
+import type { EmailTemplates, PdfTemplate } from "@/lib/receipts/template";
 import {
   type AnyPgColumn,
   bigint,
@@ -246,6 +247,20 @@ export const appearanceSettings = pgTable(
   (t) => [check("appearance_settings_single_row", sql`${t.id} = 1`)],
 );
 
+/** Receipt templates (Admin → Settings → Receipts); null = the built-in template. */
+export const receiptSettings = pgTable(
+  "receipt_settings",
+  {
+    id: singleRowId(),
+    pdf80g: jsonb("pdf_80g").$type<PdfTemplate>(),
+    pdfAck: jsonb("pdf_ack").$type<PdfTemplate>(),
+    email: jsonb("email").$type<EmailTemplates>(),
+    updatedBy: updatedBy(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("receipt_settings_single_row", sql`${t.id} = 1`)],
+);
+
 // ── Content (Step 6a) ────────────────────────────────────────────────────────────────────────
 // Every content type has a *_translations table keyed (parent, locale). An item is published in a
 // language only when that translation row exists (no silent fallback, I18N-03).
@@ -277,7 +292,17 @@ export const eventStatus = pgEnum("event_status", [
   "moved_online",
 ]);
 export const eventAttendance = pgEnum("event_attendance", ["offline", "online", "mixed"]);
-export const reportKind = pgEnum("report_kind", ["annual_report", "audited_accounts", "other"]);
+/** Yearly reports, and registration certificates (`cert_*`, no financial year). */
+export const reportKind = pgEnum("report_kind", [
+  "annual_report",
+  "audited_accounts",
+  "other",
+  "cert_12a",
+  "cert_80g",
+  "cert_registration",
+  "cert_pan",
+  "cert_other",
+]);
 
 const translationCols = () => ({
   locale: locale("locale").notNull(),
@@ -600,12 +625,15 @@ export const testimonialTranslations = pgTable(
   (t) => [primaryKey({ columns: [t.testimonialId, t.locale] })],
 );
 
-/** Transparency documents. The PDF lives in R2 (Step 8); until then pdf_r2_key is null. */
+/**
+ * Transparency documents. The PDF lives in R2 (Step 8); until then pdf_r2_key is null. Reports
+ * have a financial year; registration certificates (`cert_*`) never do.
+ */
 export const reports = pgTable(
   "reports",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    fy: text("fy").notNull(),
+    fy: text("fy"),
     kind: reportKind("kind").notNull(),
     status: publishStatus("status").default("draft").notNull(),
     pdfR2Key: text("pdf_r2_key"),
@@ -616,7 +644,10 @@ export const reports = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [check("reports_fy_format", sql`${t.fy} ~ '^[0-9]{4}-[0-9]{2}$'`)],
+  (t) => [
+    check("reports_fy_format", sql`${t.fy} ~ '^[0-9]{4}-[0-9]{2}$'`),
+    check("reports_fy_by_kind", sql`starts_with(${t.kind}::text, 'cert_') = (${t.fy} IS NULL)`),
+  ],
 );
 
 export const reportTranslations = pgTable(

@@ -71,7 +71,7 @@ export default async function NewOfflineDonation() {
             description: "Needs PAN and address. Without them the donor gets an acknowledgement.",
             fields: [
               { name: "wants80g", label: "Issue an 80G receipt", type: "checkbox", span: "full" },
-              { name: "pan", label: "PAN", maxLength: 10, hint: "e.g. ABCDE1234F" },
+              { name: "pan", label: "PAN", maxLength: 10, hint: "e.g. ABCPE1234F" },
               { name: "line1", label: "Address line 1", span: "full" },
               { name: "line2", label: "Address line 2", span: "full" },
               { name: "city", label: "City" },

@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Locale } from "@/i18n/routing";
 import { recordAudit, type Actor } from "@/lib/audit";
 import { ContentFileSchema } from "@/lib/content/format";
@@ -224,7 +224,13 @@ export async function loadSampleContent(
       const [dup] = await tx
         .select({ id: reports.id })
         .from(reports)
-        .where(and(eq(reports.fy, r.fy), eq(reports.kind, r.kind), eq(reports.isSample, true)));
+        .where(
+          and(
+            r.fy ? eq(reports.fy, r.fy) : isNull(reports.fy),
+            eq(reports.kind, r.kind),
+            eq(reports.isSample, true),
+          ),
+        );
       if (dup) continue;
       const [row] = await tx
         .insert(reports)

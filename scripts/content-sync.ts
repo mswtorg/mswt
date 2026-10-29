@@ -6,7 +6,7 @@
 // Translations marked "reviewed": true are published in production; others stay preview-only.
 import { readFileSync } from "node:fs";
 import { config } from "dotenv";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ContentFileSchema } from "../src/lib/content/format";
@@ -215,7 +215,7 @@ try {
       const existing = await tx
         .select({ id: t.reports.id })
         .from(t.reports)
-        .where(and(eq(t.reports.fy, r.fy), eq(t.reports.kind, r.kind)));
+        .where(and(r.fy ? eq(t.reports.fy, r.fy) : isNull(t.reports.fy), eq(t.reports.kind, r.kind)));
       const id =
         existing[0]?.id ??
         (

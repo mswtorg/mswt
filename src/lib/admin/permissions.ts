@@ -32,6 +32,7 @@ export const CAPABILITIES = {
   "settings.seo": CONTENT,
   "settings.payment": SA,
   "settings.email": SA,
+  "settings.receipts": SA, // receipt PDF and email templates
   "settings.appearance": SA,
   "users.manage": SA,
   "audit.read.all": SA,

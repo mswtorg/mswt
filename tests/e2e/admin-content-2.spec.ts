@@ -181,6 +181,56 @@ test.describe("admin content 2", () => {
     expect(res.headers()["content-type"]).toBe("application/pdf");
   });
 
+  test("a registration certificate has no year and shows in its own section", async () => {
+    await page.goto("/admin/content/documents/new");
+    await page.locator("#document-kind").selectOption({ label: "Certificate: 80G registration" });
+    // A year is refused for certificates.
+    await page.locator("#document-fy").fill("2025-26");
+    await page.getByRole("button", { name: "Create document" }).click();
+    await expect(page.getByText(/Certificates have no financial year/).first()).toBeVisible();
+    await page.locator("#document-fy").fill("");
+    await page.locator("#document-status").selectOption("published");
+    await page.getByRole("button", { name: "Create document" }).click();
+    await expect(page.getByText(/Document created/)).toBeVisible();
+    await expect(page.getByText(/blank out home addresses, signatures/)).toBeVisible();
+    const pdf = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+    await page
+      .locator("#pdf-file")
+      .setInputFiles({ name: "80G.pdf", mimeType: "application/pdf", buffer: pdf });
+    await page.getByRole("button", { name: "Upload PDF" }).click();
+    await expect(page.getByText("PDF uploaded.")).toBeVisible();
+    await page.locator("#document-title-title").fill(`${run} 80G certificate`);
+    await page.getByLabel(/Reviewed by a person/).check();
+    await page.getByRole("button", { name: "Save", exact: true }).last().click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+    await page.goto("/admin/content/documents");
+    await expect(
+      page.getByRole("table", { name: "Registration certificates" }).getByText(`${run} 80G certificate`),
+    ).toBeVisible();
+    await expectAccessible(page);
+
+    // Transparency: "Registration certificates" comes before the yearly reports.
+    await expect(async () => {
+      await page.goto("/en/transparency");
+      await expect(page.locator("#certificates")).toContainText(`${run} 80G certificate`, { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+    const headings = await page.locator("main h2").allTextContents();
+    expect(headings[0]).toBe("Registration certificates");
+    const link = page
+      .locator("#certificates")
+      .getByRole("link", { name: new RegExp(`${run} 80G certificate`) });
+    expect((await page.request.get((await link.getAttribute("href"))!)).status()).toBe(200);
+    await expectAccessible(page);
+
+    // About links to the certificates (its cached copy refreshes within a load or two).
+    await expect(async () => {
+      await page.goto("/en/about");
+      await expect(
+        page.getByRole("link", { name: "Read our annual reports, audited accounts and certificates" }),
+      ).toHaveAttribute("href", "/en/transparency#certificates", { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+  });
+
   test("the header menu can be renamed per language and reordered", async () => {
     await page.goto("/admin/content/menus?menu=header");
     await expectAccessible(page);
@@ -442,6 +492,44 @@ test.describe("admin content 2", () => {
     await expect(page.getByRole("region", { name: "Photos" })).toHaveCount(0);
     const box = (await page.locator("main figure img").first().boundingBox())!;
     expect(box.width / box.height).toBeCloseTo(3, 1);
+  });
+
+  test("a trustee photo shows on About; a trustee without one shows initials", async ({ browser }) => {
+    const db = postgres(process.env.DATABASE_URL!);
+    const [before] = await db`select trustees from organization_settings where id = 1`;
+    const admin = await newPage(browser);
+    try {
+      await signInFirstTime(admin, await createUser("super_admin"));
+      await admin.goto("/admin/settings/organization");
+      await admin.getByLabel("Trustees").fill(`${run} Trustee | Trustee\n${run} President | President`);
+      await admin.getByRole("button", { name: "Save" }).click();
+      await expect(admin.getByRole("status")).toContainText("Saved");
+      await admin.reload();
+      const group = admin.getByRole("group", { name: `${run} Trustee (Trustee)` });
+      await group.getByRole("button", { name: /Choose photo/ }).click();
+      await admin
+        .getByRole("dialog")
+        .getByRole("button", { name: new RegExp(photos[0]!.name) })
+        .click();
+      await expect(admin.getByRole("dialog")).toBeHidden();
+      await admin.getByRole("button", { name: "Save" }).click();
+      await expect(admin.getByRole("status")).toContainText("Saved");
+
+      const trustees = page.locator("section", { has: page.locator("#trustees-h") });
+      await expect(async () => {
+        await page.goto("/en/about");
+        await expect(trustees.getByRole("img", { name: "Test photo 1" })).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
+      await expect(trustees.getByRole("heading", { name: `${run} President` })).toBeVisible();
+      // No photo: a circle with the initials (first and last word), hidden from screen readers.
+      await expect(trustees.locator("[data-initials]")).toHaveText(["EP"]);
+      await expect(trustees.locator("[data-initials]")).toHaveAttribute("aria-hidden", "true");
+      await expect(trustees.locator("img")).toHaveCount(1);
+    } finally {
+      await db`update organization_settings set trustees = ${db.json(before!.trustees)} where id = 1`;
+      await db.end();
+      await admin.context().close();
+    }
   });
 });
 

@@ -128,6 +128,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
         anyOf: ["settings.email"],
       },
       {
+        key: "receipts",
+        label: "Receipts",
+        href: "/admin/settings/receipts",
+        icon: "receipts",
+        anyOf: ["settings.receipts"],
+      },
+      {
         key: "appearance",
         label: "Appearance",
         href: "/admin/settings/appearance",

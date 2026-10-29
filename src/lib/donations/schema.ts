@@ -1,26 +1,20 @@
 import { z } from "zod";
 import { rupeesToPaise } from "@/lib/money";
 import type { PaymentSettings } from "@/lib/payment-settings";
+import { DONATE_FIELDS, type DonateErrorCode, type DonateField } from "./fields";
 
-// Donate form validation (server side; SEC-06). Error codes map to translated messages.
-export const DONATE_FIELDS = [
-  "amount",
-  "cause",
-  "name",
-  "email",
-  "phone",
-  "pan",
-  "line1",
-  "city",
-  "state",
-  "pincode",
-  "citizen",
-] as const;
-export type DonateField = (typeof DONATE_FIELDS)[number];
-export type DonateErrorCode =
-  DonateField | "amountMin" | "amountMax" | "captcha" | "rate" | "server" | "closed";
+// Donate form validation (server side; SEC-06, also run in the browser as people type).
+// Error codes map to translated messages.
 
-export const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+export { DONATE_FIELDS, type DonateErrorCode, type DonateField };
+
+/**
+ * PAN format, including the holder type in the 4th letter: P individual, H HUF, C company,
+ * F firm/LLP, A association of persons, B body of individuals, T trust, L local authority,
+ * J artificial juridical person, G government. A free check only: it does not ask the
+ * Income Tax Department whether the PAN exists or whose it is.
+ */
+export const PAN_RE = /^[A-Z]{3}[ABCFGHJLPT][A-Z][0-9]{4}[A-Z]$/;
 
 /** Indian mobile, with or without +91/0: returns the 10 digits Cashfree expects. */
 export function normalisePhone(raw: string): string | null {

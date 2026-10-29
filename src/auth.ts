@@ -18,10 +18,11 @@ declare module "next-auth" {
 export const SIGN_IN_TICKET = "admin-sign-in";
 export type SignInTicket = { uid: string; sv: number };
 
-const IDLE_TIMEOUT_S = 30 * 60;
+/** Signed out after this long without a request (owner decision 2026-10-29: 2 hours, was 30 minutes). */
+export const IDLE_TIMEOUT_S = 2 * 60 * 60;
 
 // Admin sessions (SEC-09): password + TOTP happen in our own server actions; Auth.js only turns a
-// fresh signed ticket into a 30-minute (idle) JWT session and re-checks the user on every request.
+// fresh signed ticket into a 2-hour (idle) JWT session and re-checks the user on every request.
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: authSecret(),
   trustHost: true,

@@ -34,6 +34,7 @@ describe("role permissions match docs/spec.md §5", () => {
     ["settings.seo", ["super_admin", "content_editor"]],
     ["settings.payment", ["super_admin"]],
     ["settings.email", ["super_admin"]],
+    ["settings.receipts", ["super_admin"]],
     ["settings.appearance", ["super_admin"]],
     ["users.manage", ["super_admin"]],
     ["audit.read.all", ["super_admin"]],
@@ -92,6 +93,8 @@ describe("role permissions match docs/spec.md §5", () => {
       "src/app/admin/(app)/settings/seo/page.tsx",
       "src/app/admin/(app)/settings/payments/page.tsx",
       "src/app/admin/(app)/settings/email/page.tsx",
+      "src/app/admin/(app)/settings/receipts/page.tsx",
+      "src/app/admin/(app)/settings/receipts/actions.ts",
       "src/app/admin/(app)/settings/appearance/page.tsx",
       "src/app/admin/(app)/donations/page.tsx",
       "src/app/admin/(app)/donations/[id]/page.tsx",
@@ -136,6 +139,7 @@ describe("role permissions match docs/spec.md §5", () => {
       "src/app/admin/(app)/content/documents/actions.ts",
       "src/app/admin/(app)/content/menus/actions.ts",
       "src/app/admin/(app)/content/sample/actions.ts",
+      "src/app/admin/(app)/settings/receipts/actions.ts",
     ]) {
       const src = readFileSync(f, "utf8");
       const actions = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);

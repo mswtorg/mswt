@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
+import { useKeepSession } from "./useKeepSession";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorSummary, FieldError, Hint, fieldControlProps } from "@/components/ui/Form";
@@ -187,6 +188,9 @@ export function AdminForm({
   const [state, run, pending] = useActionState(action, { status: "idle" } as FormState);
   const [dirty, setDirty] = useState(false);
   const status = useRef<HTMLDivElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  // Writing for a long time without saving must not end the session under the person's hands.
+  useKeepSession(dirty, form);
   const errors = state.errors ?? {};
   const values = state.values ?? {};
 
@@ -242,6 +246,7 @@ export function AdminForm({
 
   return (
     <form
+      ref={form}
       action={run}
       noValidate
       className="grid gap-5"

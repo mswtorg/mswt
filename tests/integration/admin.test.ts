@@ -12,7 +12,9 @@ import {
   setRole,
   UserError,
 } from "@/lib/admin/users";
-import { updateOrganization } from "@/lib/admin/settings/service";
+import { updateOrganization, updateReceiptTemplate } from "@/lib/admin/settings/service";
+import { DEFAULT_PDF } from "@/lib/receipts/template";
+import { loadReceiptTemplates } from "@/lib/receipts/templates-store";
 import {
   activeUser,
   checkPassword,
@@ -187,6 +189,21 @@ describe("settings", () => {
     await expect(
       withTx((tx) => updateOrganization(tx, { ...input, trustPan: "bad" }, { userId: admin.user.id })),
     ).rejects.toThrow();
+  });
+
+  it("receipt templates are validated, saved, audited and can be reset", async () => {
+    const admin = await makeEnrolledUser();
+    const actor = { userId: admin.user.id };
+    const ack = { blocks: [{ type: "text", text: "Thanks {donor.name}", style: "normal", align: "left" }] };
+    await withTx((tx) => updateReceiptTemplate(tx, "acknowledgement", ack, actor));
+    expect((await loadReceiptTemplates()).pdf.acknowledgement).toEqual(ack);
+    expect((await loadReceiptTemplates()).pdf["80g"]).toEqual(DEFAULT_PDF["80g"]);
+    const entry = await lastAudit("1");
+    expect(entry?.action).toBe("settings.receipts.update");
+    // An 80G template without the donor's PAN is refused.
+    await expect(withTx((tx) => updateReceiptTemplate(tx, "80g", ack, actor))).rejects.toThrow(/must show/);
+    await withTx((tx) => updateReceiptTemplate(tx, "acknowledgement", null, actor));
+    expect((await loadReceiptTemplates()).pdf.acknowledgement).toEqual(DEFAULT_PDF.acknowledgement);
   });
 
   it("audit_log stays append-only", async () => {

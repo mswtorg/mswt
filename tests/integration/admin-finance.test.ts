@@ -98,7 +98,7 @@ describe("receipt corrections", () => {
       {
         name: "Offline Donor Corrected",
         wants80g: true,
-        pan: "ABCDE1234F",
+        pan: "ABCPE1234F",
         address: { line1: "1 Road", city: "Pune", state: "MH", pincode: "411001" },
         reason: "Donor sent PAN later",
       },
@@ -208,7 +208,7 @@ describe("donors", () => {
       address: { line1: "x", city: "y", state: "z", pincode: "411001" },
     });
     const b = await offline({
-      pan: "DDDDD1234D",
+      pan: "DDDPD1234D",
       wants80g: true,
       address: { line1: "x", city: "y", state: "z", pincode: "411001" },
     });
