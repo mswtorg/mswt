@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BlocksSchema } from "./blocks";
+import { DOCUMENT_KINDS } from "./document-kinds";
 
 /**
  * File format for content (data/content/*.json for real content, data/sample/*.json for previews).
@@ -141,8 +142,12 @@ export const ContentFileSchema = z.object({
     .array(
       z.object({
         isSample: z.boolean().default(false),
-        fy: z.string().regex(/^\d{4}-\d{2}$/),
-        kind: z.enum(["annual_report", "audited_accounts", "other"]),
+        /** Null for registration certificates. */
+        fy: z
+          .string()
+          .regex(/^\d{4}-\d{2}$/)
+          .nullable(),
+        kind: z.enum(DOCUMENT_KINDS),
         status: z.enum(["draft", "published"]),
         /** The PDF in the public media bucket, once uploaded. */
         pdfKey: z.string().nullable().default(null),

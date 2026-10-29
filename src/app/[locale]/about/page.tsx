@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { getPage } from "@/lib/content/queries";
+import type { ReactNode } from "react";
+import { getPage, getReports } from "@/lib/content/queries";
+import { getMediaStorage } from "@/lib/storage/media";
 import { formatDate } from "@/lib/dates/format";
 import { breadcrumbList, ngo, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
@@ -40,13 +42,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AboutPage({ params }: Props) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
-  const [t, tc, tt, page, org, testimonials] = await Promise.all([
+  const [t, tc, tt, tr, page, org, testimonials, documents] = await Promise.all([
     getTranslations("About"),
     getTranslations("Common"),
     getTranslations("Testimonials"),
+    getTranslations("Transparency"),
     getPage("about", locale),
     getOrganizationSettings(),
     getTestimonials(locale),
+    getReports(locale),
   ]);
   if (!page && !org) notFound();
   const title = page?.h1 ?? t("title");
@@ -55,28 +59,46 @@ export default async function AboutPage({ params }: Props) {
     { name: t("title"), path: "/about" },
   ];
   const trustees = (org?.trustees ?? []).slice().sort((a, b) => a.sort - b.sort);
-  const rows: [string, string][] = org
+  // A published certificate (Content → Documents) is linked next to its registration number.
+  const mediaBase = getMediaStorage()?.publicBase ?? null;
+  const withCertificate = (value: string | null, kind: "cert_12a" | "cert_80g") => {
+    const cert = documents.find((d) => d.kind === kind && d.pdfKey);
+    if (!value || !cert || !mediaBase) return value;
+    return (
+      <>
+        {value} ·{" "}
+        <a href={`${mediaBase}/${cert.pdfKey}`} className="text-link-default underline underline-offset-4">
+          {t("viewCertificate")}
+          <span className="sr-only">: {tr(`kind.${kind}`)}</span>
+        </a>
+      </>
+    );
+  };
+  const rows: [string, ReactNode][] = org
     ? ([
         [t("legalName"), org.legalName],
         [t("pan"), org.trustPan],
-        [t("reg12a"), org.reg12aNumber],
+        [t("reg12a"), withCertificate(org.reg12aNumber, "cert_12a")],
         [
           t("reg80g"),
-          org.reg80gNumber &&
-            [
-              org.reg80gNumber,
-              org.reg80gValidFrom && org.reg80gValidTo
-                ? t("validity", {
-                    from: formatDate(locale, new Date(org.reg80gValidFrom)),
-                    to: formatDate(locale, new Date(org.reg80gValidTo)),
-                  })
-                : null,
-            ]
-              .filter(Boolean)
-              .join(", "),
+          withCertificate(
+            org.reg80gNumber &&
+              [
+                org.reg80gNumber,
+                org.reg80gValidFrom && org.reg80gValidTo
+                  ? t("validity", {
+                      from: formatDate(locale, new Date(org.reg80gValidFrom)),
+                      to: formatDate(locale, new Date(org.reg80gValidTo)),
+                    })
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(", "),
+            "cert_80g",
+          ),
         ],
         [t("fcra"), t("fcraValue")],
-      ].filter(([, v]) => v) as [string, string][])
+      ].filter(([, v]) => v) as [string, ReactNode][])
     : [];
 
   return (
@@ -151,7 +173,11 @@ export default async function AboutPage({ params }: Props) {
             ))}
           </dl>
           <p className="mt-6">
-            <TextLink href={`/${locale}/transparency`}>{t("reports")}</TextLink>
+            <TextLink
+              href={`/${locale}/transparency${documents.some((d) => d.kind.startsWith("cert_")) ? "#certificates" : ""}`}
+            >
+              {t("reports")}
+            </TextLink>
           </p>
         </section>
       ) : null}

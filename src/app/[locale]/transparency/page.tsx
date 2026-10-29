@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { getPage, getReports } from "@/lib/content/queries";
+import { CERTIFICATE_KINDS, isCertificate } from "@/lib/content/document-kinds";
+import { getPage, getReports, type ReportView } from "@/lib/content/queries";
 import { breadcrumbList, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
 import { getMediaStorage } from "@/lib/storage/media";
@@ -45,7 +46,38 @@ export default async function TransparencyPage({ params }: Props) {
     { name: t("title"), path: "/transparency" },
   ];
   const mediaBase = getMediaStorage()?.publicBase ?? null;
-  const byYear = Object.entries(Object.groupBy(reports, (r) => r.fy)).sort(([a], [b]) => b.localeCompare(a));
+  // Certificates (no year) first, in a fixed order; then the reports, newest year first.
+  const certificates = reports
+    .filter((r) => isCertificate(r.kind))
+    .sort((a, b) => CERTIFICATE_KINDS.indexOf(a.kind as never) - CERTIFICATE_KINDS.indexOf(b.kind as never));
+  const byYear = Object.entries(
+    Object.groupBy(
+      reports.filter((r) => r.fy),
+      (r) => r.fy!,
+    ),
+  ).sort(([a], [b]) => b.localeCompare(a));
+  const item = (r: ReportView, i: number) => (
+    <li
+      key={`${r.kind}-${i}`}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-decorative px-5 py-4"
+    >
+      <span>
+        <span className="block font-semibold text-fg-strong">{r.title}</span>
+        <span className="text-sm text-fg-muted">{t(`kind.${r.kind}`)}</span>
+      </span>
+      {r.pdfKey && mediaBase ? (
+        <a
+          href={`${mediaBase}/${r.pdfKey}`}
+          className="font-semibold text-link-default underline underline-offset-4"
+        >
+          {t("download", { size: r.pdfBytes ? (r.pdfBytes / 1024 / 1024).toFixed(1) : "–" })}
+          <span className="sr-only">: {r.title}</span>
+        </a>
+      ) : (
+        <span className="text-sm text-fg-muted">{t("fileSoon")}</span>
+      )}
+    </li>
+  );
   return (
     <div className="mx-auto max-w-(--size-container-max) px-4 py-12 lg:px-8">
       <JsonLd
@@ -74,39 +106,25 @@ export default async function TransparencyPage({ params }: Props) {
         </div>
       ) : null}
       <SampleBanner show={reports.some((r) => r.isSample)} />
-      {byYear.length === 0 ? (
+      {certificates.length === 0 && byYear.length === 0 ? (
         <EmptyState>{t("empty")}</EmptyState>
       ) : (
         <div className="grid gap-12">
+          {certificates.length ? (
+            <section id="certificates" aria-labelledby="certificates-h" className="scroll-mt-24">
+              <HeadingRule id="certificates-h" className="text-2xl">
+                {t("certificatesH")}
+              </HeadingRule>
+              <p className="mt-2 text-fg-muted">{t("certificatesLead")}</p>
+              <ul className="mt-4 grid list-none gap-3 p-0">{certificates.map(item)}</ul>
+            </section>
+          ) : null}
           {byYear.map(([fy, items]) => (
             <section key={fy} aria-labelledby={`fy-${fy}`}>
               <HeadingRule id={`fy-${fy}`} className="text-2xl">
                 {t("fy", { fy })}
               </HeadingRule>
-              <ul className="mt-4 grid list-none gap-3 p-0">
-                {items!.map((r) => (
-                  <li
-                    key={r.kind}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-decorative px-5 py-4"
-                  >
-                    <span>
-                      <span className="block font-semibold text-fg-strong">{r.title}</span>
-                      <span className="text-sm text-fg-muted">{t(`kind.${r.kind}`)}</span>
-                    </span>
-                    {r.pdfKey && mediaBase ? (
-                      <a
-                        href={`${mediaBase}/${r.pdfKey}`}
-                        className="font-semibold text-link-default underline underline-offset-4"
-                      >
-                        {t("download", { size: r.pdfBytes ? (r.pdfBytes / 1024 / 1024).toFixed(1) : "–" })}
-                        <span className="sr-only">: {r.title}</span>
-                      </a>
-                    ) : (
-                      <span className="text-sm text-fg-muted">{t("fileSoon")}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <ul className="mt-4 grid list-none gap-3 p-0">{items!.map(item)}</ul>
             </section>
           ))}
         </div>

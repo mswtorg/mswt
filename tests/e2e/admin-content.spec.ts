@@ -250,6 +250,16 @@ test.describe("admin content", () => {
         [png.toString("base64"), kind],
       );
     const describe = page.getByRole("dialog", { name: "Describe this photo" });
+    // Click into the text and wait for the caret to land there before typing. Automated keys come
+    // within milliseconds of the click, faster than ProseMirror reads the new caret after focusing.
+    const caretIn = async (text: string) => {
+      await expect(async () => {
+        await page.getByRole("textbox", { name: "Text" }).getByText(text, { exact: true }).click();
+        await expect
+          .poll(() => page.evaluate(() => getSelection()?.anchorNode?.textContent ?? ""), { timeout: 1000 })
+          .toBe(text);
+      }).toPass({ timeout: 10_000 });
+    };
 
     await page.goto(`/admin/content/causes/${cause!.id}`);
     const body = page.getByRole("textbox", { name: "Text" });
@@ -264,12 +274,17 @@ test.describe("admin content", () => {
     await expect(position).toBeFocused();
     await page.keyboard.press("Escape");
     // Enter at the end of a paragraph starts a new line there (the caret must not jump to the top).
-    await body.getByText("Monthly camps.").click();
+    await caretIn("Monthly camps.");
+    // At a person's pace: keys sent within milliseconds of the click can reach the editor before it
+    // has taken the new caret, and Enter then acts at the start (seen only in automation).
+    await page.waitForTimeout(500);
     await page.keyboard.press("End");
+    await page.waitForTimeout(500);
     await page.keyboard.press("Enter");
     await page.keyboard.type("Next line.");
     await expect(page.locator("#cause-text-body")).toHaveValue(/Monthly camps\.\n\nNext line\.\n\n!\[\]/);
-    await body.getByRole("heading", { name: "What we do" }).click();
+    await caretIn("What we do");
+    await page.waitForTimeout(500);
     await page.keyboard.press("End");
     await page.keyboard.type(" and see");
     await expect(body.getByRole("heading", { name: "What we do and see" })).toBeVisible();
