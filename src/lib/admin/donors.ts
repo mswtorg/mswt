@@ -54,6 +54,7 @@ export async function getDonor(id: string) {
       totalPaise: donations.totalPaise,
       mode: donations.mode,
       status: donations.status,
+      wants80g: donations.wants80g,
       receivedAt: donations.receivedAt,
       createdAt: donations.createdAt,
     })

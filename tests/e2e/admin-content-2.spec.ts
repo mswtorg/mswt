@@ -443,6 +443,41 @@ test.describe("admin content 2", () => {
     const box = (await page.locator("main figure img").first().boundingBox())!;
     expect(box.width / box.height).toBeCloseTo(3, 1);
   });
+
+  test("a trustee photo shows on About; a trustee without one keeps the placeholder", async ({ browser }) => {
+    const db = postgres(process.env.DATABASE_URL!);
+    const [before] = await db`select trustees from organization_settings where id = 1`;
+    const admin = await newPage(browser);
+    try {
+      await signInFirstTime(admin, await createUser("super_admin"));
+      await admin.goto("/admin/settings/organization");
+      await admin.getByLabel("Trustees").fill(`${run} Trustee | Trustee\n${run} President | President`);
+      await admin.getByRole("button", { name: "Save" }).click();
+      await expect(admin.getByRole("status")).toContainText("Saved");
+      await admin.reload();
+      const group = admin.getByRole("group", { name: `${run} Trustee (Trustee)` });
+      await group.getByRole("button", { name: /Choose photo/ }).click();
+      await admin
+        .getByRole("dialog")
+        .getByRole("button", { name: new RegExp(photos[0]!.name) })
+        .click();
+      await expect(admin.getByRole("dialog")).toBeHidden();
+      await admin.getByRole("button", { name: "Save" }).click();
+      await expect(admin.getByRole("status")).toContainText("Saved");
+
+      const trustees = page.locator("section", { has: page.locator("#trustees-h") });
+      await expect(async () => {
+        await page.goto("/en/about");
+        await expect(trustees.getByRole("img", { name: "Test photo 1" })).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
+      await expect(trustees.getByText(`${run} President`).first()).toBeVisible();
+      await expect(trustees.locator("img")).toHaveCount(1);
+    } finally {
+      await db`update organization_settings set trustees = ${db.json(before!.trustees)} where id = 1`;
+      await db.end();
+      await admin.context().close();
+    }
+  });
 });
 
 test.describe("list pages from the admin", () => {

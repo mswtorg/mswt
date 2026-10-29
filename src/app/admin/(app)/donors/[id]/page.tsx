@@ -65,6 +65,7 @@ export default async function DonorPage({ params, searchParams }: Props) {
             <Th>Order</Th>
             <Th>Mode</Th>
             <Th>Status</Th>
+            <Th>80G</Th>
             <Th align="right">Amount</Th>
           </tr>
         </thead>
@@ -84,6 +85,7 @@ export default async function DonorPage({ params, searchParams }: Props) {
               <Td>
                 <Badge tone={STATUS_TONE[d.status] ?? "neutral"}>{STATUS_LABEL[d.status] ?? d.status}</Badge>
               </Td>
+              <Td>{d.wants80g ? "Asked for" : "No"}</Td>
               <Td align="right">{inr(d.totalPaise)}</Td>
             </Tr>
           ))}
@@ -93,7 +95,17 @@ export default async function DonorPage({ params, searchParams }: Props) {
         <Section id="record" title="Record" description="PAN is changed only by reissuing a receipt.">
           <Details
             items={[
-              { label: "PAN", value: revealed.get(id) ?? (donor.panLast4 ? maskPan(donor.panLast4) : null) },
+              {
+                label: "PAN",
+                value: revealed.get(id) ?? (donor.panLast4 ? maskPan(donor.panLast4) : "Not given"),
+              },
+              {
+                label: "Address",
+                value:
+                  [donor.addressLine1, donor.addressLine2, donor.city, donor.state, donor.pincode]
+                    .filter(Boolean)
+                    .join(", ") || null,
+              },
               { label: "Added", value: `${istDateTime(donor.createdAt)} (${donor.createdVia})` },
               { label: "Indian citizen declared", value: istDateTime(donor.declaredAt) },
               { label: "Marketing consent", value: donor.consentMarketing ? "Yes" : "No" },

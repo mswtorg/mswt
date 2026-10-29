@@ -108,7 +108,11 @@ export default async function DonationPage({ params, searchParams }: Props) {
               { label: "Name", value: d.nameSnapshot },
               { label: "Email", value: d.emailSnapshot },
               { label: "Phone", value: donor.phone },
-              { label: "PAN", value: pan },
+              {
+                label: "80G receipt",
+                value: d.wants80g ? "Asked for" : "Not asked for",
+              },
+              { label: "PAN", value: pan ?? (d.wants80g ? null : "Not needed") },
               {
                 label: "Address",
                 value: a ? [a.line1, a.line2, a.city, a.state, a.pincode].filter(Boolean).join(", ") : null,
