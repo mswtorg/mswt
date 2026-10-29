@@ -148,6 +148,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { key: "users", label: "Users", href: "/admin/users", icon: "users", anyOf: ["users.manage"] },
       {
+        key: "promote",
+        label: "Move from stage",
+        href: "/admin/promote",
+        icon: "promote",
+        anyOf: ["promote.manage"],
+      },
+      {
         key: "audit",
         label: "Audit log",
         href: "/admin/audit-log",
@@ -166,11 +173,15 @@ const GROUPS: { label: string; items: Item[] }[] = [
 ];
 
 /** The sidebar for a role. `newMessages` shows as a count on Messages. */
-export function adminNav(role: AdminRole, counts: { newMessages?: number } = {}): AdminNavGroup[] {
+export function adminNav(
+  role: AdminRole,
+  counts: { newMessages?: number; promote?: boolean } = {},
+): AdminNavGroup[] {
   return GROUPS.map((g) => ({
     label: g.label,
     items: g.items
-      .filter((i) => i.anyOf.some((c) => can(role, c)))
+      // Move from stage only where it is set up (production), not on stage itself.
+      .filter((i) => i.anyOf.some((c) => can(role, c)) && (i.key !== "promote" || counts.promote))
       .map(({ anyOf: _, ...i }) =>
         i.key === "messages" && counts.newMessages ? { ...i, badge: counts.newMessages } : i,
       ),

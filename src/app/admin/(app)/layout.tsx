@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
+import { serverEnv } from "@/env/server";
 import { requireAdmin } from "@/lib/admin/guard";
 import { adminNav } from "@/lib/admin/nav";
 import { can, ROLE_LABELS } from "@/lib/admin/permissions";
@@ -14,7 +15,7 @@ export default async function AdminAppLayout({ children }: { children: ReactNode
   const newMessages = can(admin.role, "messages.read") ? await newMessageCount() : 0;
   return (
     <AdminShell
-      nav={adminNav(admin.role, { newMessages })}
+      nav={adminNav(admin.role, { newMessages, promote: Boolean(serverEnv.STAGE_DATABASE_URL) })}
       account={
         <div className="flex items-center gap-3 rounded-lg border border-border-decorative p-3">
           <span

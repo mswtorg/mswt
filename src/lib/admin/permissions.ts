@@ -35,6 +35,7 @@ export const CAPABILITIES = {
   "settings.receipts": SA, // receipt PDF and email templates
   "settings.appearance": SA,
   "users.manage": SA,
+  "promote.manage": SA, // Move from stage: copy content and settings from stage to this site
   "audit.read.all": SA,
   "audit.read.own": ALL,
 } as const satisfies Record<string, readonly AdminRole[]>;

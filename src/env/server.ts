@@ -24,6 +24,13 @@ export const serverEnv = createEnv({
       .url()
       .refine((v) => v.startsWith("https://") && !v.endsWith("/"), "must be https:// with no trailing slash")
       .optional(),
+    // Admin → Move from stage (production only): a read-only login to the stage database, and the
+    // public URL of stage's media bucket (photos and PDFs are copied from there).
+    STAGE_DATABASE_URL: z.url().optional(),
+    STAGE_MEDIA_PUBLIC_URL: z
+      .url()
+      .refine((v) => !v.endsWith("/"), "must have no trailing slash")
+      .optional(),
     // Outbound email (Brevo).
     BREVO_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM_ADDRESS: z.email().optional(),

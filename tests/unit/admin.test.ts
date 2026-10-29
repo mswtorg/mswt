@@ -35,6 +35,7 @@ describe("role permissions match docs/spec.md §5", () => {
     ["settings.payment", ["super_admin"]],
     ["settings.email", ["super_admin"]],
     ["settings.receipts", ["super_admin"]],
+    ["promote.manage", ["super_admin"]],
     ["settings.appearance", ["super_admin"]],
     ["users.manage", ["super_admin"]],
     ["audit.read.all", ["super_admin"]],
@@ -120,6 +121,7 @@ describe("role permissions match docs/spec.md §5", () => {
       ]),
       "src/app/admin/(app)/content/menus/page.tsx",
       "src/app/admin/(app)/content/sample/page.tsx",
+      "src/app/admin/(app)/promote/page.tsx",
     ];
     // actorFor() (src/lib/admin/actor.ts) runs requireCapability first.
     for (const f of files) expect(readFileSync(f, "utf8"), f).toMatch(/requireCapability\(|actorFor\(/);
@@ -140,6 +142,7 @@ describe("role permissions match docs/spec.md §5", () => {
       "src/app/admin/(app)/content/menus/actions.ts",
       "src/app/admin/(app)/content/sample/actions.ts",
       "src/app/admin/(app)/settings/receipts/actions.ts",
+      "src/app/admin/(app)/promote/actions.ts",
     ]) {
       const src = readFileSync(f, "utf8");
       const actions = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);

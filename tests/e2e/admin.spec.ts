@@ -190,6 +190,7 @@ test.describe("admin flows", () => {
       "/admin/settings/payments",
       "/admin/settings/organization",
       "/admin/settings/receipts",
+      "/admin/promote",
       "/admin/users",
     ]) {
       await other.goto(path);

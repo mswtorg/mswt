@@ -137,6 +137,19 @@ Open the preview in a browser where you are signed in to Vercel.
 - [ ] **MC-1 Registration certificates.** On stage: Content → Documents → New document → "Certificate: 80G registration" (no year), upload the real 80G PDF, title in each language, Reviewed, Published; same for 12A. Check `/en/transparency` (Registration certificates first) and `/en/about` (View certificate next to the 12A and 80G numbers, once those are filled in Settings → Organization). Open each PDF and check no home address, signature or other personal detail is visible.
 - [ ] **MR-1 Receipt builder.** On stage as a Super Admin: Settings → Receipts. On the PDF tabs the sample PDF shows beside the blocks (grey numbers match the block list); on the email tab press **Preview**. It should look like today's receipt, with the Trust's real details. Check the preview in Chrome and Safari, and **Open in a new tab** on a phone; the page must not scroll sideways on a phone. Change some wording, add a field, move a block, save; try removing the Donor PAN row from the 80G receipt (Save is refused). Make a test donation with and without the 80G box ticked: the emailed PDFs and email use the new wording. Finally press **Reset to the built-in template** on each tab you changed, unless the Trust wants to keep the new wording.
 
+## Move from stage (Admin → Move from stage)
+
+- [ ] **MP-1 Read-only stage login.** Neon → project → branch **preview/stage** → SQL Editor, run (with a new strong password):
+  ```sql
+  CREATE ROLE promote_reader WITH LOGIN PASSWORD '…';
+  GRANT USAGE ON SCHEMA public, drizzle TO promote_reader;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public, drizzle TO promote_reader;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO promote_reader;
+  ```
+  Then Neon → Connect → branch preview/stage, role **promote_reader** → copy the connection string.
+- [ ] **MP-2 Production variables.** Vercel → Settings → Environment Variables → **Production** only: `STAGE_DATABASE_URL` = that connection string; `STAGE_MEDIA_PUBLIC_URL` = stage's photo bucket URL (the value of `R2_MEDIA_PUBLIC_URL` in the **Preview** environment), no trailing slash. Redeploy production. Never add them to Preview.
+- [ ] **MP-3 First move.** On stage: edit one news post (text and a new photo). On production as a Super Admin: Admin → **Move from stage**. The post shows as Changed; **View changes** lists the text and photo. Tick it, **Move selected to production**, confirm. Check the live news page (new text and photo), Admin → Audit log (`promote.news.move`), and that nothing else changed. Also check: a cause's amount raised on production is unchanged after moving that cause.
+
 ## Workflow setup (stage → main)
 
 - [x] **MW-1 Production secrets.** (Done 2026-10-22: 2FA works on production.) In Vercel → Settings → Environment Variables → **Production**, add `PII_ENCRYPTION_KEY` (the **same** value as in `.env.local`, which points at the production database) and `AUTH_SECRET` (a new `openssl rand -base64 32`). Redeploy production. Production builds now fail without them.
