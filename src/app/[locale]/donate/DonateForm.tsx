@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import {
@@ -156,7 +156,14 @@ export function DonateForm({
     <form
       ref={form}
       action={action}
-      onSubmit={() => setGatewayError(false)}
+      onSubmit={(e) => {
+        // Run the action ourselves: a form `action` resets the form afterwards, which unticks the
+        // 80G and fee boxes while their state (and the PAN fields) stays, so a retry lost the 80G choice.
+        e.preventDefault();
+        setGatewayError(false);
+        const data = new FormData(e.currentTarget);
+        startTransition(() => action(data));
+      }}
       className="grid gap-8"
       noValidate
     >
