@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ErrorSummary, FormField, Input, Select, Textarea } from "@/components/ui/Form";
+import { useLiveErrors } from "@/components/forms/useLiveErrors";
 import { useTurnstile } from "@/components/forms/useTurnstile";
 import { sendContactMessage, type ContactState } from "./actions";
 
@@ -24,6 +25,9 @@ export type ContactStrings = {
   captcha: string;
   errors: Record<"name" | "email" | "phone" | "subject" | "message" | "captcha" | "rate" | "server", string>;
 };
+
+const FIELDS = ["name", "email", "phone", "subject", "message"] as const;
+type Field = (typeof FIELDS)[number];
 
 export function ContactForm({
   locale,
@@ -56,7 +60,23 @@ export function ContactForm({
 
   const errors = state.status === "error" ? state.errors : {};
   const values = state.status === "error" ? state.values : {};
-  const fieldErrors = (["name", "email", "phone", "subject", "message"] as const).filter((f) => errors[f]);
+  const shown = useLiveErrors<Field, Field>({
+    form,
+    serverErrors: errors as Partial<Record<Field, Field>>,
+    serverState: state,
+    fieldOf: (name) => ((FIELDS as readonly string[]).includes(name) ? (name as Field) : undefined),
+    // The server's own rules, loaded on first use.
+    check: async (data) => {
+      const { ContactSchema } = await import("@/lib/contact/schema");
+      const parsed = ContactSchema.safeParse(
+        Object.fromEntries(FIELDS.map((k) => [k, String(data.get(k) ?? "")])),
+      );
+      const out: Partial<Record<Field, Field>> = {};
+      for (const issue of parsed.error?.issues ?? []) out[issue.path[0] as Field] ??= issue.path[0] as Field;
+      return out;
+    },
+  });
+  const fieldErrors = FIELDS.filter((f) => errors[f] && shown(f));
   const summaryItems = [
     ...fieldErrors.map((f) => ({ fieldId: `contact-${f}`, message: t.errors[f] })),
     ...(errors.form
@@ -82,7 +102,7 @@ export function ContactForm({
         label={t.name}
         requiredLabel={t.required}
         required
-        error={errors.name && t.errors.name}
+        error={shown("name") && t.errors.name}
       >
         {(p) => <Input {...p} name="name" autoComplete="name" defaultValue={values.name} maxLength={120} />}
       </FormField>
@@ -92,7 +112,7 @@ export function ContactForm({
           label={t.email}
           requiredLabel={t.required}
           required
-          error={errors.email && t.errors.email}
+          error={shown("email") && t.errors.email}
         >
           {(p) => (
             <Input
@@ -109,7 +129,7 @@ export function ContactForm({
           id="contact-phone"
           label={t.phone}
           requiredLabel={t.optional}
-          error={errors.phone && t.errors.phone}
+          error={shown("phone") && t.errors.phone}
         >
           {(p) => (
             <Input
@@ -129,7 +149,7 @@ export function ContactForm({
         label={t.subject}
         requiredLabel={t.required}
         required
-        error={errors.subject && t.errors.subject}
+        error={shown("subject") && t.errors.subject}
       >
         {(p) => (
           <Select {...p} name="subject" defaultValue={values.subject ?? ""}>
@@ -147,7 +167,7 @@ export function ContactForm({
         label={t.message}
         requiredLabel={t.required}
         required
-        error={errors.message && t.errors.message}
+        error={shown("message") && t.errors.message}
       >
         {(p) => <Textarea {...p} name="message" defaultValue={values.message} maxLength={5000} rows={6} />}
       </FormField>
