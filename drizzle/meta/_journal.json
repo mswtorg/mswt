@@ -127,6 +127,13 @@
       "when": 1793252903938,
       "tag": "0017_certificates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793268983629,
+      "tag": "0018_receipt_templates",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ import { isProduction } from "@/lib/secrets";
 import { receiptLinkQuery } from "@/lib/receipts/links";
 import { missingTrustFacts, renderReceiptPdf, type ReceiptData, type TrustFacts } from "@/lib/receipts/pdf";
 import { decideReceiptKind } from "@/lib/receipts/kind";
+import { loadReceiptTemplates } from "@/lib/receipts/templates-store";
 import { appOrigin, siteUrl } from "@/lib/seo/site";
 import { getReceiptStorage } from "@/lib/storage";
 
@@ -34,7 +35,8 @@ const METHOD_LABEL: Record<string, string> = {
   app: "Wallet",
 };
 
-async function trustFacts(): Promise<TrustFacts> {
+/** The Trust's details printed on receipts (Settings → Organization). */
+export async function trustFacts(): Promise<TrustFacts> {
   const [o] = await db.select().from(organizationSettings).limit(1);
   const address = o
     ? [o.streetAddress, o.locality, o.city, o.state && o.pincode ? `${o.state} ${o.pincode}` : o.state]
@@ -130,7 +132,7 @@ export async function ensureReceiptPdf(receiptId: string): Promise<string> {
     throw new Error(
       `Cannot issue receipt ${data.number}: missing ${missing.join(", ")} (open-questions B1/B8)`,
     );
-  const pdf = await renderReceiptPdf(data);
+  const pdf = await renderReceiptPdf(data, (await loadReceiptTemplates()).pdf[data.kind]);
   const key = `receipts/${receipt.fy}/${receiptFilename(receipt.number)}`;
   await getReceiptStorage().put(key, pdf, "application/pdf");
   await db.update(receipts).set({ pdfR2Key: key }).where(eq(receipts.id, receiptId));
@@ -148,13 +150,18 @@ export async function deliverReceipt(receiptId: string): Promise<void> {
     .where(eq(receipts.id, receiptId));
   const pdf = await getReceiptStorage().get(key);
   const link = `${appOrigin()}/api/receipts/${donation.publicOrderId}?${receiptLinkQuery(donation.publicOrderId)}`;
-  const message = await receiptEmail(donation.locale as Locale, {
-    name: donation.nameSnapshot,
-    amountPaise: donation.totalPaise,
-    receiptNumber: receipt.number,
-    is80g: receipt.kind === "80g",
-    downloadUrl: link,
-  });
+  const message = await receiptEmail(
+    donation.locale as Locale,
+    {
+      name: donation.nameSnapshot,
+      amountPaise: donation.totalPaise,
+      receiptNumber: receipt.number,
+      is80g: receipt.kind === "80g",
+      downloadUrl: link,
+      trustName: (await trustFacts()).legalName,
+    },
+    (await loadReceiptTemplates()).email,
+  );
   const { messageId } = await getEmailProvider().send({
     ...message,
     to: { email: donation.emailSnapshot, name: donation.nameSnapshot },
