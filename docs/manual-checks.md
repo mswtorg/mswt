@@ -30,7 +30,7 @@ Previews are behind Vercel's login (Deployment Protection), which would also blo
 `https://<preview-url>/api/webhooks/cashfree?x-vercel-protection-bypass=<secret>`.
 Open the preview in a browser where you are signed in to Vercel.
 
-- [ ] **M7-4 Successful payment.** On `/en/donate`, donate ₹100 with the 80G option (PAN in the format `ABCDE1234F`, with an address). Pay in the Cashfree test checkout with a test UPI ID or test card from Cashfree's docs. Expect:
+- [ ] **M7-4 Successful payment.** On `/en/donate`, donate ₹100 with the 80G option (PAN in the format `ABCPE1234F`, with an address). Pay in the Cashfree test checkout with a test UPI ID or test card from Cashfree's docs. Expect:
   - The thank-you page shows "Thank you for your donation" and a receipt number `MSWT/2026-27/000001`.
   - "Download receipt (PDF)" opens the PDF.
 - [ ] **M7-5 Receipt PDF.** Check:

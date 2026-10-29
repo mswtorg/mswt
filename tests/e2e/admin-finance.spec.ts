@@ -88,7 +88,7 @@ test.describe("admin finance", () => {
     await expect(page.getByText("Receipt emailed again.")).toBeVisible();
 
     await page.locator("#reissue-wants80g").check();
-    await page.locator("#reissue-pan").fill("ABCDE1234F");
+    await page.locator("#reissue-pan").fill("ABCPE1234F");
     await page.locator("#reissue-line1").fill("12 MG Road");
     await page.locator("#reissue-city").fill("Pune");
     await page.locator("#reissue-state").fill("Maharashtra");
@@ -114,7 +114,7 @@ test.describe("admin finance", () => {
     await page.getByRole("button", { name: "Show full PANs" }).click();
     await expect(page.getByText(/Full PANs are visible until/)).toBeVisible();
     await page.reload();
-    await expect(page.getByText("ABCDE1234F", { exact: true })).toBeVisible();
+    await expect(page.getByText("ABCPE1234F", { exact: true })).toBeVisible();
 
     for (const format of ["csv", "xlsx"]) {
       const res = await page.request.get(
@@ -123,7 +123,7 @@ test.describe("admin finance", () => {
       expect(res.status(), format).toBe(200);
       expect(res.headers()["cache-control"]).toContain("no-store");
       const body = await res.body();
-      if (format === "csv") expect(body.toString()).toContain("ABCDE1234F");
+      if (format === "csv") expect(body.toString()).toContain("ABCPE1234F");
       else expect(body.subarray(0, 2).toString()).toBe("PK");
     }
     const report = await page.request.get(`/admin/reports/register?fy=${currentFy()}&format=csv`);

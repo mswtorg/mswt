@@ -218,7 +218,7 @@ export default async function DonationPage({ params, searchParams }: Props) {
                     hint:
                       d.panLast4Snapshot && !revealed.get(id)
                         ? `Current: ${maskPan(d.panLast4Snapshot)}. Enter it again to keep it.`
-                        : "e.g. ABCDE1234F",
+                        : "e.g. ABCPE1234F",
                     maxLength: 10,
                   },
                   { name: "line1", label: "Address line 1", defaultValue: a?.line1 ?? "", span: "full" },
