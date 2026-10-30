@@ -10,6 +10,7 @@ import { getOrganizationSettings } from "@/lib/settings";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getHomeContent, getHomeSections, type HomeSectionKey } from "@/lib/content/home";
 import { getTestimonials } from "@/lib/content/testimonials";
+import { getTeam } from "@/lib/content/team";
 import { ContentBody } from "@/components/content/ContentBody";
 import { TestimonialList } from "@/components/content/Testimonials";
 import { CountUp } from "@/components/content/CountUp";
@@ -52,22 +53,37 @@ export default async function HomePage({ params }: Props) {
   // Same check as the layout: "/favicon.ico" and other unknown paths also reach this page.
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale as Locale);
-  const [t, tm, tn, tnews, org, causes, events, news, home, payments, donateCauses, testimonials, order] =
-    await Promise.all([
-      getTranslations("Home"),
-      getTranslations("Meta"),
-      getTranslations("Nav"),
-      getTranslations("News"),
-      getOrganizationSettings(),
-      getCauses(locale as Locale),
-      getEvents(locale as Locale),
-      getNews(locale as Locale),
-      getHomeContent(locale as Locale),
-      getPaymentSettings(),
-      donatableCauses(locale as Locale),
-      getTestimonials(locale as Locale),
-      getHomeSections(),
-    ]);
+  const [
+    t,
+    tm,
+    tn,
+    tnews,
+    org,
+    causes,
+    events,
+    news,
+    home,
+    payments,
+    donateCauses,
+    testimonials,
+    order,
+    team,
+  ] = await Promise.all([
+    getTranslations("Home"),
+    getTranslations("Meta"),
+    getTranslations("Nav"),
+    getTranslations("News"),
+    getOrganizationSettings(),
+    getCauses(locale as Locale),
+    getEvents(locale as Locale),
+    getNews(locale as Locale),
+    getHomeContent(locale as Locale),
+    getPaymentSettings(),
+    donatableCauses(locale as Locale),
+    getTestimonials(locale as Locale),
+    getHomeSections(),
+    getTeam(locale as Locale),
+  ]);
   const quotes = testimonials.filter((q) => q.showOnHome).slice(0, 6);
   const tt = await getTranslations("Testimonials");
   // Settings → Payments → "Show the quick donate box on Home", and only once donations are live.
@@ -254,7 +270,7 @@ export default async function HomePage({ params }: Props) {
   };
   const shownSections = order.filter((k) => sections[k]);
   const graph = pageGraph([
-    org ? ngo(org, lang) : null,
+    org ? ngo(org, lang, team) : null,
     website(
       lang,
       tm("siteName"),

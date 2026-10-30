@@ -47,17 +47,6 @@ export const OrganizationInput = z
     email: z.preprocess(blank, z.email().nullable()),
     contactHours: localised,
     areaServed: z.array(z.string().trim().min(1).max(120)).max(20),
-    trustees: z
-      .array(
-        z.object({
-          name: z.string().trim().min(1).max(120),
-          role: z.string().trim().min(1).max(120),
-          sort: z.number().int(),
-          photoMediaId: z.uuid().optional(),
-          bio: localised.optional(),
-        }),
-      )
-      .max(30),
     sameAs: z.array(z.url({ protocol: /^https$/, error: "Profiles must start with https://" })).max(10),
     signatoryName: optText(120).optional().default(null),
     signatoryTitle: optText(120).optional().default(null),

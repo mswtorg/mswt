@@ -37,6 +37,7 @@ export type DonateStrings = {
   receiptLegend: string;
   wants80g: string;
   wants80gHint: string;
+  wants80gLockedHint: string;
   pan: string;
   panHint: string;
   line1: string;
@@ -64,6 +65,8 @@ export type DonateConfig = {
   minPaise: number;
   /** Largest online donation (null = no limit). */
   maxPaise: number | null;
+  /** Donations above this need a PAN, 80G or not (Settings → Payments). */
+  panAbovePaise: number;
   feeBp: number;
   causes: { slug: string; title: string }[];
 };
@@ -133,6 +136,8 @@ export function DonateForm({
   }, [state, resetTurnstile]);
 
   const amount = paiseOf(custom, preset);
+  const panNeeded = amount > config.panAbovePaise;
+  const with80g = wants80g || panNeeded;
   const fee = coverFee && config.feeBp > 0 ? Math.floor((amount * config.feeBp + 5000) / 10000) : 0;
   const total = amount + fee;
   const money = (p: number) => formatRupees(p, locale);
@@ -140,6 +145,7 @@ export function DonateForm({
   const limits = {
     min: money(config.minPaise),
     max: config.maxPaise === null ? "" : money(config.maxPaise),
+    pan: money(config.panAbovePaise),
   };
   const shown = useLiveErrors<DonateField, DonateErrorCode>({
     form,
@@ -157,7 +163,11 @@ export function DonateForm({
       const raw = Object.fromEntries([...data].map(([k, v]) => [k, String(v)]));
       const amount = raw.custom?.trim() || (raw.preset ? String(Number(raw.preset) / 100) : "");
       const result = validateDonation(
-        { minAmountPaise: config.minPaise, maxAmountPaise: config.maxPaise },
+        {
+          minAmountPaise: config.minPaise,
+          maxAmountPaise: config.maxPaise,
+          panRequiredAbovePaise: config.panAbovePaise,
+        },
         { ...raw, amount },
       );
       return result.ok ? {} : result.errors;
@@ -330,11 +340,15 @@ export function DonateForm({
           id="donate-wants80g"
           name="wants80g"
           label={t.wants80g}
-          hint={t.wants80gHint}
-          checked={wants80g}
+          hint={panNeeded ? fill(t.wants80gLockedHint, limits) : t.wants80gHint}
+          checked={with80g}
+          // Above the PAN amount it is always an 80G donation: ticked and locked (the server agrees).
+          disabled={panNeeded}
           onChange={(e) => setWants80g(e.target.checked)}
         />
-        {wants80g ? (
+        {/* A disabled box isn't sent with the form. */}
+        {panNeeded ? <input type="hidden" name="wants80g" value="on" /> : null}
+        {with80g ? (
           <div className="mt-2 grid gap-6">
             <FormField
               id="donate-pan"
@@ -386,13 +400,7 @@ export function DonateForm({
               )}
             </FormField>
             <div className="grid gap-6 md:grid-cols-3">
-              <FormField
-                id="donate-city"
-                label={t.city}
-                required
-                requiredLabel={t.required}
-                error={err("city")}
-              >
+              <FormField id="donate-city" label={t.city} requiredLabel={t.optional} error={err("city")}>
                 {(p) => (
                   <Input
                     {...p}
@@ -403,13 +411,7 @@ export function DonateForm({
                   />
                 )}
               </FormField>
-              <FormField
-                id="donate-state"
-                label={t.state}
-                required
-                requiredLabel={t.required}
-                error={err("state")}
-              >
+              <FormField id="donate-state" label={t.state} requiredLabel={t.optional} error={err("state")}>
                 {(p) => (
                   <Input
                     {...p}

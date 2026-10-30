@@ -55,6 +55,7 @@ export default async function DonatePage({ params }: Props) {
     "receiptLegend",
     "wants80g",
     "wants80gHint",
+    "wants80gLockedHint",
     "pan",
     "panHint",
     "line1",
@@ -82,6 +83,7 @@ export default async function DonatePage({ params }: Props) {
     "email",
     "phone",
     "pan",
+    "panRequired",
     "line1",
     "city",
     "state",
@@ -133,6 +135,7 @@ export default async function DonatePage({ params }: Props) {
                 presets: settings.presetAmountsPaise,
                 minPaise: settings.minAmountPaise,
                 maxPaise: settings.maxAmountPaise,
+                panAbovePaise: settings.panRequiredAbovePaise,
                 feeBp: settings.feeCoverEnabled ? settings.feeCoverPercentBp : 0,
                 causes,
               }}

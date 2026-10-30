@@ -43,6 +43,14 @@ export default async function PaymentSettingsPage() {
               hint: "Comma-separated, e.g. 500, 1000, 2500, 5000",
               defaultValue: (s?.presetAmountsPaise ?? []).map(rupees).join(", "),
             },
+            {
+              name: "panAbove",
+              label: "PAN required above (₹)",
+              required: true,
+              inputMode: "numeric",
+              hint: "Every online donation above this amount is an 80G donation: the 80G box is ticked and locked, and PAN and postal address are required.",
+              defaultValue: rupees(s?.panRequiredAbovePaise ?? 100000),
+            },
           ],
         },
         {

@@ -45,6 +45,10 @@ async function donate() {
     name: "Alert Donor",
     email: `alert-${Math.random().toString(36).slice(2)}@example.com`,
     phone: "9876543210",
+    // Above ₹1,000 a donation is always 80G: PAN and address (Settings → Payments).
+    pan: "ABCPE1234F",
+    line1: "12 MG Road",
+    pincode: "411001",
     wants80g: "",
     anonymous: "",
     coverFee: "",

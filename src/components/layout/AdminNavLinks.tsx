@@ -27,6 +27,7 @@ import {
   Search,
   Sparkles,
   UserCircle,
+  UserSquare2,
   Users,
   UsersRound,
   type LucideIcon,
@@ -58,6 +59,7 @@ const ICONS: Record<string, LucideIcon> = {
   sample: Sparkles,
   messages: Inbox,
   testimonials: Quote,
+  team: UserSquare2,
 };
 
 /**

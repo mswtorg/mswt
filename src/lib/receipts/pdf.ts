@@ -178,7 +178,7 @@ export function receiptValues(r: ReceiptData, template: PdfTemplate): Record<str
     "receipt.date": istDate(r.receivedAt),
     "donor.name": r.donorName,
     "donor.address": a
-      ? [a.line1, a.line2, a.city, `${a.state} ${a.pincode}`].filter(Boolean).join(", ")
+      ? [a.line1, a.line2, a.city, [a.state, a.pincode].filter(Boolean).join(" ")].filter(Boolean).join(", ")
       : "",
     "donor.pan": r.panMasked ?? "",
     amount: formatRupees(r.amountPaise, "en"),

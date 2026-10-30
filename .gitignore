@@ -15,3 +15,4 @@ next-env.d.ts
 *.tsbuildinfo
 .lighthouseci/
 .data/
+docs/admin-guide/pdf/

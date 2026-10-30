@@ -171,6 +171,7 @@ export const ContentFileSchema = z.object({
         "events",
         "news",
         "testimonials",
+        "team",
       ]),
       per(
         z.object({
