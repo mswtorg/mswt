@@ -219,7 +219,8 @@
       "server": "Sorry, your message couldn't be sent. Please email us instead."
     },
     "captcha": "Security check",
-    "privacy": "We use your details only to reply to you. See our privacy policy."
+    "privacy": "We use your details only to reply to you. See our privacy policy.",
+    "bankLink": "Donate by bank transfer, UPI or cheque"
   },
   "Legal": {
     "privacy": "Privacy policy",
@@ -287,7 +288,9 @@
       "server": "Something went wrong. You have not been charged; please try again.",
       "closed": "This cause is not accepting donations now.",
       "gateway": "We couldn't open the payment page. Please try again."
-    }
+    },
+    "closedBank": "Online donations are not open yet. You can donate by bank transfer, UPI or cheque.",
+    "bankLink": "Bank transfer, UPI or cheque details"
   },
   "ThankYou": {
     "title": "Thank you",
@@ -382,5 +385,36 @@
     "empty": "No board members to show yet.",
     "more": "About {name}",
     "back": "Back"
+  },
+  "Bank": {
+    "title": "Bank transfer, UPI or cheque",
+    "lead": "You can also pay the Trust directly. Please check that the account name is the Trust's before you pay.",
+    "transfer": "Bank transfer (NEFT, RTGS, IMPS)",
+    "accountName": "Account name",
+    "accountNumber": "Account number",
+    "ifsc": "IFSC",
+    "bank": "Bank and branch",
+    "accountType": "Account type",
+    "savings": "Savings",
+    "current": "Current",
+    "upi": "UPI",
+    "upiId": "UPI ID",
+    "qr": "QR code to pay by UPI, UPI ID {id}",
+    "scan": "Scan with any UPI app, such as BHIM, Google Pay, PhonePe or Paytm.",
+    "payApp": "Pay with a UPI app",
+    "cheque": "Cheque or demand draft",
+    "payee": "In favour of",
+    "post": "Post it to",
+    "copy": "Copy",
+    "copyLabel": "Copy the {what}",
+    "copied": "{what} copied",
+    "afterTitle": "After you pay: get your receipt",
+    "after": "Email us your full name, PAN, postal address, the amount, the date and the UTR or cheque number. We send your receipt once the money reaches our account. Without your PAN and address we can't issue an 80G receipt.",
+    "emailUs": "Email your details to {email}",
+    "noEmail": "Send us your details through the Contact page",
+    "mailSubject": "Donation details for my receipt",
+    "mailBody": "Full name:\nPAN:\nPostal address:\nAmount (₹):\nDate paid:\nUTR or cheque number:\nPaid by (bank transfer, UPI or cheque):\n",
+    "fcra": "Only for donations from Indian citizens, from Indian bank accounts. The Trust is not registered under FCRA and can't accept foreign contributions.",
+    "cash": "Cash donations above ₹2,000 can't get an 80G receipt."
   }
 }

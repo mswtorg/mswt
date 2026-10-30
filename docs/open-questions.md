@@ -29,6 +29,7 @@ Answer inline (or tick and add the value). IDs are referenced from `spec.md` and
 - [ ] **B14** Brevo sender: which address sends receipts (e.g. `receipts@mswelfaretrust.org`), with SPF/DKIM DNS records added for the domain.
 - [ ] **B15** Receipt corrections after the financial year ends: the admin only reissues within the same FY (a new number in that FY's series). Corrections after 31 March, once Form 10BD may be filed, need the CA's process. Also confirm with the CA that donor details may be corrected by void + reissue.
 - [x] **B16** Contact messages: **kept until an admin deletes them** (owner, 2026-10-23); no automatic deletion. The privacy policy draft should say so (B11).
+- [ ] **B17** Bank details for the Donate page: account name (exactly as the bank has it), account number, IFSC, bank and branch, account type, UPI ID (a UPI ID on the Trust's own account, not a personal one), and who cheques are made out to. Which mailbox receives donors' transfer details (default: the Organization email), and who checks it and the bank statement — how often? Confirm with the CA that the "email us your details" step is enough to avoid anonymous-donation tax.
 - [ ] **B10** Refund policy terms (window, process) and who approves refunds.
   *2026-10-22: draft refund policy written (data/content/content.json); window and timings marked [to be confirmed].*
 - [ ] **B11** Legal texts (Privacy, Terms, Refund, 80G disclaimer): will the Trust's CA/lawyer provide or review drafts we write? DPDP Act 2023 grievance officer name and email.

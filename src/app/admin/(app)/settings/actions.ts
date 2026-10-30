@@ -10,7 +10,17 @@ import { updateAppearance, updateEmail, updateOrganization, updateSeo } from "@/
 import { withTx, type Tx } from "@/lib/db/tx";
 import type { Actor } from "@/lib/audit";
 import { rupeesToPaise } from "@/lib/money";
-import { PAYMENT_SETTINGS_TAG, PaymentSettingsInput, updatePaymentSettings } from "@/lib/payment-settings";
+import {
+  PAYMENT_SETTINGS_TAG,
+  PaymentSettingsInput,
+  updateBankDetails,
+  updatePaymentSettings,
+} from "@/lib/payment-settings";
+import { BankDetailsInput, type BankDetails } from "@/lib/donations/bank";
+import { sendAdminAlert } from "@/lib/email/alerts";
+import { bankDetailsAlert } from "@/lib/email/templates/alerts";
+import { appOrigin } from "@/lib/seo/site";
+import type { AdminSession } from "@/lib/admin/guard";
 import { clientIp } from "@/lib/security/rate-limit";
 import { SETTINGS_TAGS } from "@/lib/settings";
 import { CONTENT_TAG } from "@/lib/content/source";
@@ -53,6 +63,8 @@ async function save(
   write: (tx: Tx, data: unknown, actor: Actor) => Promise<void>,
   tags: string[],
   fieldMap: Record<string, string> = {},
+  /** Runs after the transaction commits (e.g. alerts). */
+  after?: (admin: AdminSession) => Promise<void>,
 ): Promise<FormState> {
   const admin = await requireCapability(capability);
   const values = formValues(form);
@@ -77,6 +89,7 @@ async function save(
   const actor = { userId: admin.id, ip: clientIp(h), userAgent: h.get("user-agent") };
   await withTx((tx) => write(tx, parsed.data, actor));
   for (const tag of tags) updateTag(tag);
+  await after?.(admin);
   return { status: "saved", message: "Saved. The public site shows the change within a minute.", values };
 }
 
@@ -155,6 +168,7 @@ const rupees = (v: string | undefined, label: string) => {
 };
 
 export async function savePayments(_prev: FormState, form: FormData) {
+  let bankChanges: Awaited<ReturnType<typeof updateBankDetails>> = [];
   return save(
     "settings.payment",
     form,
@@ -170,9 +184,22 @@ export async function savePayments(_prev: FormState, form: FormData) {
       feeCoverPercentBp: Math.round(Number(v.feePercent || "0") * 100),
       panRequiredAbovePaise: rupees(v.panAbove, "PAN required above"),
       homeDonateBox: v.homeDonateBox === "on",
+      bankAccountName: v.bankAccountName ?? "",
+      bankAccountNumber: v.bankAccountNumber ?? "",
+      bankIfsc: v.bankIfsc ?? "",
+      bankName: v.bankName ?? "",
+      bankBranch: v.bankBranch ?? "",
+      bankAccountType: v.bankAccountType ?? "",
+      upiId: v.upiId ?? "",
+      chequePayee: v.chequePayee ?? "",
+      donationDetailsEmail: v.donationDetailsEmail ?? "",
+      bankDetailsPublic: v.bankDetailsPublic === "on",
     }),
-    PaymentSettingsInput,
-    (tx, data, actor) => updatePaymentSettings(tx, PaymentSettingsInput.parse(data), actor),
+    PaymentSettingsInput.and(BankDetailsInput),
+    async (tx, data, actor) => {
+      await updatePaymentSettings(tx, PaymentSettingsInput.parse(data), actor);
+      bankChanges = await updateBankDetails(tx, data as BankDetails, actor);
+    },
     // The Home page caches its content: refresh it so the donate box appears or goes at once.
     [PAYMENT_SETTINGS_TAG, CONTENT_TAG],
     {
@@ -183,6 +210,19 @@ export async function savePayments(_prev: FormState, form: FormData) {
       feeCoverEnabled: "feeCoverEnabled",
       panRequiredAbovePaise: "panAbove",
       homeDonateBox: "homeDonateBox",
+    },
+    // A changed account is the classic fraud: every alert recipient hears about it at once.
+    async (admin) => {
+      if (!bankChanges.length) return;
+      await sendAdminAlert(
+        "bankDetails",
+        bankDetailsAlert({
+          by: admin.name || admin.email,
+          changes: bankChanges,
+          adminUrl: `${appOrigin()}/admin/settings/payments`,
+        }),
+        { entityType: "payment_settings", entityId: "1" },
+      );
     },
   );
 }
