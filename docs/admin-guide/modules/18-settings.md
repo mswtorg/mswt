@@ -36,6 +36,20 @@ The font for English, Hindi and Marathi text on the public site.
 - **Payment charges:** let donors add the gateway fee to their donation.
 - **Home page:** show the quick donate box on Home.
 
+### Bank transfer, UPI and cheque
+
+The details donors use to pay the Trust directly. They appear on the Donate page (with a link from Contact) once **Show these details on the site** is ticked, even while online donations are off.
+
+- **Account name, Account number, IFSC:** all three together. The IFSC is 11 characters, e.g. SBIN0001234. Spaces in the account number are removed.
+- **Account type, Bank, Branch:** optional.
+- **UPI ID:** e.g. mswelfaretrust@sbi. The site makes the QR code from it, so there is no image to upload.
+- **Cheque / DD in favour of:** cheques are posted to the address in Organization settings.
+- **Donors email their details to:** where donors send their name, PAN, address and transaction number to get a receipt. Empty uses the Organization email.
+
+> **Every change to these details is emailed to all admin alert recipients.** If you get that email and nobody agreed the change, change the details back and reset that admin's password at once: a swapped account number is a common fraud.
+
+Check every digit after saving: open the Donate page, scan the QR code with your own UPI app, and confirm the payee name is the Trust's.
+
 ## Email
 
 ![Email settings](img/settings-email.jpg)

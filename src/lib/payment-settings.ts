@@ -5,6 +5,7 @@ import { db } from "@/lib/db/client";
 import { paymentSettings } from "@/lib/db/schema";
 import type { Tx } from "@/lib/db/tx";
 import { PaymentSettingsInput } from "./payment-settings-input";
+import { BANK_FIELDS, bankChanges, type BankDetails } from "./donations/bank";
 
 export { MIN_AMOUNT_FLOOR_PAISE, PaymentSettingsInput } from "./payment-settings-input";
 
@@ -40,7 +41,37 @@ export async function updatePaymentSettings(
     action: "settings.payment.update",
     entityType: "payment_settings",
     entityId: "1",
-    before,
+    // Bank details have their own entry (settings.bank.update).
+    before:
+      before &&
+      Object.fromEntries(
+        Object.entries(before).filter(([k]) => !(BANK_FIELDS as readonly string[]).includes(k)),
+      ),
     after: row,
   });
+}
+
+/**
+ * Saves the bank transfer, UPI and cheque details (audited). Returns what changed, for the alert
+ * the caller sends after the transaction commits.
+ */
+/** `data` is BankDetailsInput's parsed output. */
+export async function updateBankDetails(tx: Tx, data: BankDetails, actor: Actor) {
+  const [row] = await tx.select().from(paymentSettings).where(eq(paymentSettings.id, 1)).for("update");
+  const before = row ? Object.fromEntries(BANK_FIELDS.map((k) => [k, row[k]])) : undefined;
+  const changes = bankChanges(before, data);
+  if (!changes.length) return changes;
+  await tx
+    .update(paymentSettings)
+    .set({ ...data, updatedBy: actor.userId, updatedAt: new Date() })
+    .where(eq(paymentSettings.id, 1));
+  // The same labels and masked values as the alert.
+  await recordAudit(tx, actor, {
+    action: "settings.bank.update",
+    entityType: "payment_settings",
+    entityId: "1",
+    before: Object.fromEntries(changes.map((c) => [c.label, c.before])),
+    after: Object.fromEntries(changes.map((c) => [c.label, c.after])),
+  });
+  return changes;
 }

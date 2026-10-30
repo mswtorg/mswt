@@ -35,6 +35,16 @@ Use this for money received directly by the Trust.
 
 Check the amount and name carefully before saving: a receipt number, once issued, is never reused.
 
+## Bank transfers, UPI and cheques from the website
+
+The Donate page shows the Trust's bank, UPI and cheque details (set in Settings → Payments). Donors who pay this way email their name, PAN, address, amount, date and UTR or cheque number.
+
+1. Find the money in the bank statement (match the amount, date and UTR).
+2. Record it with **+ Offline donation**: mode Bank transfer, UPI or Cheque, the date the money arrived, and the UTR or cheque number.
+3. Tick **Issue an 80G receipt** and enter the PAN and address the donor sent.
+
+If money arrives with no email, contact the donor if the bank statement names them. Ask the CA how to treat transfers where nobody can be found.
+
 ## One donation in detail
 
 ![A donation's page](img/donations-detail.jpg)

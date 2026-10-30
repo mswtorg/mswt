@@ -87,6 +87,75 @@ export default async function PaymentSettingsPage() {
             },
           ],
         },
+        {
+          title: "Bank transfer, UPI and cheque",
+          description:
+            "Shown on the Donate page (and linked from Contact) for donors who pay directly, even while online donations are off. Every change is emailed to the admin alert recipients. Check each digit: donors send money to exactly what is here.",
+          fields: [
+            {
+              name: "bankDetailsPublic",
+              label: "Show these details on the site",
+              type: "checkbox",
+              span: "full",
+              defaultValue: s?.bankDetailsPublic ? "on" : "",
+            },
+            {
+              name: "bankAccountName",
+              label: "Account name",
+              hint: "Exactly as the bank has it, e.g. Munira Shoaib Welfare Trust",
+              defaultValue: s?.bankAccountName ?? "",
+            },
+            {
+              name: "bankAccountNumber",
+              label: "Account number",
+              inputMode: "numeric",
+              autoComplete: "off",
+              defaultValue: s?.bankAccountNumber ?? "",
+            },
+            {
+              name: "bankIfsc",
+              label: "IFSC",
+              hint: "11 characters, e.g. SBIN0001234",
+              autoComplete: "off",
+              maxLength: 11,
+              defaultValue: s?.bankIfsc ?? "",
+            },
+            {
+              name: "bankAccountType",
+              label: "Account type",
+              type: "select",
+              options: [
+                { value: "", label: "Don't show" },
+                { value: "savings", label: "Savings" },
+                { value: "current", label: "Current" },
+              ],
+              defaultValue: s?.bankAccountType ?? "",
+            },
+            { name: "bankName", label: "Bank", defaultValue: s?.bankName ?? "" },
+            { name: "bankBranch", label: "Branch", defaultValue: s?.bankBranch ?? "" },
+            {
+              name: "upiId",
+              label: "UPI ID",
+              hint: "e.g. mswelfaretrust@sbi. The site makes the QR code from it.",
+              autoComplete: "off",
+              defaultValue: s?.upiId ?? "",
+            },
+            {
+              name: "chequePayee",
+              label: "Cheque / DD in favour of",
+              hint: "Cheques are posted to the address in Settings → Organization.",
+              defaultValue: s?.chequePayee ?? "",
+            },
+            {
+              name: "donationDetailsEmail",
+              label: "Donors email their details to",
+              type: "email",
+              span: "full",
+              hint: "Where donors send their name, PAN, address and transaction number to get a receipt. Empty: the Organization email.",
+              defaultValue: s?.donationDetailsEmail ?? "",
+            },
+          ],
+        },
       ]}
     />
   );
