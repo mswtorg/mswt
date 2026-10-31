@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
+import { publicBankDetails } from "@/lib/donations/bank";
 import { donatableCauses } from "@/lib/donations/causes";
 import { donationsEnabled } from "@/lib/flags";
 import { getPaymentSettings } from "@/lib/payment-settings";
+import { getOrganizationSettings } from "@/lib/settings";
 import { turnstileSiteKey } from "@/lib/security/turnstile";
 import { breadcrumbList, donateAction, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageHeader } from "@/components/content/PageHeader";
+import { BankDetails } from "@/components/donate/BankDetails";
 import { Alert } from "@/components/ui/Alert";
 import { Panel } from "@/components/ui/Card";
 import { TextLink } from "@/components/ui/TextLink";
@@ -27,13 +30,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function DonatePage({ params }: Props) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
-  const [t, tc, tn, settings, causes] = await Promise.all([
+  const [t, tc, tn, settings, causes, org] = await Promise.all([
     getTranslations("Donate"),
     getTranslations("Common"),
     getTranslations("Nav"),
     getPaymentSettings(),
     donatableCauses(locale),
+    getOrganizationSettings(),
   ]);
+  const bank = publicBankDetails(settings, org);
+  const postalAddress = org
+    ? [org.streetAddress, org.locality, org.city, org.state, org.pincode].filter(Boolean).join(", ")
+    : "";
   const crumbs = [
     { name: tc("home"), path: "" },
     { name: t("title"), path: "/donate" },
@@ -154,11 +162,18 @@ export default async function DonatePage({ params }: Props) {
         </div>
       ) : (
         <Alert tone="info">
-          <p>
-            {t("closed")} <TextLink href={`/${locale}/contact`}>{tn("contact")}</TextLink>
-          </p>
+          {bank ? (
+            <p>
+              {t("closedBank")} <TextLink href="#bank-transfer">{t("bankLink")}</TextLink>
+            </p>
+          ) : (
+            <p>
+              {t("closed")} <TextLink href={`/${locale}/contact`}>{tn("contact")}</TextLink>
+            </p>
+          )}
         </Alert>
       )}
+      {bank ? <BankDetails details={bank} postalAddress={postalAddress} locale={locale} /> : null}
     </div>
   );
 }

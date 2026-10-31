@@ -6,6 +6,8 @@ import { turnstileSiteKey } from "@/lib/security/turnstile";
 import { breadcrumbList, pageGraph, webPage } from "@/lib/seo/jsonld";
 import { pageMetadata } from "@/lib/seo/page";
 import { getOrganizationSettings } from "@/lib/settings";
+import { publicBankDetails } from "@/lib/donations/bank";
+import { getPaymentSettings } from "@/lib/payment-settings";
 import { PAGES } from "@/config/nav";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { ContentBody } from "@/components/content/ContentBody";
@@ -36,12 +38,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ContactPage({ params }: Props) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
-  const [t, tc, org, page] = await Promise.all([
+  const [t, tc, org, page, payment] = await Promise.all([
     getTranslations("Contact"),
     getTranslations("Common"),
     getOrganizationSettings(),
     getPage("contact", locale),
+    getPaymentSettings(),
   ]);
+  const bank = publicBankDetails(payment, org);
   const crumbs = [
     { name: tc("home"), path: "" },
     { name: t("title"), path: "/contact" },
@@ -152,6 +156,11 @@ export default async function ContactPage({ params }: Props) {
               </div>
             ) : null}
           </dl>
+          {bank ? (
+            <p>
+              <TextLink href={`/${locale}/donate#bank-transfer`}>{t("bankLink")}</TextLink>
+            </p>
+          ) : null}
         </Panel>
       </div>
     </div>

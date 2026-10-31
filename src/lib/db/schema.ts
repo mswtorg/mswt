@@ -199,6 +199,19 @@ export const paymentSettings = pgTable(
     providerMode: providerMode("provider_mode").default("sandbox").notNull(),
     // Admin → Settings → Payments: the quick donate box on Home.
     homeDonateBox: boolean("home_donate_box").default(true).notNull(),
+    // Admin → Settings → Payments → Bank transfer, UPI and cheque (shown on /donate#bank-transfer).
+    bankAccountName: text("bank_account_name"),
+    bankAccountNumber: text("bank_account_number"),
+    bankIfsc: text("bank_ifsc"),
+    bankName: text("bank_name"),
+    bankBranch: text("bank_branch"),
+    bankAccountType: text("bank_account_type").$type<"savings" | "current">(),
+    upiId: text("upi_id"),
+    chequePayee: text("cheque_payee"),
+    // Where donors email their details after a transfer; empty = the Organization email.
+    donationDetailsEmail: text("donation_details_email"),
+    // Off until the Trust has entered and checked its real details.
+    bankDetailsPublic: boolean("bank_details_public").default(false).notNull(),
     updatedBy: updatedBy(),
     updatedAt: updatedAt(),
   },

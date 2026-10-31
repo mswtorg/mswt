@@ -10,6 +10,7 @@ export const ALERT_PREFIX = {
   paymentProblem: "[MSWT] [Payment problem]",
   paymentFailed: "[MSWT] [Payment failed]",
   dailySummary: "[MSWT] [Daily summary]",
+  bankDetails: "[MSWT] [Bank details]",
 } as const;
 
 export type AlertKind = keyof typeof ALERT_PREFIX;
@@ -115,6 +116,25 @@ export function contactAlert(m: ContactAlert): Email {
       html: quote(m.message),
       text: m.message,
       adminUrl: m.adminUrl,
+    },
+  );
+}
+
+export type BankDetailsAlert = {
+  by: string;
+  changes: { label: string; before: string; after: string }[];
+  adminUrl: string;
+};
+
+/** Sent whenever the bank, UPI or cheque details shown to donors change: a swapped account is fraud. */
+export function bankDetailsAlert(x: BankDetailsAlert): Email {
+  return alert(
+    "bankDetails",
+    `Changed by ${subjectPart(x.by, 40)}`,
+    x.changes.map((c) => [c.label, `${c.before} → ${c.after}`]),
+    {
+      lead: `${x.by} changed the bank details donors see on the Donate page. If this wasn't agreed, change them back and reset that admin's password now.`,
+      adminUrl: x.adminUrl,
     },
   );
 }
