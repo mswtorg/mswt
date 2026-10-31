@@ -13,7 +13,7 @@ import type { FormState } from "@/components/admin/form-state";
  */
 export async function sendSummaryNowAction(_prev: FormState): Promise<FormState> {
   const { actor } = await actorFor("settings.email");
-  const { sent, error } = await sendDailySummary(new Date(), { updated: 0, errors: [] }, { force: true });
+  const { sent, error } = await sendDailySummary(new Date(), { updated: 0, errors: [] });
   await withTx((tx) =>
     recordAudit(tx, actor, {
       action: "email.summary_sent",

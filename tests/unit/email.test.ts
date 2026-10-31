@@ -4,6 +4,7 @@ import {
   contactAlert,
   dailySummaryEmail,
   donationAlert,
+  jobFailedAlert,
   paymentFailedAlert,
   paymentProblemAlert,
   subjectPart,
@@ -116,7 +117,7 @@ describe("email bodies", () => {
     expect(c.html).not.toContain('href="https://example.com"');
   });
 
-  it("send the daily summary only when there is something to report", () => {
+  it("know when the daily summary has something to report", () => {
     expect(summaryIsEmpty(emptySummary)).toBe(true);
     expect(summaryIsEmpty({ ...emptySummary, newMessages: 1 })).toBe(false);
     expect(summaryIsEmpty({ ...emptySummary, problems: [{ reference: "MSWT-x", error: "boom" }] })).toBe(
@@ -143,8 +144,24 @@ describe("email bodies", () => {
     expect(s.text).toMatch(/Abandoned \(never paid\)\D*2/);
   });
 
-  it("say so when a summary sent on request has nothing in it", () => {
-    expect(dailySummaryEmail(emptySummary).text).toContain("Nothing to report for this day.");
+  it("say all clear when the day's summary has nothing in it", () => {
+    const s = dailySummaryEmail(emptySummary);
+    expect(s.subject).toBe("[MSWT] [Daily summary] 26 October 2026 – 0 donations, ₹0 – all clear");
+    expect(s.text).toContain("All clear: nothing to report for this day.");
+    expect(dailySummaryEmail({ ...emptySummary, newMessages: 1 }).subject).not.toContain("all clear");
+  });
+
+  it("explain a failed nightly job, escaping the error", () => {
+    const s = jobFailedAlert({
+      job: "Nightly check",
+      stage: "Daily summary email",
+      error: "boom <b>\nBcc: x@evil.test",
+      at: "31 Oct 2026, 3:00 am",
+      adminUrl: "https://mswelfaretrust.org/admin",
+    });
+    expect(s.subject).toBe("[MSWT] [Job failed] Nightly check: boom <b> Bcc: x@evil.test");
+    expect(s.html).toContain("boom &lt;b&gt;");
+    expect(s.text).toContain("Stopped during: Daily summary email");
   });
 
   it("start donor-facing subjects with the Trust's name", async () => {

@@ -1,7 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import { reconcile } from "@/lib/donations/reconcile";
 import { cronSecret } from "@/lib/donations/cron";
-import { sendDailySummary } from "@/lib/donations/summary";
+import { runNightlyJob } from "@/lib/donations/nightly";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -10,7 +9,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 /**
  * Vercel Cron (vercel.json, 03:00 IST). Vercel sends "Authorization: Bearer $CRON_SECRET".
- * Runs the daily check, then emails the admins yesterday's summary.
+ * Runs the daily check, then emails the admins yesterday's summary (or a "Job failed" alert).
  */
 export async function GET(request: Request) {
   const secret = cronSecret();
@@ -24,11 +23,7 @@ export async function GET(request: Request) {
   const given = Buffer.from(request.headers.get("authorization") ?? "");
   if (given.length !== expected.length || !timingSafeEqual(given, expected))
     return Response.json({ error: "Unauthorised" }, { status: 401, headers: NO_STORE });
-  const now = new Date();
-  const result = await reconcile(undefined, now);
-  const summary = await sendDailySummary(now, result).catch((error) => {
-    console.error("Daily summary failed", error);
-    return { sent: 0 };
-  });
-  return Response.json({ ...result, summarySent: summary.sent }, { headers: NO_STORE });
+  const job = await runNightlyJob();
+  if (!job.ok) return Response.json({ error: job.error }, { status: 500, headers: NO_STORE });
+  return Response.json({ ...job.result, summarySent: job.summarySent }, { headers: NO_STORE });
 }

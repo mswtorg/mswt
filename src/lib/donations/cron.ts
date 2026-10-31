@@ -12,3 +12,18 @@ export function cronSecret(
   if (value) return value;
   return production ? null : "development-cron-secret";
 }
+
+const LATE_AFTER_MS = 26 * 60 * 60 * 1000;
+
+/**
+ * The 03:00 job should run every day: true when the last run is over 26 hours old, or started over
+ * an hour ago and never finished (the Dashboard then warns). No run at all is a new site, not late.
+ */
+export function nightlyJobLate(
+  run: { startedAt: Date; finishedAt: Date | null } | undefined,
+  now: Date,
+): boolean {
+  if (!run) return false;
+  const age = now.getTime() - run.startedAt.getTime();
+  return age > LATE_AFTER_MS || (!run.finishedAt && age > 60 * 60 * 1000);
+}

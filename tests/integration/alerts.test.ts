@@ -204,14 +204,12 @@ describe("daily summary", () => {
     expect(s.abandoned).toBe(1);
   });
 
-  it("sends an empty summary only when asked to (Send now)", async () => {
+  it("sends a summary every day, saying all clear on a quiet day", async () => {
     const quiet = new Date("2001-05-06T03:00:00+05:30");
-    const before = sentEmails.length;
-    expect(await sendDailySummary(quiet, { updated: 0, errors: [] })).toEqual({ sent: 0 });
-    expect(sentEmails.length).toBe(before);
-    expect(await sendDailySummary(quiet, { updated: 0, errors: [] }, { force: true })).toEqual({ sent: 1 });
+    expect(await sendDailySummary(quiet, { updated: 0, errors: [] })).toEqual({ sent: 1 });
     const [mail] = alertsAbout("[MSWT] [Daily summary] 5 May 2001");
-    expect(mail!.text).toContain("Nothing to report for this day.");
+    expect(mail!.subject).toContain("all clear");
+    expect(mail!.text).toContain("All clear: nothing to report for this day.");
   });
 });
 
