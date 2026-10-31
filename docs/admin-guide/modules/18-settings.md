@@ -55,7 +55,7 @@ Check every digit after saving: open the Donate page, scan the QR code with your
 ![Email settings](img/settings-email.jpg)
 
 - **Sender:** the name and address receipts come from, and where replies go.
-- **Admin alerts:** who receives alerts (failed payments, new messages, daily summary). One email per line.
+- **Admin alerts:** who receives alerts (failed payments, new messages, the daily summary every morning, and "Job failed" if the nightly check breaks). One email per line.
 - **Send yesterday's summary now:** a test that the email works.
 
 ## Receipts

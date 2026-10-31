@@ -11,6 +11,7 @@ export const ALERT_PREFIX = {
   paymentFailed: "[MSWT] [Payment failed]",
   dailySummary: "[MSWT] [Daily summary]",
   bankDetails: "[MSWT] [Bank details]",
+  jobFailed: "[MSWT] [Job failed]",
 } as const;
 
 export type AlertKind = keyof typeof ALERT_PREFIX;
@@ -139,6 +140,34 @@ export function bankDetailsAlert(x: BankDetailsAlert): Email {
   );
 }
 
+export type JobFailedAlert = {
+  job: string;
+  /** What it was doing when it stopped, e.g. "Daily check". */
+  stage: string;
+  error: string;
+  /** When it started, already formatted in IST. */
+  at: string;
+  adminUrl: string;
+};
+
+/** The nightly job stopped before finishing: nobody would notice otherwise. */
+export function jobFailedAlert(x: JobFailedAlert): Email {
+  return alert(
+    "jobFailed",
+    `${x.job}: ${subjectPart(x.error, 60)}`,
+    [
+      ["Job", x.job],
+      ["Started", x.at],
+      ["Stopped during", x.stage],
+      ["Error", x.error],
+    ],
+    {
+      lead: `The ${x.job.toLowerCase()} stopped before finishing, so payments may not have been checked and receipts may not have been sent. If this happens again tomorrow, tell the developer.`,
+      adminUrl: x.adminUrl,
+    },
+  );
+}
+
 export type PaymentProblem = {
   problem: "Amount mismatch" | "Unknown order" | "Receipt not emailed";
   /** Order id or receipt number. */
@@ -247,6 +276,7 @@ function listSection(title: string, items: string[]): { html: string; text: stri
 }
 
 const MAX_LISTED = 10;
+const ALL_CLEAR = "All clear: nothing to report for this day.";
 
 export function dailySummaryEmail(s: DailySummary): Email {
   const total = formatRupees(s.totalPaise, "en");
@@ -276,17 +306,16 @@ export function dailySummaryEmail(s: DailySummary): Email {
   ];
   const empty = summaryIsEmpty(s);
   const html = [
-    empty ? `<p style="margin:0 0 16px">Nothing to report for this day.</p>` : "",
+    empty ? `<p style="margin:0 0 16px">${ALL_CLEAR}</p>` : "",
     ...sections.map((x) => x.html),
   ].join("");
-  const text = [empty ? "Nothing to report for this day." : "", ...sections.map((x) => x.text)]
-    .filter(Boolean)
-    .join("\n\n");
+  const text = [empty ? ALL_CLEAR : "", ...sections.map((x) => x.text)].filter(Boolean).join("\n\n");
   const n = s.count === 1 ? "1 donation" : `${s.count} donations`;
   const extras = [
     s.failed.length ? `${s.failed.length} failed` : "",
     s.problems.length ? `${s.problems.length} problem${s.problems.length === 1 ? "" : "s"}` : "",
   ].filter(Boolean);
+  if (empty) extras.push("all clear");
   return alert("dailySummary", `${s.day} – ${n}, ${total}${extras.map((x) => ` – ${x}`).join("")}`, rows, {
     html,
     text,

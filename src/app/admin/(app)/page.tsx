@@ -6,10 +6,12 @@ import { requireCapability } from "@/lib/admin/guard";
 import { adminNavItems } from "@/lib/admin/nav";
 import { can } from "@/lib/admin/permissions";
 import { inr, istDateTime, MODE_LABELS } from "@/lib/admin/format";
+import { nightlyJobLate } from "@/lib/donations/cron";
 import { financialYear, financialYearRange } from "@/lib/dates/fy";
 import { db } from "@/lib/db/client";
 import { causes, causeTranslations, donations, messages, reconciliationRuns } from "@/lib/db/schema";
 import { Card, DataTable, PageHeader, StatCard, Td, Th, Tr } from "@/components/admin/ui";
+import { Alert } from "@/components/ui/Alert";
 import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -52,7 +54,17 @@ async function financeFigures() {
       .groupBy(donations.mode),
     db.select().from(reconciliationRuns).orderBy(desc(reconciliationRuns.startedAt)).limit(1),
   ]);
-  return { fy, start, today, year, pending, byCause, byMode, lastRun };
+  return {
+    fy,
+    start,
+    today,
+    year,
+    pending,
+    byCause,
+    byMode,
+    lastRun,
+    jobLate: nightlyJobLate(lastRun, new Date()),
+  };
 }
 
 export default async function Dashboard() {
@@ -79,6 +91,17 @@ export default async function Dashboard() {
       />
       {figures ? (
         <>
+          {figures.jobLate && figures.lastRun ? (
+            <Alert tone="warning">
+              <p>
+                <strong>
+                  The nightly check hasn&apos;t finished since {istDateTime(figures.lastRun.startedAt)}.
+                </strong>{" "}
+                Pending payments aren&apos;t being checked and unsent receipts aren&apos;t being retried. Look
+                for a &ldquo;[MSWT] [Job failed]&rdquo; email, and tell the developer.
+              </p>
+            </Alert>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Today"

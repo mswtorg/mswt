@@ -13,9 +13,11 @@ const EXPIRE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 /**
  * Daily safety net (spec §3): asks the gateway about donations still pending after 30 minutes,
  * applies the same idempotent confirmation as the webhook, and retries receipt PDFs/emails.
+ * The gateway is only needed when there are pending online donations: without Cashfree keys
+ * (online donations not live yet) receipts are still retried and the run is still recorded.
  */
 export async function reconcile(
-  provider: PaymentProvider = getPaymentProvider(),
+  provider?: PaymentProvider,
   now: Date = new Date(),
 ): Promise<{ checked: number; updated: number; errors: { orderId: string; error: string }[] }> {
   const [run] = await db.insert(reconciliationRuns).values({}).returning({ id: reconciliationRuns.id });
@@ -34,22 +36,33 @@ export async function reconcile(
       ),
     )
     .limit(500);
-  for (const d of stale) {
-    checked++;
+  let gateway = provider;
+  if (stale.length && !gateway) {
     try {
-      const result = await confirmOnlinePayment(d.orderId, provider, now);
-      if (result.outcome === "paid" && !result.alreadyPaid) updated++;
-      else if (result.outcome === "not_paid" && result.gatewayStatus !== "active") updated++;
-      else if (now.getTime() - d.createdAt.getTime() > EXPIRE_AFTER_MS) {
-        await markUnpaid(d.orderId, "expired");
-        updated++;
-      }
+      gateway = getPaymentProvider();
     } catch (error) {
-      // An order the gateway never created (e.g. createOrder failed) is not an error after expiry.
-      if (now.getTime() - d.createdAt.getTime() > EXPIRE_AFTER_MS) await markUnpaid(d.orderId, "expired");
-      else errors.push({ orderId: d.orderId, error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push({ orderId: "-", error: `Payment gateway not configured: ${message}` });
     }
   }
+  if (gateway)
+    for (const d of stale) {
+      checked++;
+      try {
+        const result = await confirmOnlinePayment(d.orderId, gateway, now);
+        if (result.outcome === "paid" && !result.alreadyPaid) updated++;
+        else if (result.outcome === "not_paid" && result.gatewayStatus !== "active") updated++;
+        else if (now.getTime() - d.createdAt.getTime() > EXPIRE_AFTER_MS) {
+          await markUnpaid(d.orderId, "expired");
+          updated++;
+        }
+      } catch (error) {
+        // An order the gateway never created (e.g. createOrder failed) is not an error after expiry.
+        if (now.getTime() - d.createdAt.getTime() > EXPIRE_AFTER_MS) await markUnpaid(d.orderId, "expired");
+        else
+          errors.push({ orderId: d.orderId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
 
   const undelivered = await db
     .select({ id: receipts.id, orderId: donations.publicOrderId })

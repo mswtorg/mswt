@@ -8,7 +8,7 @@ import {
   PAN_RE,
   validateDonation,
 } from "@/lib/donations/schema";
-import { cronSecret } from "@/lib/donations/cron";
+import { cronSecret, nightlyJobLate } from "@/lib/donations/cron";
 import { donationsEnabled } from "@/lib/flags";
 import { PaymentSettingsInput } from "@/lib/payment-settings";
 import { parseCashfreeWebhook } from "@/lib/payments/cashfree-events";
@@ -513,4 +513,18 @@ describe("cron secret", () => {
     expect(cronSecret(undefined, true)).toBeNull());
   it("falls back to the development value elsewhere", () =>
     expect(cronSecret(undefined, false)).toBe("development-cron-secret"));
+});
+
+describe("nightly job late warning", () => {
+  const now = new Date("2026-10-31T12:00:00+05:30");
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600 * 1000);
+  it("is quiet on a new site and after a normal run", () => {
+    expect(nightlyJobLate(undefined, now)).toBe(false);
+    expect(nightlyJobLate({ startedAt: hoursAgo(9), finishedAt: hoursAgo(9) }, now)).toBe(false);
+    expect(nightlyJobLate({ startedAt: hoursAgo(0.2), finishedAt: null }, now)).toBe(false);
+  });
+  it("warns after 26 hours without a run, or a run that never finished", () => {
+    expect(nightlyJobLate({ startedAt: hoursAgo(27), finishedAt: hoursAgo(27) }, now)).toBe(true);
+    expect(nightlyJobLate({ startedAt: hoursAgo(2), finishedAt: null }, now)).toBe(true);
+  });
 });

@@ -4,12 +4,7 @@ import { donations, messages, paymentEvents, receipts } from "@/lib/db/schema";
 import { formatDate } from "@/lib/dates/format";
 import { istParts } from "@/lib/dates/fy";
 import { sendAdminAlert } from "@/lib/email/alerts";
-import {
-  dailySummaryEmail,
-  failureReason,
-  summaryIsEmpty,
-  type DailySummary,
-} from "@/lib/email/templates/alerts";
+import { dailySummaryEmail, failureReason, type DailySummary } from "@/lib/email/templates/alerts";
 import { appOrigin } from "@/lib/seo/site";
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -126,16 +121,13 @@ export async function buildDailySummary(
 }
 
 /**
- * "[MSWT] [Daily summary] …", only when something happened or something is wrong. `force`
- * (Admin → Settings → Email → Send now) sends it anyway, saying there is nothing to report.
- * Returns how many recipients it went to (0 = not sent) and any sending error.
+ * "[MSWT] [Daily summary] …", every day: on a quiet day it says "All clear", so its arrival also
+ * shows the nightly job ran. Returns how many recipients it went to and any sending error.
  */
 export async function sendDailySummary(
   now: Date,
   check: { updated: number; errors: { orderId: string; error: string }[] },
-  opts: { force?: boolean } = {},
 ): Promise<{ sent: number; error?: string }> {
   const summary = await buildDailySummary(now, check);
-  if (summaryIsEmpty(summary) && !opts.force) return { sent: 0 };
   return sendAdminAlert("dailySummary", dailySummaryEmail(summary), { entityType: "reconciliation" });
 }
