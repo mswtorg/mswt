@@ -19,4 +19,4 @@ Content Editors don't see the money figures.
 ## Good habits
 
 - Glance at the Dashboard once a day.
-- If **Last reconciliation** is more than a day old, tell the developer.
+- If the nightly check misses a day, a yellow warning appears at the top of the Dashboard ("The nightly check hasn't finished since …"), and the alert recipients get a **[MSWT] [Job failed]** email. Tell the developer.
